@@ -11,12 +11,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/AntelopeJS/mongodb.git"
+    "url": "git+https://github.com/AntelopeJS/mongodb.git"
   },
   "main": "dist/index.js",
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.6.5",
   "scripts": {
