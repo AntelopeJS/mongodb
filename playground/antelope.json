@@ -1,0 +1,25 @@
+{
+  "name": "playground",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "modules": {
+    "playground": {
+      "source": {
+        "type": "local",
+        "path": ".",
+        "installCommand": "npx tsc"
+      }
+    },
+    "mongodb": {
+      "source": {
+        "type": "local",
+        "path": "..",
+        "installCommand": ["npx tsc"]
+      },
+      "config": {
+        "url": "mongodb://localhost:27017/"
+      }
+    }
+  }
+}
