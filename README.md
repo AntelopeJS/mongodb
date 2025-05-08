@@ -1,4 +1,4 @@
-![MongoDB](mongodb.png)
+![MongoDB](.github/social-card.png)
 
 # @antelopejs/mongodb
 
