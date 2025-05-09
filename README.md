@@ -58,4 +58,4 @@ The module uses the official MongoDB Node.js driver to establish connections to 
 
 ## License
 
-Apache-2.0
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
