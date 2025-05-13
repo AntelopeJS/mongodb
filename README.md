@@ -8,16 +8,27 @@
 
 A full-featured MongoDB client module that implements both the MongoDB interface and the Database interface for AntelopeJS.
 
-For detailed documentation on the MongoDB interfaces, please refer to:
-
-- [MongoDB Interface](https://github.com/AntelopeJS/interface-mongodb)
-- [Database Interface](https://github.com/AntelopeJS/interface-database)
-
 ## Installation
 
 ```bash
 ajs project modules add @antelopejs/mongodb
 ```
+
+## Interfaces
+
+This module implements two key interfaces:
+
+- **MongoDB Interface**: Provides direct MongoDB operations and connection management
+- **Database Interface**: Offers a standardized database abstraction layer
+
+Both interfaces can be used independently or together depending on your application's needs. The interfaces are installed separately to maintain modularity and minimize dependencies.
+
+
+| Name          | Install command                         |                                                                   |
+| ------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| MongoDB       | `ajs module imports add mongodb`        | [Documentation](https://github.com/AntelopeJS/interface-mongodb)  |
+| Database      | `ajs module imports add database`       | [Documentation](https://github.com/AntelopeJS/interface-database) |
+
 
 ## Overview
 
