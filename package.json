@@ -23,13 +23,15 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.6.5",
   "scripts": {
-    "dev": "ajs project run -w -p playground",
+    "generate": "ajs module exports generate",
+    "postinstall": "ajs module imports update",
     "build": "tsc",
-    "prepack": "pnpm run build",
-    "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
+    "dev": "ajs project run -w -p playground",
     "format": "prettier --write .",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "prepack": "pnpm run build",
+    "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
     "test": "echo \"No test specified\""
   },
   "antelopeJs": {
