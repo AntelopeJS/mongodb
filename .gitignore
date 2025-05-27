@@ -363,8 +363,7 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/node,linux,macos,windows,webstorm,sonarqube,visualstudiocode
 
 # Antelope
-.antelope/cache/
-**/.antelope/cache/
+.antelope
 
 # pnpm store
-.pnpm-store/
+.pnpm-store

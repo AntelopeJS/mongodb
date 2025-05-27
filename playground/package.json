@@ -13,8 +13,14 @@
   },
   "antelopeJs": {
     "imports": [
-      "core@beta",
-      "database@beta",
+      {
+        "name": "core@beta",
+        "isLocal": true
+      },
+      {
+        "name": "database@beta",
+        "isLocal": true
+      },
       "logging@beta"
     ],
     "baseUrl": "dist",
@@ -22,6 +28,7 @@
       "@/*": [
         "*"
       ]
-    }
+    },
+    "importsOptional": []
   }
 }
