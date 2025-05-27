@@ -1,0 +1,10 @@
+{
+  "config": {
+    "url": "mongodb://localhost:27017",
+    "database": "antelope",
+    "options": {
+      "useNewUrlParser": true,
+      "useUnifiedTopology": true
+    }
+  }
+}
