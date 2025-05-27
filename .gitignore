@@ -368,3 +368,5 @@ $RECYCLE.BIN/
 
 # pnpm store
 .pnpm-store/
+
+.idea
