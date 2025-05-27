@@ -19,11 +19,7 @@
     "useDefineForClassFields": true,
     "baseUrl": "src",
     "paths": {
-      "@ajs.local/*": ["interfaces/*"],
-      "@ajs/mongodb/*": ["../../output/mongodb/*"],
-      "@ajs/database/*": ["../../output/database/*"],
-      "@ajs/core/*": ["../../.antelope/interfaces.d/core/*"],
-      "@ajs/*": ["../.antelope/interfaces.d/*"]
+      "@ajs/*": ["../../output/*", "../../.antelope/interfaces.d/*", "../.antelope/interfaces.d/*"]
     }
   },
   "include": ["src/**/*.ts"]
