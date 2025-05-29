@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/mongodb",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MongoDB module that implements the Database interface of antelopejs",
   "keywords": [
     "antelopejs",
