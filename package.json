@@ -38,7 +38,10 @@
       "core@beta",
       "database@beta"
     ],
-    "importsOptional": []
+    "importsOptional": [],
+    "defaultConfig": {
+      "url": "mongodb://localhost:27017"
+    }
   },
   "dependencies": {
     "mongodb": "^6.15.0",
