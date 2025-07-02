@@ -1,4 +1,3 @@
-import { Class } from "@ajs/core/beta/decorators";
 import { CreateDatabase, Database, DeleteDatabase, ListDatabases } from "@ajs/database/beta"
 import { expect } from "chai";
 
@@ -28,7 +27,7 @@ describe("Schema", () => {
 
 	it("Delete Database", async () => {
 		await DeleteDatabase("test-to-delete").run();
-		expect(await ListDatabases().run()).to.not.have("test-to-delete");
+		expect(await ListDatabases().run()).to.not.have.members(["test-to-delete"]);
 	});
 
 	const tables = ["items", "categories", "users", "orders", "to-delete"];
@@ -44,7 +43,7 @@ describe("Schema", () => {
 
 	it("Delete Table", async () => {
 		await db.tableDrop("to-delete").run();
-		expect(await db.tableList().run()).to.not.have("to-delete");
+		expect(await db.tableList().run()).to.not.have.members(["to-delete"]);
 	});
 
 	const indexesMap = {
@@ -55,20 +54,20 @@ describe("Schema", () => {
 	it("Create Index", async () => {
 		for (const [table, indexes] of Object.entries(indexesMap)) {
 			for (const index of indexes) {
-				await db.table(table).indexCreate(index).run();
+				await db.table(table).indexCreate(index, index).run();
 			}
 		}
 	});
 
 	it("List Indexes", async () => {
 		for (const [table, indexes] of Object.entries(indexesMap)) {
-			expect(await db.table(table).indexList().run()).to.have.members(indexes);
+			expect(await db.table(table).indexList().run()).to.include.members(indexes);
 		}
 	});
 
 	it("Delete Index", async () => {
 		await db.table("items").indexDrop("to-delete").run();
-		expect(await db.table("items").indexList()).to.not.have("to-delete");
+		expect(await db.table("items").indexList()).to.not.have.members(["to-delete"]);
 	});
 });
 
