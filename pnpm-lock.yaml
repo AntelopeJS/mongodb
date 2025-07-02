@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      chai:
+        specifier: ^4.5.0
+        version: 4.5.0
       mongodb:
         specifier: ^6.15.0
         version: 6.15.0(socks@2.8.4)
@@ -45,9 +48,6 @@ importers:
       '@types/sinon':
         specifier: ^17.0.4
         version: 17.0.4
-      chai:
-        specifier: ^4.5.0
-        version: 4.5.0
       eslint:
         specifier: ^9.25.0
         version: 9.25.1(jiti@2.4.2)
