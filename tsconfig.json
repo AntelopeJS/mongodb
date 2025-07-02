@@ -20,7 +20,7 @@
     "baseUrl": "src",
     "paths": {
       "@ajs.local/*": ["interfaces/*"],
-      "@ajs/*": ["../.antelope/interfaces.d/*"]
+      "@ajs/*": ["../.antelope/interfaces.d/*", "interfaces/*"]
     }
   },
   "include": ["src/**/*.ts"]
