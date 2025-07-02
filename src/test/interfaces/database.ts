@@ -1,20 +1,6 @@
 import { CreateDatabase, Database, DeleteDatabase, ListDatabases } from '@ajs/database/beta';
 import { expect } from 'chai';
 
-describe('Main', () => {
-  it('tableCreate', async () => {
-    await Database('mydb').tableCreate('mytable');
-  });
-  it('insert', async () => {
-    await Database('mydb')
-      .table('mytable')
-      .insert({ Hello: 1 } as any);
-  });
-  it('gettable', async () => {
-    console.log(await Database('mydb').table('mytable'));
-  });
-});
-
 const db = Database('test-main');
 
 describe('Schema', () => {
@@ -71,22 +57,6 @@ describe('Schema', () => {
     await db.table('items').indexDrop('to-delete').run();
     expect(await db.table('items').indexList()).to.not.have.members(['to-delete']);
   });
-});
-
-describe('Basic Operations', () => {
-  it('Insert', async () => {});
-
-  it('Get', async () => {});
-
-  it('Get All', async () => {});
-
-  it('Get By Index', async () => {});
-
-  it('Update', async () => {});
-
-  it('Replace', async () => {});
-
-  it('Delete', async () => {});
 });
 
 /*
