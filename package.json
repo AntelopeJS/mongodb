@@ -33,7 +33,7 @@
     "prepack": "pnpm run build",
     "prepare": "ajs module imports update",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
-    "test": "echo \"No test specified\""
+    "test": "npx tsc && ajs module test"
   },
   "antelopeJs": {
     "exportsPath": "dist/interfaces",
