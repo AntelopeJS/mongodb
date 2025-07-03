@@ -59,9 +59,6 @@ async function InsertTest() {
     expect(val).to.be.a('string');
   });
   insertedKeys = keys;
-
-  console.log('Generated keys:', insertedKeys);
-  console.log('Generated keys object:', response.generated_keys);
 }
 
 async function GetTest() {
