@@ -24,14 +24,14 @@
   "packageManager": "pnpm@10.6.5",
   "scripts": {
     "build": "tsc",
-    "dev:prepare": "cd playground && ajs module imports update",
+    "dev:prepare": "cd playground && ajs module imports install",
     "dev": "ajs project run -w -p playground",
     "format": "prettier --write .",
     "generate": "ajs module exports generate",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "prepack": "pnpm run build",
-    "prepare": "ajs module imports update",
+    "prepare": "ajs module imports install",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
     "test": "echo \"No test specified\""
   },
