@@ -78,7 +78,8 @@ async function GetAllTest() {
   const result = await db.table(table).getAll('isElectric', false).run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedCount = vehicles.filter((v) => !v.isElectric).length;
+  expect(result).to.have.lengthOf(expectedCount);
 
   for (const doc of result) {
     validateDocumentStructure(doc, (doc as any)._id);

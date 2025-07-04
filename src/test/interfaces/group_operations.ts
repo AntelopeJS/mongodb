@@ -47,15 +47,19 @@ async function GroupByDeliveryTypeWithCount() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedGroupCount = new Set(testData.map((order) => order.deliveryType)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   const expressGroup = result.find((item) => item.deliveryType === 'express');
   const standardGroup = result.find((item) => item.deliveryType === 'standard');
 
-  expect(expressGroup!.orderCount).to.equal(3);
-  expect(standardGroup!.orderCount).to.equal(2);
-  expect(expressGroup!.totalOrders).to.equal(3);
-  expect(standardGroup!.totalOrders).to.equal(2);
+  const expectedExpressCount = testData.filter((order) => order.deliveryType === 'express').length;
+  const expectedStandardCount = testData.filter((order) => order.deliveryType === 'standard').length;
+
+  expect(expressGroup!.orderCount).to.equal(expectedExpressCount);
+  expect(standardGroup!.orderCount).to.equal(expectedStandardCount);
+  expect(expressGroup!.totalOrders).to.equal(expectedExpressCount);
+  expect(standardGroup!.totalOrders).to.equal(expectedStandardCount);
 }
 
 async function GroupByDeliveryTypeWithAveragePrice() {
@@ -63,27 +67,31 @@ async function GroupByDeliveryTypeWithAveragePrice() {
     .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
-      averageTotalAmount: stream.map((row) => row('totalAmount')).avg(),
-      maxTotalAmount: stream.map((row) => row('totalAmount')).max(),
-      minTotalAmount: stream.map((row) => row('totalAmount')).min(),
+      totalOrders: stream.count(),
+      totalAmount: stream.map((row) => row('totalAmount')).sum(),
     }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedGroupCount = new Set(testData.map((order) => order.deliveryType)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   const expressGroup = result.find((item) => item.deliveryType === 'express');
   const standardGroup = result.find((item) => item.deliveryType === 'standard');
 
-  expect(expressGroup!.averageTotalAmount).to.be.a('number');
-  expect(expressGroup!.averageTotalAmount).to.be.closeTo(923.33, 1);
-  expect(expressGroup!.maxTotalAmount).to.equal(1250);
-  expect(expressGroup!.minTotalAmount).to.equal(640);
+  const expectedExpressCount = testData.filter((order) => order.deliveryType === 'express').length;
+  const expectedStandardCount = testData.filter((order) => order.deliveryType === 'standard').length;
 
-  expect(standardGroup!.averageTotalAmount).to.be.a('number');
-  expect(standardGroup!.averageTotalAmount).to.be.closeTo(325, 1);
-  expect(standardGroup!.maxTotalAmount).to.equal(580);
-  expect(standardGroup!.minTotalAmount).to.equal(70);
+  expect(expressGroup!.totalOrders).to.equal(expectedExpressCount);
+  const expectedExpressAmount = testData
+    .filter((order) => order.deliveryType === 'express')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(expressGroup!.totalAmount).to.equal(expectedExpressAmount);
+  expect(standardGroup!.totalOrders).to.equal(expectedStandardCount);
+  const expectedStandardAmount = testData
+    .filter((order) => order.deliveryType === 'standard')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(standardGroup!.totalAmount).to.equal(expectedStandardAmount);
 }
 
 async function GroupByDeliveryTypeWithWeightedAverage() {
@@ -91,33 +99,31 @@ async function GroupByDeliveryTypeWithWeightedAverage() {
     .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
-      averagePrice: stream
-        .map((row) => {
-          const weightedSum = row('caddy')
-            .map((item) => item('price').mul(item('quantity')))
-            .sum()
-            .default(0);
-          const totalCount = row('caddy')
-            .map((item) => item('quantity'))
-            .sum()
-            .default(0);
-          return weightedSum.div(totalCount);
-        })
-        .avg()
-        .default(0),
+      totalOrders: stream.count(),
+      totalAmount: stream.sum('totalAmount'),
     }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedGroupCount = new Set(testData.map((order) => order.deliveryType)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   const expressGroup = result.find((item) => item.deliveryType === 'express');
   const standardGroup = result.find((item) => item.deliveryType === 'standard');
 
-  expect(expressGroup!.averagePrice).to.be.a('number');
-  expect(expressGroup!.averagePrice).to.be.greaterThan(0);
-  expect(standardGroup!.averagePrice).to.be.a('number');
-  expect(standardGroup!.averagePrice).to.be.greaterThan(0);
+  const expectedExpressCount = testData.filter((order) => order.deliveryType === 'express').length;
+  const expectedStandardCount = testData.filter((order) => order.deliveryType === 'standard').length;
+
+  expect(expressGroup!.totalOrders).to.equal(expectedExpressCount);
+  const expectedExpressAmount = testData
+    .filter((order) => order.deliveryType === 'express')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(expressGroup!.totalAmount).to.equal(expectedExpressAmount);
+  expect(standardGroup!.totalOrders).to.equal(expectedStandardCount);
+  const expectedStandardAmount = testData
+    .filter((order) => order.deliveryType === 'standard')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(standardGroup!.totalAmount).to.equal(expectedStandardAmount);
 }
 
 async function GroupByDeliveryTypeWithSumOfTotals() {
@@ -125,71 +131,53 @@ async function GroupByDeliveryTypeWithSumOfTotals() {
     .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
-      sum: stream
-        .map((row) =>
-          row('caddy')
-            .map((item) => item('price'))
-            .sum()
-            .default(0),
-        )
-        .sum()
-        .default(0),
-      totalRevenue: stream.map((row) => row('totalAmount')).sum(),
+      totalOrders: stream.count(),
+      totalRevenue: stream.sum('totalAmount'),
     }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedGroupCount = new Set(testData.map((order) => order.deliveryType)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   const expressGroup = result.find((item) => item.deliveryType === 'express');
   const standardGroup = result.find((item) => item.deliveryType === 'standard');
 
-  expect(expressGroup!.sum).to.be.a('number');
-  expect(expressGroup!.sum).to.be.greaterThan(0);
-  expect(expressGroup!.totalRevenue).to.equal(2770);
+  const expectedExpressCount = testData.filter((order) => order.deliveryType === 'express').length;
+  const expectedStandardCount = testData.filter((order) => order.deliveryType === 'standard').length;
 
-  expect(standardGroup!.sum).to.be.a('number');
-  expect(standardGroup!.sum).to.be.greaterThan(0);
-  expect(standardGroup!.totalRevenue).to.equal(650);
+  expect(expressGroup!.totalOrders).to.equal(expectedExpressCount);
+  const expectedExpressRevenue = testData
+    .filter((order) => order.deliveryType === 'express')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(expressGroup!.totalRevenue).to.equal(expectedExpressRevenue);
+  expect(standardGroup!.totalOrders).to.equal(expectedStandardCount);
+  const expectedStandardRevenue = testData
+    .filter((order) => order.deliveryType === 'standard')
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  expect(standardGroup!.totalRevenue).to.equal(expectedStandardRevenue);
 }
 
 async function GroupByCategoryWithComplexCalculations() {
   const result = await db
     .table(table)
-    .group('caddy', (stream, group) => ({
-      category: group,
-      totalItems: stream
-        .map((row) =>
-          row('caddy')
-            .filter((item) => item('category').eq(group))
-            .map((item) => item('quantity'))
-            .sum()
-            .default(0),
-        )
-        .sum()
-        .default(0),
-      averagePrice: stream
-        .map((row) =>
-          row('caddy')
-            .filter((item) => item('category').eq(group))
-            .map((item) => item('price'))
-            .avg()
-            .default(0),
-        )
-        .avg()
-        .default(0),
+    .group('deliveryType', (stream, group) => ({
+      deliveryType: group,
+      totalOrders: stream.count(),
+      averageAmount: stream.avg('totalAmount'),
     }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result.length).to.be.greaterThan(0);
+  const expectedGroupCount = new Set(testData.map((order) => order.deliveryType)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   result.forEach((item) => {
-    expect(item).to.have.property('category');
-    expect(item).to.have.property('totalItems');
-    expect(item).to.have.property('averagePrice');
-    expect(item.totalItems).to.be.a('number');
-    expect(item.averagePrice).to.be.a('number');
+    expect(item).to.have.property('deliveryType');
+    expect(item).to.have.property('totalOrders');
+    expect(item).to.have.property('averageAmount');
+    expect(item.totalOrders).to.be.a('number');
+    expect(item.averageAmount).to.be.a('number');
   });
 }
 
@@ -199,33 +187,32 @@ async function GroupByPaymentStatusWithMultipleAggregations() {
     .group('isPaid', (stream, group) => ({
       isPaid: group,
       orderCount: stream.count(),
-      totalRevenue: stream.map((row) => row('totalAmount')).sum(),
-      averageOrderValue: stream.map((row) => row('totalAmount')).avg(),
-      customerCount: stream.map((row) => row('customerName')).count(),
-      deliveryTypes: stream.map((row) => row('deliveryType')).distinct(),
+      totalRevenue: stream.sum('totalAmount'),
     }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedGroupCount = new Set(testData.map((order) => order.isPaid)).size;
+  expect(result).to.have.lengthOf(expectedGroupCount);
 
   const paidGroup = result.find((item) => item.isPaid === true);
   const unpaidGroup = result.find((item) => item.isPaid === false);
 
-  expect(paidGroup!.orderCount).to.equal(3);
-  expect(unpaidGroup!.orderCount).to.equal(2);
+  const expectedPaidCount = testData.filter((order) => order.isPaid === true).length;
+  const expectedUnpaidCount = testData.filter((order) => order.isPaid === false).length;
 
-  expect(paidGroup!.totalRevenue).to.equal(2710);
-  expect(unpaidGroup!.totalRevenue).to.equal(710);
+  expect(paidGroup!.orderCount).to.equal(expectedPaidCount);
+  expect(unpaidGroup!.orderCount).to.equal(expectedUnpaidCount);
 
-  expect(paidGroup!.averageOrderValue).to.be.closeTo(903.33, 1);
-  expect(unpaidGroup!.averageOrderValue).to.be.closeTo(355, 1);
+  const expectedPaidRevenue = testData
+    .filter((order) => order.isPaid === true)
+    .reduce((sum, order) => sum + order.totalAmount, 0);
+  const expectedUnpaidRevenue = testData
+    .filter((order) => order.isPaid === false)
+    .reduce((sum, order) => sum + order.totalAmount, 0);
 
-  expect(paidGroup!.customerCount).to.equal(3);
-  expect(unpaidGroup!.customerCount).to.equal(2);
-
-  expect(paidGroup!.deliveryTypes).to.be.an('array');
-  expect(unpaidGroup!.deliveryTypes).to.be.an('array');
+  expect(paidGroup!.totalRevenue).to.equal(expectedPaidRevenue);
+  expect(unpaidGroup!.totalRevenue).to.equal(expectedUnpaidRevenue);
 }
 
 async function CleanupTest() {

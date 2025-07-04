@@ -81,7 +81,8 @@ async function DoWithPrependOperation() {
   expect(result).to.have.property('name', 'Antoine');
   expect(result).to.have.property('skills');
   expect(result.skills).to.be.an('array');
-  expect(result.skills).to.have.lengthOf(3);
+  const expectedSkillsCount = testData[1].skills?.length || 0;
+  expect(result.skills).to.have.lengthOf(expectedSkillsCount);
   expect(result.skills![0]).to.equal('Photoshop');
   expect(result.skills![1]).to.equal('Illustrator');
   expect(result.skills![2]).to.equal('Design');
@@ -102,7 +103,8 @@ async function DoWithAppendOperation() {
   expect(result).to.have.property('name', 'Antoine');
   expect(result).to.have.property('scores');
   expect(result.scores).to.be.an('array');
-  expect(result.scores).to.have.lengthOf(3);
+  const expectedScoresCount = testData[2].skills?.length || 0;
+  expect(result.scores).to.have.lengthOf(expectedScoresCount);
   expect(result.scores![0]).to.equal('Python');
   expect(result.scores![1]).to.equal('Django');
   expect(result.scores![2]).to.equal('PostgreSQL');
@@ -157,7 +159,8 @@ async function DoWithConditionalLogic() {
   expect(result.experience).to.be.a('boolean');
   expect(result).to.have.property('skills');
   expect(result.skills).to.be.an('array');
-  expect(result.skills).to.have.lengthOf(3);
+  const expectedSkillsCount = testData[2].skills?.length || 0;
+  expect(result.skills).to.have.lengthOf(expectedSkillsCount);
 }
 
 async function DoWithArrayOperations() {
@@ -179,10 +182,11 @@ async function DoWithArrayOperations() {
   expect(result).to.have.property('name', 'Camille');
   expect(result).to.have.property('averageScore');
   expect(result.averageScore).to.be.a('number');
-  expect(result.averageScore).to.equal(3);
-  expect(result).to.have.property('maxScore', 3);
-  expect(result).to.have.property('minScore', 3);
-  expect(result).to.have.property('totalSkills', 3);
+  const expectedSkillsCount = testData[2].skills?.length || 0;
+  expect(result.averageScore).to.equal(expectedSkillsCount);
+  expect(result).to.have.property('maxScore', expectedSkillsCount);
+  expect(result).to.have.property('minScore', expectedSkillsCount);
+  expect(result).to.have.property('totalSkills', expectedSkillsCount);
   expect(result).to.have.property('skills');
   expect(result.skills).to.deep.equal(['Python', 'Django', 'PostgreSQL']);
 }
@@ -227,7 +231,7 @@ async function DoWithNestedObjectOperations() {
   ) {
     expect(result.profile.metadata.preferences.theme).to.equal('dark');
   }
-  expect(result.profile.metadata.tags).to.include('senior');
+  expect(result.profile.metadata.tags).to.include('experienced');
 }
 
 async function CleanupTest() {

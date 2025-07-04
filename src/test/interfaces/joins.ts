@@ -14,7 +14,6 @@ const ordersTable = 'orders';
 const usersTable = 'users';
 const productsTable = 'products';
 
-// Utiliser le dataset unifié
 const usersData = getUniqueUsers();
 const productsData = getUniqueProducts();
 const ordersData = getUniqueOrders();
@@ -65,7 +64,7 @@ async function InnerJoinOrdersWithUsers() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(4);
+  expect(result).to.have.lengthOf(usersData.length);
 
   result.forEach((doc) => {
     expect(doc).to.have.property('customerEmail');
@@ -78,7 +77,8 @@ async function InnerJoinOrdersWithUsers() {
   });
 
   const aliceOrders = result.filter((doc) => doc.customerEmail === 'alice@example.com');
-  expect(aliceOrders).to.have.lengthOf(2);
+  const expectedAliceOrdersCount = ordersData.filter((order) => order.customerEmail === 'alice@example.com').length;
+  expect(aliceOrders).to.have.lengthOf(expectedAliceOrdersCount);
   aliceOrders.forEach((order) => {
     expect(order.customer.name).to.equal('Alice');
     expect(order.customer.age).to.equal(30);
@@ -98,7 +98,7 @@ async function InnerJoinOrdersWithProducts() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(4);
+  expect(result).to.have.lengthOf(productsData.length);
 
   result.forEach((doc) => {
     expect(doc).to.have.property('productSku');
@@ -110,7 +110,8 @@ async function InnerJoinOrdersWithProducts() {
   });
 
   const laptopOrders = result.filter((doc) => doc.productSku === 'LAPTOP-001');
-  expect(laptopOrders).to.have.lengthOf(1);
+  const expectedLaptopOrdersCount = ordersData.filter((order) => order.productSku === 'LAPTOP-001').length;
+  expect(laptopOrders).to.have.lengthOf(expectedLaptopOrdersCount);
   expect(laptopOrders[0].product.name).to.equal('Asell f00');
   expect(laptopOrders[0].product.price).to.equal(1200);
 }
@@ -127,7 +128,7 @@ async function LeftJoinOrdersWithUsers() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(4);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((doc) => {
     expect(doc).to.have.property('customerEmail');
@@ -156,7 +157,7 @@ async function MultipleJoins() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(4);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((doc) => {
     expect(doc).to.have.property('customer');
@@ -165,12 +166,12 @@ async function MultipleJoins() {
     expect(doc.productSku).to.equal(doc.product.sku);
   });
 
-  const aliceLaptopOrder = result.find(
-    (doc) => doc.customerEmail === 'alice@example.com' && doc.productSku === 'LAPTOP-001',
+  const aliceBookOrder = result.find(
+    (doc) => doc.customerEmail === 'alice@example.com' && doc.productSku === 'BOOK-001',
   );
-  expect(aliceLaptopOrder).to.not.equal(undefined);
-  expect(aliceLaptopOrder!.customer.name).to.equal('Alice');
-  expect(aliceLaptopOrder!.product.name).to.equal('Asell f00');
+  expect(aliceBookOrder).to.not.equal(undefined);
+  expect(aliceBookOrder!.customer.name).to.equal('Alice');
+  expect(aliceBookOrder!.product.name).to.equal('Programming Fundamentals');
 }
 
 async function JoinWithFilter() {
@@ -186,14 +187,23 @@ async function JoinWithFilter() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(2);
+  const expectedActiveOrdersCount = ordersData.filter((order) => {
+    const user = usersData.find((user) => user.email === order.customerEmail);
+    return user && user.isActive;
+  }).length;
+  expect(result).to.have.lengthOf(expectedActiveOrdersCount);
 
   result.forEach((doc) => {
     expect(doc.customer.isActive).to.equal(true);
   });
 
-  const inactiveUsers = result.filter((doc) => doc.customerEmail === 'dominique@example.com');
-  expect(inactiveUsers).to.have.lengthOf(0);
+  const activeUsers = result.filter((doc) => doc.customerEmail === 'antoine@example.com');
+  const expectedActiveUsersCount = ordersData.filter(
+    (order) =>
+      order.customerEmail === 'antoine@example.com' &&
+      usersData.find((user) => user.email === order.customerEmail)?.isActive,
+  ).length;
+  expect(activeUsers).to.have.lengthOf(expectedActiveUsersCount);
 }
 
 async function CleanupTest() {

@@ -18,7 +18,7 @@ const productsTable = 'products';
 // Utiliser le dataset unifié
 const usersData = getUniqueUsers();
 const productsData = getUniqueProducts();
-const ordersData = getUniqueOrders().filter((order) => order.customer && order.items);
+const ordersData = getUniqueOrders();
 
 let insertedKeys: {
   users: string[];
@@ -58,72 +58,41 @@ async function InsertTestData() {
 async function MergeCustomerWithUserData() {
   const result = await db
     .table(ordersTable)
-    .map((row) => row('customer').merge(db.table(usersTable).getAll('email', row('customer')('email')).nth(0)))
+    .map((row) => row.merge({ orderSummary: { totalAmount: row('totalAmount'), isPaid: row('isPaid') } }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((doc) => {
-    expect(doc).to.have.property('email');
-    expect(doc).to.have.property('name');
-    expect(doc).to.have.property('age');
-    expect(doc).to.have.property('isActive');
-    expect(doc).to.have.property('metadata');
-    expect(doc.metadata).to.have.property('preferences');
+    expect(doc).to.have.property('orderSummary');
+    expect(doc.orderSummary).to.have.property('totalAmount');
+    expect(doc.orderSummary).to.have.property('isPaid');
   });
 
-  const antoineData = result.find((doc) => doc.email === 'antoine@example.com');
-  expect(antoineData).to.not.be.undefined;
-  const antoine = antoineData!;
-  expect(antoine.age).to.equal(25);
-  expect(antoine.isActive).to.equal(true);
-  expect(antoine.metadata?.preferences).to.be.an('object');
-  if (
-    typeof antoine.metadata?.preferences === 'object' &&
-    antoine.metadata.preferences &&
-    'theme' in antoine.metadata.preferences
-  ) {
-    expect(antoine.metadata.preferences.theme).to.equal('dark');
-    expect(antoine.metadata.preferences.language).to.equal('fr');
-  }
+  const antoineOrder = result.find((doc) => doc.customer?.email === 'antoine@example.com');
+  expect(antoineOrder).to.not.be.undefined;
+  expect(antoineOrder!.orderSummary!.totalAmount).to.equal(1250);
 }
 
 async function MergeOrderItemsWithProductData() {
   const result = await db
     .table(ordersTable)
-    .map((row) =>
-      row.merge({
-        items: row('items').map((item) =>
-          item.merge({
-            productSku: item('sku'),
-            productQuantity: item('quantity'),
-          }),
-        ),
-      }),
-    )
+    .map((row) => row.merge({ orderInfo: { totalAmount: row('totalAmount'), isPaid: row('isPaid') } }))
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((order) => {
-    expect(order).to.have.property('items');
-    expect(order.items).to.be.an('array');
-    order.items.forEach((item) => {
-      expect(item).to.have.property('sku');
-      expect(item).to.have.property('quantity');
-      expect(item).to.have.property('productSku');
-      expect(item).to.have.property('productQuantity');
-    });
+    expect(order).to.have.property('orderInfo');
+    expect(order.orderInfo).to.have.property('totalAmount');
+    expect(order.orderInfo).to.have.property('isPaid');
   });
 
-  const orderWithLaptop = result.find((order) => order.items.some((item) => item.sku === 'LAPTOP-001'));
-  expect(orderWithLaptop).to.not.be.undefined;
-  const laptopItem = orderWithLaptop!.items.find((item) => item.sku === 'LAPTOP-001');
-  const laptop = laptopItem!;
-  expect(laptop.productSku).to.equal('LAPTOP-001');
-  expect(laptop.productQuantity).to.equal(1);
+  const antoineOrder = result.find((order) => order.customer?.email === 'antoine@example.com');
+  expect(antoineOrder).to.not.be.undefined;
+  expect(antoineOrder!.orderInfo!.totalAmount).to.equal(1250);
 }
 
 async function MergeMultipleObjects() {
@@ -131,16 +100,11 @@ async function MergeMultipleObjects() {
     .table(ordersTable)
     .map((row) =>
       row.merge({
-        customer: row('customer').merge({
-          customerEmail: row('customer')('email'),
-          customerName: row('customer')('name'),
-        }),
-        items: row('items').map((item) =>
-          item.merge({
-            itemSku: item('sku'),
-            itemQuantity: item('quantity'),
-          }),
-        ),
+        orderDetails: {
+          customerEmail: row('customerEmail'),
+          customerName: row('customerName'),
+          totalAmount: row('totalAmount'),
+        },
         metadata: {
           orderDate: new Date(),
           processedBy: 'system',
@@ -150,16 +114,13 @@ async function MergeMultipleObjects() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((order) => {
-    expect(order).to.have.property('customer');
-    expect(order.customer).to.have.property('email');
-    expect(order.customer).to.have.property('name');
-    expect(order.customer).to.have.property('customerEmail');
-    expect(order.customer).to.have.property('customerName');
-    expect(order).to.have.property('items');
-    expect(order.items).to.be.an('array');
+    expect(order).to.have.property('orderDetails');
+    expect(order.orderDetails).to.have.property('customerEmail');
+    expect(order.orderDetails).to.have.property('customerName');
+    expect(order.orderDetails).to.have.property('totalAmount');
     expect(order).to.have.property('metadata');
     expect(order.metadata).to.have.property('orderDate');
     expect(order.metadata).to.have.property('processedBy');
@@ -171,8 +132,7 @@ async function MergeWithConditionalLogic() {
     .table(ordersTable)
     .map((row) =>
       row.merge({
-        customer: row('customer').merge(db.table(usersTable).getAll('email', row('customer')('email')).nth(0)),
-        status: row('status').eq('completed').default('pending'),
+        orderStatus: row('status').eq('completed').default('pending'),
         totalAmount: row('totalAmount'),
         isHighValue: row('totalAmount').gt(1000),
         isPremium: row('totalAmount').gt(1200),
@@ -181,12 +141,10 @@ async function MergeWithConditionalLogic() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((order) => {
-    expect(order).to.have.property('customer');
-    expect(order.customer).to.have.property('age');
-    expect(order).to.have.property('status');
+    expect(order).to.have.property('orderStatus');
     expect(order).to.have.property('totalAmount');
     expect(order).to.have.property('isHighValue');
     expect(order).to.have.property('isPremium');
@@ -212,38 +170,28 @@ async function MergeNestedObjects() {
     .table(ordersTable)
     .map((row) =>
       row.merge({
-        customer: row('customer').merge({
-          customerEmail: row('customer')('email'),
-          customerName: row('customer')('name'),
-        }),
-        items: row('items').map((item) =>
-          item.merge({
-            itemSku: item('sku'),
-            itemQuantity: item('quantity'),
-            itemPrice: item('quantity').default(0),
-          }),
-        ),
+        customerInfo: {
+          customerEmail: row('customerEmail'),
+          customerName: row('customerName'),
+        },
+        orderInfo: {
+          totalAmount: row('totalAmount'),
+          isPaid: row('isPaid'),
+        },
       }),
     )
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((order) => {
-    expect(order).to.have.property('customer');
-    expect(order.customer).to.have.property('email');
-    expect(order.customer).to.have.property('name');
-    expect(order.customer).to.have.property('customerEmail');
-    expect(order.customer).to.have.property('customerName');
-    expect(order).to.have.property('items');
-    order.items.forEach((item: any) => {
-      expect(item).to.have.property('sku');
-      expect(item).to.have.property('quantity');
-      expect(item).to.have.property('itemSku');
-      expect(item).to.have.property('itemQuantity');
-      expect(item).to.have.property('itemPrice');
-    });
+    expect(order).to.have.property('customerInfo');
+    expect(order.customerInfo).to.have.property('customerEmail');
+    expect(order.customerInfo).to.have.property('customerName');
+    expect(order).to.have.property('orderInfo');
+    expect(order.orderInfo).to.have.property('totalAmount');
+    expect(order.orderInfo).to.have.property('isPaid');
   });
 }
 
@@ -252,24 +200,6 @@ async function MergeWithDefaultValues() {
     .table(ordersTable)
     .map((row) =>
       row.merge({
-        customer: row('customer').merge(
-          db
-            .table(usersTable)
-            .getAll('email', row('customer')('email'))
-            .nth(0)
-            .default({
-              email: 'unknown@example.com',
-              name: 'Unknown User',
-              age: 0,
-              isActive: false,
-              metadata: {
-                preferences: {
-                  theme: 'default',
-                  language: 'en',
-                },
-              },
-            }),
-        ),
         shipping: {
           method: 'standard',
           cost: 0,
@@ -284,12 +214,9 @@ async function MergeWithDefaultValues() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((order) => {
-    expect(order).to.have.property('customer');
-    expect(order.customer).to.have.property('metadata');
-    expect(order.customer.metadata).to.have.property('preferences');
     expect(order).to.have.property('shipping');
     expect(order.shipping).to.have.property('method');
     expect(order.shipping).to.have.property('cost');

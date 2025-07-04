@@ -40,7 +40,8 @@ async function FilterByStringEquality() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  const expectedCount = testData.filter((user) => user.department === 'Development').length;
+  expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
     expect(doc.department).to.equal('Development');
@@ -57,7 +58,8 @@ async function FilterByNumberComparison() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  const expectedCount = testData.filter((user) => user.age > 25).length;
+  expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
     expect(doc.age).to.be.greaterThan(25);
@@ -74,7 +76,8 @@ async function FilterByBoolean() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(4);
+  const expectedCount = testData.filter((user) => user.isActive === true).length;
+  expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
     expect(doc.isActive).to.equal(true);
