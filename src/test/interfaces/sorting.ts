@@ -1,60 +1,13 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueUsers, User } from '../datasets/users';
 
-const db = Database<{ [table]: TestData }>('test-sorting');
+const db = Database<{ [table]: User }>('test-sorting');
 
 const table = 'test-table';
-type TestData = {
-  name: string;
-  age: number;
-  salary: number;
-  isActive: boolean;
-  createdAt: Date;
-  score: bigint;
-};
 
-let testData: TestData[] = [
-  {
-    name: 'Antoine',
-    age: 25,
-    salary: 50000,
-    isActive: true,
-    createdAt: new Date('2023-01-15'),
-    score: BigInt(1000000000000000),
-  },
-  {
-    name: 'Alice',
-    age: 30,
-    salary: -15000,
-    isActive: false,
-    createdAt: new Date('2022-06-20'),
-    score: BigInt(-999999999999999),
-  },
-  {
-    name: 'Camille',
-    age: 0,
-    salary: 0,
-    isActive: true,
-    createdAt: new Date('2024-03-10'),
-    score: BigInt(0),
-  },
-  {
-    name: 'Dominique',
-    age: 35,
-    salary: 90000,
-    isActive: false,
-    createdAt: new Date('2021-12-05'),
-    score: BigInt('999999999999999999'),
-  },
-  {
-    name: 'Émilie',
-    age: 28,
-    salary: 60000,
-    isActive: true,
-    createdAt: new Date('2023-08-30'),
-    score: BigInt(-500000000000000),
-  },
-];
+// Utiliser le dataset unifié
+const testData = getUniqueUsers();
 
 let insertedKeys: string[] = [];
 
@@ -94,7 +47,7 @@ async function SortByStringAscending() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
 
-  const expectedOrder = ['Alice', 'Antoine', 'Camille', 'Dominique', 'Émilie'];
+  const expectedOrder = ['Alice', 'Antoine', 'Camille', 'Dominique', 'Emilie'];
   result.forEach((doc, index) => {
     expect(doc.name).to.equal(expectedOrder[index]);
   });
@@ -106,7 +59,7 @@ async function SortByStringDescending() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
 
-  const expectedOrder = ['Émilie', 'Dominique', 'Camille', 'Antoine', 'Alice'];
+  const expectedOrder = ['Emilie', 'Dominique', 'Camille', 'Antoine', 'Alice'];
   result.forEach((doc, index) => {
     expect(doc.name).to.equal(expectedOrder[index]);
   });
@@ -118,7 +71,7 @@ async function SortByNumberAscending() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
 
-  const expectedOrder = [0, 25, 28, 30, 35];
+  const expectedOrder = [22, 25, 28, 30, 35];
   result.forEach((doc, index) => {
     expect(doc.age).to.equal(expectedOrder[index]);
   });
@@ -185,7 +138,7 @@ async function SortByDateAscending() {
   ];
 
   result.forEach((doc, index) => {
-    expect(doc.createdAt.getTime()).to.equal(expectedDates[index].getTime());
+    expect(doc.createdAt!.getTime()).to.equal(expectedDates[index].getTime());
   });
 }
 
@@ -204,7 +157,7 @@ async function SortByDateDescending() {
   ];
 
   result.forEach((doc, index) => {
-    expect(doc.createdAt.getTime()).to.equal(expectedDates[index].getTime());
+    expect(doc.createdAt!.getTime()).to.equal(expectedDates[index].getTime());
   });
 }
 
@@ -241,9 +194,9 @@ async function SortByMultipleFields() {
   const expectedOrder = [
     { name: 'Dominique', age: 35 },
     { name: 'Alice', age: 30 },
-    { name: 'Émilie', age: 28 },
+    { name: 'Emilie', age: 28 },
     { name: 'Antoine', age: 25 },
-    { name: 'Camille', age: 0 },
+    { name: 'Camille', age: 22 },
   ];
 
   result.forEach((doc, index) => {

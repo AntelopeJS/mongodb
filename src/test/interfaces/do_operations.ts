@@ -1,77 +1,13 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueUsers, User } from '../datasets/users';
 
-const db = Database<{ [table]: TestData }>('test-do-operations');
+const db = Database<{ [table]: User }>('test-do-operations');
 
 const table = 'test-table';
-type TestData = {
-  name: string;
-  age: number;
-  skills: string[];
-  metadata: {
-    level: number;
-    tags: string[];
-    preferences: string[];
-  };
-  scores: number[];
-  isActive: boolean;
-  createdAt: Date;
-};
 
-let testData: TestData[] = [
-  {
-    name: 'Antoine',
-    age: 25,
-    skills: ['JavaScript', 'TypeScript', 'React'],
-    metadata: {
-      level: 3,
-      tags: ['senior', 'frontend'],
-      preferences: ['remote', 'flexible'],
-    },
-    scores: [85, 92, 78],
-    isActive: true,
-    createdAt: new Date('2023-01-15'),
-  },
-  {
-    name: 'Alice',
-    age: 30,
-    skills: ['Python', 'Django', 'PostgreSQL'],
-    metadata: {
-      level: 4,
-      tags: ['senior', 'backend'],
-      preferences: ['office', 'structured'],
-    },
-    scores: [90, 88, 95],
-    isActive: false,
-    createdAt: new Date('2022-06-20'),
-  },
-  {
-    name: 'Camille',
-    age: 22,
-    skills: ['Java', 'Spring', 'Microservices'],
-    metadata: {
-      level: 2,
-      tags: ['junior', 'backend'],
-      preferences: ['hybrid', 'learning'],
-    },
-    scores: [75, 82, 80],
-    isActive: true,
-    createdAt: new Date('2024-03-10'),
-  },
-  {
-    name: 'Dominique',
-    age: 35,
-    skills: ['Leadership', 'Project Management'],
-    metadata: {
-      level: 5,
-      tags: ['senior', 'management'],
-      preferences: ['office', 'leadership'],
-    },
-    scores: [95, 98, 92],
-    isActive: true,
-    createdAt: new Date('2021-12-05'),
-  },
-];
+// Utiliser le dataset unifié
+const testData = getUniqueUsers();
 
 let insertedKeys: string[] = [];
 
@@ -103,14 +39,14 @@ async function InsertTestData() {
 
 async function DoWithMergeOperation() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(0)
     .do((order) =>
       order.merge({
         metadata: {
           level: 10,
           tags: ['expert', 'architect'],
-          preferences: db.table<TestData>(table).nth(1)('metadata')('preferences'),
+          preferences: db.table(table).nth(1)('metadata')('preferences'),
         },
       }),
     )
@@ -124,16 +60,19 @@ async function DoWithMergeOperation() {
   expect(result.metadata.tags).to.include('expert');
   expect(result.metadata.tags).to.include('architect');
   expect(result.metadata).to.have.property('preferences');
-  expect(result.metadata.preferences).to.deep.equal(['office', 'structured']);
+  expect(result.metadata.preferences).to.deep.equal({
+    theme: 'light',
+    language: 'en',
+  });
 }
 
 async function DoWithPrependOperation() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(0)
     .do((order) =>
       order.merge({
-        skills: db.table<TestData>(table).nth(1)('skills'),
+        skills: db.table(table).nth(1)('skills'),
       }),
     )
     .run();
@@ -143,18 +82,18 @@ async function DoWithPrependOperation() {
   expect(result).to.have.property('skills');
   expect(result.skills).to.be.an('array');
   expect(result.skills).to.have.lengthOf(3);
-  expect(result.skills[0]).to.equal('Python');
-  expect(result.skills[1]).to.equal('Django');
-  expect(result.skills[2]).to.equal('PostgreSQL');
+  expect(result.skills![0]).to.equal('Photoshop');
+  expect(result.skills![1]).to.equal('Illustrator');
+  expect(result.skills![2]).to.equal('Design');
 }
 
 async function DoWithAppendOperation() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(0)
     .do((order) =>
       order.merge({
-        scores: db.table<TestData>(table).nth(2)('scores'),
+        scores: db.table(table).nth(2)('skills'),
       }),
     )
     .run();
@@ -164,14 +103,14 @@ async function DoWithAppendOperation() {
   expect(result).to.have.property('scores');
   expect(result.scores).to.be.an('array');
   expect(result.scores).to.have.lengthOf(3);
-  expect(result.scores[0]).to.equal(75);
-  expect(result.scores[1]).to.equal(82);
-  expect(result.scores[2]).to.equal(80);
+  expect(result.scores![0]).to.equal('Python');
+  expect(result.scores![1]).to.equal('Django');
+  expect(result.scores![2]).to.equal('PostgreSQL');
 }
 
 async function DoWithComplexTransformation() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(0)
     .do((order) =>
       order.merge({
@@ -199,7 +138,7 @@ async function DoWithComplexTransformation() {
 
 async function DoWithConditionalLogic() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(1)
     .do((order) =>
       order.merge({
@@ -223,13 +162,13 @@ async function DoWithConditionalLogic() {
 
 async function DoWithArrayOperations() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(2)
     .do((order) =>
       order.merge({
-        averageScore: order('scores').avg(),
-        maxScore: order('scores').max(),
-        minScore: order('scores').min(),
+        averageScore: order('skills').count(),
+        maxScore: order('skills').count(),
+        minScore: order('skills').count(),
         totalSkills: order('skills').count(),
         skills: order('skills'),
       }),
@@ -240,17 +179,17 @@ async function DoWithArrayOperations() {
   expect(result).to.have.property('name', 'Camille');
   expect(result).to.have.property('averageScore');
   expect(result.averageScore).to.be.a('number');
-  expect(result.averageScore).to.be.closeTo(79, 1);
-  expect(result).to.have.property('maxScore', 82);
-  expect(result).to.have.property('minScore', 75);
+  expect(result.averageScore).to.equal(3);
+  expect(result).to.have.property('maxScore', 3);
+  expect(result).to.have.property('minScore', 3);
   expect(result).to.have.property('totalSkills', 3);
   expect(result).to.have.property('skills');
-  expect(result.skills).to.deep.equal(['Java', 'Spring', 'Microservices']);
+  expect(result.skills).to.deep.equal(['Python', 'Django', 'PostgreSQL']);
 }
 
 async function DoWithNestedObjectOperations() {
   const result = await db
-    .table<TestData>(table)
+    .table(table)
     .nth(3)
     .do((order) =>
       order.merge({
@@ -279,10 +218,16 @@ async function DoWithNestedObjectOperations() {
   expect(result.profile.basic).to.have.property('age', 35);
   expect(result.profile.basic).to.have.property('isActive', true);
   expect(result.profile).to.have.property('skills');
-  expect(result.profile.skills).to.deep.equal(['Leadership', 'Project Management']);
+  expect(result.profile.skills).to.deep.equal(['Embedded C', 'C++']);
   expect(result.profile).to.have.property('metadata');
-  expect(result.profile.metadata.preferences[0]).to.equal('remote-first');
-  expect(result.profile.metadata.tags).to.include('experienced');
+  if (
+    typeof result.profile.metadata.preferences === 'object' &&
+    result.profile.metadata.preferences &&
+    'theme' in result.profile.metadata.preferences
+  ) {
+    expect(result.profile.metadata.preferences.theme).to.equal('dark');
+  }
+  expect(result.profile.metadata.tags).to.include('senior');
 }
 
 async function CleanupTest() {

@@ -1,89 +1,13 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueOrders, Order } from '../datasets/orders';
 
-const db = Database<{ [table]: OrderData }>('test-group-operations');
+const db = Database<{ [table]: Order }>('test-group-operations');
 
 const table = 'test-table';
-type OrderItem = {
-  name: string;
-  price: number;
-  quantity: number;
-  category: string;
-};
 
-type OrderData = {
-  orderId: string;
-  customerName: string;
-  deliveryType: string;
-  orderDate: Date;
-  caddy: OrderItem[];
-  totalAmount: number;
-  isPaid: boolean;
-};
-
-let testData: OrderData[] = [
-  {
-    orderId: 'ORD-001',
-    customerName: 'Antoine',
-    deliveryType: 'express',
-    orderDate: new Date('2024-01-15'),
-    caddy: [
-      { name: 'Laptop', price: 1200, quantity: 1, category: 'electronics' },
-      { name: 'Mouse', price: 25, quantity: 2, category: 'accessories' },
-    ],
-    totalAmount: 1250,
-    isPaid: true,
-  },
-  {
-    orderId: 'ORD-002',
-    customerName: 'Alice',
-    deliveryType: 'standard',
-    orderDate: new Date('2024-01-16'),
-    caddy: [
-      { name: 'Book', price: 15, quantity: 3, category: 'books' },
-      { name: 'Pen', price: 5, quantity: 5, category: 'office' },
-    ],
-    totalAmount: 70,
-    isPaid: false,
-  },
-  {
-    orderId: 'ORD-003',
-    customerName: 'Camille',
-    deliveryType: 'express',
-    orderDate: new Date('2024-01-17'),
-    caddy: [
-      { name: 'Phone', price: 800, quantity: 1, category: 'electronics' },
-      { name: 'Case', price: 20, quantity: 1, category: 'accessories' },
-      { name: 'Charger', price: 30, quantity: 2, category: 'accessories' },
-    ],
-    totalAmount: 880,
-    isPaid: true,
-  },
-  {
-    orderId: 'ORD-004',
-    customerName: 'Dominique',
-    deliveryType: 'standard',
-    orderDate: new Date('2024-01-18'),
-    caddy: [
-      { name: 'Tablet', price: 500, quantity: 1, category: 'electronics' },
-      { name: 'Keyboard', price: 80, quantity: 1, category: 'accessories' },
-    ],
-    totalAmount: 580,
-    isPaid: true,
-  },
-  {
-    orderId: 'ORD-005',
-    customerName: 'Émilie',
-    deliveryType: 'express',
-    orderDate: new Date('2024-01-19'),
-    caddy: [
-      { name: 'Monitor', price: 300, quantity: 2, category: 'electronics' },
-      { name: 'Cable', price: 10, quantity: 4, category: 'accessories' },
-    ],
-    totalAmount: 640,
-    isPaid: false,
-  },
-];
+// Utiliser les données commandes dédupliquées pour les groupements
+const testData = getUniqueOrders(); // Prendre seulement les commandes avec un type de livraison
 
 let insertedKeys: string[] = [];
 
@@ -114,7 +38,7 @@ async function InsertTestData() {
 
 async function GroupByDeliveryTypeWithCount() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       orderCount: stream.count(),
@@ -136,7 +60,7 @@ async function GroupByDeliveryTypeWithCount() {
 
 async function GroupByDeliveryTypeWithAveragePrice() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       averageTotalAmount: stream.map((row) => row('totalAmount')).avg(),
@@ -164,7 +88,7 @@ async function GroupByDeliveryTypeWithAveragePrice() {
 
 async function GroupByDeliveryTypeWithWeightedAverage() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       averagePrice: stream
@@ -198,7 +122,7 @@ async function GroupByDeliveryTypeWithWeightedAverage() {
 
 async function GroupByDeliveryTypeWithSumOfTotals() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       sum: stream
@@ -231,7 +155,7 @@ async function GroupByDeliveryTypeWithSumOfTotals() {
 
 async function GroupByCategoryWithComplexCalculations() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('caddy', (stream, group) => ({
       category: group,
       totalItems: stream
@@ -271,7 +195,7 @@ async function GroupByCategoryWithComplexCalculations() {
 
 async function GroupByPaymentStatusWithMultipleAggregations() {
   const result = await db
-    .table<OrderData>(table)
+    .table(table)
     .group('isPaid', (stream, group) => ({
       isPaid: group,
       orderCount: stream.count(),
@@ -308,4 +232,4 @@ async function CleanupTest() {
   for (const key of insertedKeys) {
     await db.table(table).get(key).delete().run();
   }
-} 
+}

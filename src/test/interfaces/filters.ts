@@ -1,96 +1,13 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueUsers, User } from '../datasets/users';
 
-const db = Database<{ [table]: TestData }>('test-filters');
+const db = Database<{ [table]: User }>('test-filters');
 
 const table = 'test-table';
-type TestData = {
-  name: string;
-  age: number;
-  salary: number;
-  isActive: boolean;
-  department: string;
-  skills: string[];
-  createdAt: Date;
-  score: bigint;
-  metadata: {
-    level: number;
-    tags: string[];
-  };
-};
 
-let testData: TestData[] = [
-  {
-    name: 'Antoine',
-    age: 25,
-    salary: 50000,
-    isActive: true,
-    department: 'Développement',
-    skills: ['JavaScript', 'TypeScript', 'React'],
-    createdAt: new Date('2023-01-15'),
-    score: BigInt(1000000000000000),
-    metadata: {
-      level: 3,
-      tags: ['senior', 'frontend'],
-    },
-  },
-  {
-    name: 'Alice',
-    age: 30,
-    salary: -15000,
-    isActive: false,
-    department: 'Marketing',
-    skills: ['Photoshop', 'Illustrator'],
-    createdAt: new Date('2022-06-20'),
-    score: BigInt(-999999999999999),
-    metadata: {
-      level: 1,
-      tags: ['junior', 'design'],
-    },
-  },
-  {
-    name: 'Camille',
-    age: 0,
-    salary: 0,
-    isActive: true,
-    department: 'Développement',
-    skills: ['Python', 'Django', 'PostgreSQL'],
-    createdAt: new Date('2024-03-10'),
-    score: BigInt(0),
-    metadata: {
-      level: 2,
-      tags: ['mid-level', 'backend'],
-    },
-  },
-  {
-    name: 'Dominique',
-    age: 35,
-    salary: 90000,
-    isActive: false,
-    department: 'Management',
-    skills: ['Leadership', 'Project Management'],
-    createdAt: new Date('2021-12-05'),
-    score: BigInt('999999999999999999'),
-    metadata: {
-      level: 5,
-      tags: ['senior', 'management'],
-    },
-  },
-  {
-    name: 'Émilie',
-    age: 28,
-    salary: 60000,
-    isActive: true,
-    department: 'Développement',
-    skills: ['Java', 'Spring', 'Microservices'],
-    createdAt: new Date('2023-08-30'),
-    score: BigInt(-500000000000000),
-    metadata: {
-      level: 4,
-      tags: ['senior', 'backend'],
-    },
-  },
-];
+// Utiliser le dataset unifié
+const testData = getUniqueUsers();
 
 let insertedKeys: string[] = [];
 
@@ -119,35 +36,35 @@ async function InsertTestData() {
 async function FilterByStringEquality() {
   const result = await db
     .table(table)
-    .filter((doc) => doc('department').eq('Développement'))
+    .filter((doc) => doc('department').eq('Development'))
     .run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(3);
 
   result.forEach((doc) => {
-    expect(doc.department).to.equal('Développement');
+    expect(doc.department).to.equal('Development');
   });
 
   const names = result.map((doc) => doc.name).sort();
-  expect(names).to.deep.equal(['Antoine', 'Camille', 'Émilie']);
+  expect(names).to.deep.equal(['Antoine', 'Camille', 'Emilie']);
 }
 
 async function FilterByNumberComparison() {
   const result = await db
     .table(table)
-    .filter((doc) => doc('salary').gt(0))
+    .filter((doc) => doc('age').gt(25))
     .run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(3);
 
   result.forEach((doc) => {
-    expect(doc.salary).to.be.greaterThan(0);
+    expect(doc.age).to.be.greaterThan(25);
   });
 
-  const salaries = result.map((doc) => doc.salary).sort();
-  expect(salaries).to.deep.equal([50000, 60000, 90000]);
+  const ages = result.map((doc) => doc.age).sort();
+  expect(ages).to.deep.equal([28, 30, 35]);
 }
 
 async function FilterByBoolean() {
@@ -157,20 +74,18 @@ async function FilterByBoolean() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(4);
 
   result.forEach((doc) => {
     expect(doc.isActive).to.equal(true);
   });
 
   const names = result.map((doc) => doc.name).sort();
-  expect(names).to.deep.equal(['Antoine', 'Camille', 'Émilie']);
+  expect(names).to.deep.equal(['Antoine', 'Camille', 'Dominique', 'Emilie']);
 }
-
-
 
 async function CleanupTest() {
   for (const key of insertedKeys) {
     await db.table(table).get(key).delete().run();
   }
-} 
+}

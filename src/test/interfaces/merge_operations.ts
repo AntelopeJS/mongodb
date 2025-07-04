@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueUsers, User } from '../datasets/users';
+import { getUniqueProducts, Product } from '../datasets/products';
+import { getUniqueOrders, Order } from '../datasets/orders';
 
 const db = Database<{
   [ordersTable]: Order;
@@ -12,146 +15,10 @@ const ordersTable = 'orders';
 const usersTable = 'users';
 const productsTable = 'products';
 
-type User = {
-  email: string;
-  name: string;
-  age: number;
-  isActive: boolean;
-  preferences: {
-    theme: string;
-    language: string;
-  };
-};
-
-type Product = {
-  sku: string;
-  name: string;
-  price: number;
-  category: string;
-  metadata: {
-    brand: string;
-    rating: number;
-  };
-};
-
-type Order = {
-  orderId: string;
-  customer: {
-    email: string;
-    name: string;
-  };
-  items: Array<{
-    sku: string;
-    quantity: number;
-  }>;
-  totalAmount: number;
-  status: string;
-};
-
-let usersData: User[] = [
-  {
-    email: 'antoine@example.com',
-    name: 'Antoine',
-    age: 25,
-    isActive: true,
-    preferences: {
-      theme: 'dark',
-      language: 'fr',
-    },
-  },
-  {
-    email: 'alice@example.com',
-    name: 'Alice',
-    age: 30,
-    isActive: false,
-    preferences: {
-      theme: 'light',
-      language: 'en',
-    },
-  },
-  {
-    email: 'camille@example.com',
-    name: 'Camille',
-    age: 22,
-    isActive: true,
-    preferences: {
-      theme: 'auto',
-      language: 'fr',
-    },
-  },
-];
-
-let productsData: Product[] = [
-  {
-    sku: 'LAPTOP-001',
-    name: 'Asell f00',
-    price: 1200,
-    category: 'electronics',
-    metadata: {
-      brand: 'Asell',
-      rating: 4.5,
-    },
-  },
-  {
-    sku: 'BOOK-001',
-    name: 'Clean Code',
-    price: 25,
-    category: 'books',
-    metadata: {
-      brand: 'Clean Code',
-      rating: 4.8,
-    },
-  },
-  {
-    sku: 'PHONE-001',
-    name: 'OneSung X',
-    price: 800,
-    category: 'electronics',
-    metadata: {
-      brand: 'OneSung',
-      rating: 4.2,
-    },
-  },
-];
-
-let ordersData: Order[] = [
-  {
-    orderId: 'ORD-001',
-    customer: {
-      email: 'antoine@example.com',
-      name: 'Antoine',
-    },
-    items: [
-      { sku: 'LAPTOP-001', quantity: 1 },
-      { sku: 'BOOK-001', quantity: 2 },
-    ],
-    totalAmount: 1250,
-    status: 'completed',
-  },
-  {
-    orderId: 'ORD-002',
-    customer: {
-      email: 'alice@example.com',
-      name: 'Alice',
-    },
-    items: [{ sku: 'PHONE-001', quantity: 1 }],
-    totalAmount: 800,
-    status: 'pending',
-  },
-  {
-    orderId: 'ORD-003',
-    customer: {
-      email: 'camille@example.com',
-      name: 'Camille',
-    },
-    items: [
-      { sku: 'BOOK-001', quantity: 1 },
-      { sku: 'LAPTOP-001', quantity: 1 },
-    ],
-    totalAmount: 1225,
-    status: 'completed',
-  },
-];
+// Utiliser le dataset unifié
+const usersData = getUniqueUsers();
+const productsData = getUniqueProducts();
+const ordersData = getUniqueOrders().filter((order) => order.customer && order.items);
 
 let insertedKeys: {
   users: string[];
@@ -190,8 +57,8 @@ async function InsertTestData() {
 
 async function MergeCustomerWithUserData() {
   const result = await db
-    .table<Order>(ordersTable)
-    .map((row) => row('customer').merge(db.table<User>(usersTable).getAll('email', row('customer')('email')).nth(0)))
+    .table(ordersTable)
+    .map((row) => row('customer').merge(db.table(usersTable).getAll('email', row('customer')('email')).nth(0)))
     .run();
 
   expect(result).to.be.an('array');
@@ -202,9 +69,8 @@ async function MergeCustomerWithUserData() {
     expect(doc).to.have.property('name');
     expect(doc).to.have.property('age');
     expect(doc).to.have.property('isActive');
-    expect(doc).to.have.property('preferences');
-    expect(doc.preferences).to.have.property('theme');
-    expect(doc.preferences).to.have.property('language');
+    expect(doc).to.have.property('metadata');
+    expect(doc.metadata).to.have.property('preferences');
   });
 
   const antoineData = result.find((doc) => doc.email === 'antoine@example.com');
@@ -212,13 +78,20 @@ async function MergeCustomerWithUserData() {
   const antoine = antoineData!;
   expect(antoine.age).to.equal(25);
   expect(antoine.isActive).to.equal(true);
-  expect(antoine.preferences.theme).to.equal('dark');
-  expect(antoine.preferences.language).to.equal('fr');
+  expect(antoine.metadata?.preferences).to.be.an('object');
+  if (
+    typeof antoine.metadata?.preferences === 'object' &&
+    antoine.metadata.preferences &&
+    'theme' in antoine.metadata.preferences
+  ) {
+    expect(antoine.metadata.preferences.theme).to.equal('dark');
+    expect(antoine.metadata.preferences.language).to.equal('fr');
+  }
 }
 
 async function MergeOrderItemsWithProductData() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .map((row) =>
       row.merge({
         items: row('items').map((item) =>
@@ -255,7 +128,7 @@ async function MergeOrderItemsWithProductData() {
 
 async function MergeMultipleObjects() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .map((row) =>
       row.merge({
         customer: row('customer').merge({
@@ -295,10 +168,10 @@ async function MergeMultipleObjects() {
 
 async function MergeWithConditionalLogic() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .map((row) =>
       row.merge({
-        customer: row('customer').merge(db.table<User>(usersTable).getAll('email', row('customer')('email')).nth(0)),
+        customer: row('customer').merge(db.table(usersTable).getAll('email', row('customer')('email')).nth(0)),
         status: row('status').eq('completed').default('pending'),
         totalAmount: row('totalAmount'),
         isHighValue: row('totalAmount').gt(1000),
@@ -336,7 +209,7 @@ async function MergeWithConditionalLogic() {
 
 async function MergeNestedObjects() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .map((row) =>
       row.merge({
         customer: row('customer').merge({
@@ -364,7 +237,7 @@ async function MergeNestedObjects() {
     expect(order.customer).to.have.property('customerEmail');
     expect(order.customer).to.have.property('customerName');
     expect(order).to.have.property('items');
-    order.items.forEach((item) => {
+    order.items.forEach((item: any) => {
       expect(item).to.have.property('sku');
       expect(item).to.have.property('quantity');
       expect(item).to.have.property('itemSku');
@@ -376,12 +249,12 @@ async function MergeNestedObjects() {
 
 async function MergeWithDefaultValues() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .map((row) =>
       row.merge({
         customer: row('customer').merge(
           db
-            .table<User>(usersTable)
+            .table(usersTable)
             .getAll('email', row('customer')('email'))
             .nth(0)
             .default({
@@ -389,9 +262,11 @@ async function MergeWithDefaultValues() {
               name: 'Unknown User',
               age: 0,
               isActive: false,
-              preferences: {
-                theme: 'default',
-                language: 'en',
+              metadata: {
+                preferences: {
+                  theme: 'default',
+                  language: 'en',
+                },
               },
             }),
         ),
@@ -413,7 +288,8 @@ async function MergeWithDefaultValues() {
 
   result.forEach((order) => {
     expect(order).to.have.property('customer');
-    expect(order.customer).to.have.property('preferences');
+    expect(order.customer).to.have.property('metadata');
+    expect(order.customer.metadata).to.have.property('preferences');
     expect(order).to.have.property('shipping');
     expect(order.shipping).to.have.property('method');
     expect(order.shipping).to.have.property('cost');

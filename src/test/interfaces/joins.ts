@@ -1,5 +1,8 @@
 import { Database, JoinType } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { getUniqueUsers, User } from '../datasets/users';
+import { getUniqueProducts, Product } from '../datasets/products';
+import { getUniqueOrders, Order } from '../datasets/orders';
 
 const db = Database<{
   [ordersTable]: Order;
@@ -11,101 +14,10 @@ const ordersTable = 'orders';
 const usersTable = 'users';
 const productsTable = 'products';
 
-type User = {
-  email: string;
-  name: string;
-  age: number;
-  isActive: boolean;
-};
-
-type Product = {
-  sku: string;
-  name: string;
-  price: number;
-};
-
-type Order = {
-  orderId: string;
-  customerEmail: string;
-  productSku: string;
-  quantity: number;
-  totalPrice: number;
-  orderDate: Date;
-};
-
-let usersData: User[] = [
-  {
-    email: 'alice@example.com',
-    name: 'Alice',
-    age: 28,
-    isActive: true,
-  },
-  {
-    email: 'bob@example.com',
-    name: 'Bob',
-    age: 35,
-    isActive: false,
-  },
-  {
-    email: 'camille@example.com',
-    name: 'Camille',
-    age: 22,
-    isActive: true,
-  },
-];
-
-let productsData: Product[] = [
-  {
-    sku: 'LAPTOP-001',
-    name: 'Asell f00',
-    price: 1200,
-  },
-  {
-    sku: 'BOOK-001',
-    name: 'Clean code',
-    price: 25,
-  },
-  {
-    sku: 'PHONE-001',
-    name: 'OneSung X',
-    price: 800,
-  },
-];
-
-let ordersData: Order[] = [
-  {
-    orderId: 'ORD-001',
-    customerEmail: 'alice@example.com',
-    productSku: 'LAPTOP-001',
-    quantity: 1,
-    totalPrice: 1200,
-    orderDate: new Date('2024-01-15'),
-  },
-  {
-    orderId: 'ORD-002',
-    customerEmail: 'bob@example.com',
-    productSku: 'BOOK-001',
-    quantity: 2,
-    totalPrice: 50,
-    orderDate: new Date('2024-02-20'),
-  },
-  {
-    orderId: 'ORD-003',
-    customerEmail: 'alice@example.com',
-    productSku: 'PHONE-001',
-    quantity: 1,
-    totalPrice: 800,
-    orderDate: new Date('2024-03-10'),
-  },
-  {
-    orderId: 'ORD-004',
-    customerEmail: 'camille@example.com',
-    productSku: 'BOOK-001',
-    quantity: 1,
-    totalPrice: 25,
-    orderDate: new Date('2024-04-05'),
-  },
-];
+// Utiliser le dataset unifié
+const usersData = getUniqueUsers();
+const productsData = getUniqueProducts();
+const ordersData = getUniqueOrders();
 
 let insertedKeys: {
   users: string[];
@@ -143,9 +55,9 @@ async function InsertTestData() {
 
 async function InnerJoinOrdersWithUsers() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .join(
-      db.table<User>(usersTable),
+      db.table(usersTable),
       JoinType.Inner,
       (left, right) => left.merge({ customer: right }),
       (left, right) => left('customerEmail').eq(right('email')),
@@ -169,16 +81,16 @@ async function InnerJoinOrdersWithUsers() {
   expect(aliceOrders).to.have.lengthOf(2);
   aliceOrders.forEach((order) => {
     expect(order.customer.name).to.equal('Alice');
-    expect(order.customer.age).to.equal(28);
-    expect(order.customer.isActive).to.equal(true);
+    expect(order.customer.age).to.equal(30);
+    expect(order.customer.isActive).to.equal(false);
   });
 }
 
 async function InnerJoinOrdersWithProducts() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .join(
-      db.table<Product>(productsTable),
+      db.table(productsTable),
       JoinType.Inner,
       (left, right) => left.merge({ product: right }),
       (left, right) => left('productSku').eq(right('sku')),
@@ -205,9 +117,9 @@ async function InnerJoinOrdersWithProducts() {
 
 async function LeftJoinOrdersWithUsers() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .join(
-      db.table<User>(usersTable),
+      db.table(usersTable),
       JoinType.Left,
       (left, right) => left.merge({ customer: right }),
       (left, right) => left('customerEmail').eq(right('email')),
@@ -228,15 +140,15 @@ async function LeftJoinOrdersWithUsers() {
 
 async function MultipleJoins() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .join(
-      db.table<User>(usersTable),
+      db.table(usersTable),
       JoinType.Inner,
       (left, right) => left.merge({ customer: right }),
       (left, right) => left('customerEmail').eq(right('email')),
     )
     .join(
-      db.table<Product>(productsTable),
+      db.table(productsTable),
       JoinType.Inner,
       (left, right) => left.merge({ product: right }),
       (left, right) => left('productSku').eq(right('sku')),
@@ -263,9 +175,9 @@ async function MultipleJoins() {
 
 async function JoinWithFilter() {
   const result = await db
-    .table<Order>(ordersTable)
+    .table(ordersTable)
     .join(
-      db.table<User>(usersTable),
+      db.table(usersTable),
       JoinType.Inner,
       (left, right) => left.merge({ customer: right }),
       (left, right) => left('customerEmail').eq(right('email')),
@@ -274,13 +186,13 @@ async function JoinWithFilter() {
     .run();
 
   expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(3);
+  expect(result).to.have.lengthOf(2);
 
   result.forEach((doc) => {
     expect(doc.customer.isActive).to.equal(true);
   });
 
-  const inactiveUsers = result.filter((doc) => doc.customerEmail === 'bob@example.com');
+  const inactiveUsers = result.filter((doc) => doc.customerEmail === 'dominique@example.com');
   expect(inactiveUsers).to.have.lengthOf(0);
 }
 

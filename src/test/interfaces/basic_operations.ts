@@ -1,39 +1,10 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
+import { vehicles, Vehicle } from '../datasets/vehicles';
 
-const db = Database<{ [table]: TestData }>('test-basic-operations');
+const db = Database<{ [table]: Vehicle }>('test-basic-operations');
 
 const table = 'test-table';
-type TestData = {
-  car: string;
-  manufactured: Date;
-  price: number;
-  isElectric: boolean;
-  kilometers: bigint;
-};
-let testData: TestData[] = [
-  {
-    car: 'Peugeot',
-    manufactured: new Date('2003-01-01'),
-    price: 3000,
-    isElectric: false,
-    kilometers: BigInt(9876543210),
-  },
-  {
-    car: 'Renault',
-    manufactured: new Date('1960-06-30'),
-    price: -1000,
-    isElectric: false,
-    kilometers: BigInt(123456789012345),
-  },
-  {
-    car: 'Citroen',
-    manufactured: new Date('2040-12-31'),
-    price: 0,
-    isElectric: true,
-    kilometers: BigInt(-100000000000000),
-  },
-];
 
 let insertedKeys: string[] = [];
 
@@ -48,13 +19,13 @@ describe('Basic Operations', () => {
 });
 
 async function InsertTest() {
-  const response = await db.table(table).insert(testData).run();
-  expect(response).to.have.property('inserted', testData.length);
+  const response = await db.table(table).insert(vehicles).run();
+  expect(response).to.have.property('inserted', vehicles.length);
   expect(response).to.have.property('generated_keys');
   expect(response.generated_keys).to.be.an('object');
 
   const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(testData.length);
+  expect(keys).to.have.lengthOf(vehicles.length);
   keys.forEach((val) => {
     expect(val).to.be.a('string');
   });
@@ -70,8 +41,8 @@ async function GetTest() {
   }
 }
 
-function findOriginalTestData(doc: any): TestData | undefined {
-  return testData.find(
+function findOriginalTestData(doc: any): Vehicle | undefined {
+  return vehicles.find(
     (item) =>
       item.car === doc.car &&
       item.manufactured.getTime() === doc.manufactured.getTime() &&
@@ -126,12 +97,12 @@ async function UpdateTest() {
   expect(result).to.have.property('matchedCount', 1);
   expect(result).to.have.property('upsertedCount', 0);
 
-  testData[0].price = 4000;
+  vehicles[0].price = 4000;
   const doc = await db.table(table).get(insertedKeys[0]).run();
   expect(doc).to.not.equal(undefined);
   validateDocumentStructure(doc!, insertedKeys[0]);
   validateDocumentContent(doc!);
-  expect(doc!.price).to.equal(testData[0].price);
+  expect(doc!.price).to.equal(vehicles[0].price);
 }
 
 async function ReplaceTest() {
