@@ -1109,7 +1109,7 @@ export namespace internal {
     });
     console.log('runQuery', JSON.stringify(dbQuery));
     if (dbQuery.mode in modes) {
-      return modes[dbQuery.mode](dbQuery);
+      return await modes[dbQuery.mode](dbQuery);
     }
   }
 
@@ -1140,7 +1140,7 @@ export namespace internal {
     if (openedCursors.has(reqId)) {
       const [cursor] = openedCursors.get(reqId)!;
       openedCursors.delete(reqId);
-      return cursor.close();
+      return await cursor.close();
     }
   }
 }
