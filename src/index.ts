@@ -18,7 +18,7 @@ export async function construct(options: Options) {
   setIdProvider(options.id_provider);
   await Connect(options?.url, options?.options);
 
-  await ImplementInterface(import('@ajs.local/database/beta/runtime'), import('./implementations/database/beta'));
+  ImplementInterface(await import('@ajs.local/database/beta/runtime'), await import('./implementations/database/beta'));
 }
 
 export async function destroy() {

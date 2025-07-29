@@ -1101,14 +1101,16 @@ modes.dbList = () => {
 };
 
 export namespace internal {
-  export function runQuery(query: internalRuntime.QueryBuilderContext) {
+  export async function runQuery(query: internalRuntime.QueryBuilderContext) {
     // TODO: make sure return values follow the typing
     const dbQuery = processQuery(query, {
       vars: [],
       args: {},
     });
     console.log('runQuery', JSON.stringify(dbQuery));
-    if (dbQuery.mode in modes) return modes[dbQuery.mode](dbQuery);
+    if (dbQuery.mode in modes) {
+      return modes[dbQuery.mode](dbQuery);
+    }
   }
 
   const openedCursors = new Map<number, [AggregationCursor, AsyncIterableIterator<any>, boolean]>();
@@ -1128,11 +1130,13 @@ export namespace internal {
     }
     const [, iterator, single_val] = openedCursors.get(reqId)!;
     let res = await iterator.next();
-    if (single_val && typeof res.value === 'object') res.value = res.value.__singleval;
+    if (single_val && typeof res.value === 'object') {
+      res.value = res.value.__singleval;
+    }
     return res;
   }
 
-  export function closeCursor(reqId: number) {
+  export async function closeCursor(reqId: number) {
     if (openedCursors.has(reqId)) {
       const [cursor] = openedCursors.get(reqId)!;
       openedCursors.delete(reqId);
