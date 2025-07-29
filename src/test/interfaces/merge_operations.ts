@@ -72,7 +72,7 @@ async function MergeCustomerWithUserData() {
 
   const antoineOrder = result.find((doc) => doc.customer?.email === 'antoine@example.com');
   expect(antoineOrder).to.not.be.undefined;
-  expect(antoineOrder!.orderSummary!.totalAmount).to.equal(1250);
+  expect(antoineOrder!.orderSummary.totalAmount).to.equal(1250);
 }
 
 async function MergeOrderItemsWithProductData() {
@@ -92,7 +92,7 @@ async function MergeOrderItemsWithProductData() {
 
   const antoineOrder = result.find((order) => order.customer?.email === 'antoine@example.com');
   expect(antoineOrder).to.not.be.undefined;
-  expect(antoineOrder!.orderInfo!.totalAmount).to.equal(1250);
+  expect(antoineOrder!.orderInfo.totalAmount).to.equal(1250);
 }
 
 async function MergeMultipleObjects() {

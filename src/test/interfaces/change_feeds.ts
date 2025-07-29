@@ -12,7 +12,7 @@ let insertedKeys: string[] = [];
 
 describe('Change Feeds and Advanced Operations', () => {
   it('Insert Test Data', InsertTestData);
-  it('Test Changes Feed', TestChangesFeed);
+  it('Test Changes Feed Iterator', TestChangesFeedIterator);
   it('Test Changes with Options', TestChangesWithOptions);
   it('Test Changes on Single Document', TestChangesOnSingleDocument);
   it('Test Changes with Filter', TestChangesWithFilter);
@@ -49,7 +49,7 @@ async function InsertTestData() {
   insertedKeys = keys;
 }
 
-async function TestChangesFeed() {
+async function TestChangesFeedIterator() {
   const changes = db.table(table).changes();
 
   expect(changes).to.be.an('object');
@@ -59,6 +59,24 @@ async function TestChangesFeed() {
   expect(changes).to.have.property('pluck');
   expect(changes).to.have.property('without');
   expect(changes).to.have.property('withFields');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const iterator = changes[Symbol.asyncIterator]();
+  expect(iterator).to.be.an('object');
+  expect(iterator).to.have.property('next');
+  expect(iterator).to.have.property('return');
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  result.forEach((change) => {
+    expect(change).to.have.property('new_val');
+    expect(change).to.not.have.property('old_val');
+    expect(change.new_val).to.have.property('name');
+    expect(change.new_val).to.have.property('email');
+    expect(change.new_val).to.have.property('age');
+  });
 }
 
 async function TestChangesWithOptions() {
@@ -70,6 +88,11 @@ async function TestChangesWithOptions() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
 }
 
 async function TestChangesOnSingleDocument() {
@@ -79,6 +102,13 @@ async function TestChangesOnSingleDocument() {
   expect(changes).to.have.property('run');
   expect(changes).to.have.property('map');
   expect(changes).to.have.property('filter');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(1);
+  expect(result[0]).to.have.property('new_val');
+  expect(result[0].new_val).to.have.property('id', insertedKeys[0]);
 }
 
 async function TestChangesWithFilter() {
@@ -89,6 +119,17 @@ async function TestChangesWithFilter() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+
+  const activeUsers = testData.filter((user) => user.status === 'active');
+  expect(result).to.have.lengthOf(activeUsers.length);
+
+  result.forEach((change) => {
+    expect(change.new_val?.status).to.equal('active');
+  });
 }
 
 async function TestChangesWithMap() {
@@ -102,6 +143,18 @@ async function TestChangesWithMap() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  result.forEach((mappedChange) => {
+    expect(mappedChange).to.have.property('type', 'insert');
+    expect(mappedChange).to.have.property('document');
+    expect(mappedChange.document).to.have.property('name');
+    expect(mappedChange.document).to.have.property('email');
+  });
 }
 
 async function TestChangesWithPluck() {
@@ -109,6 +162,19 @@ async function TestChangesWithPluck() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  result.forEach((change) => {
+    expect(change).to.have.property('new_val');
+    expect(change).to.not.have.property('old_val');
+    expect(change.new_val).to.have.property('name');
+    expect(change.new_val).to.have.property('email');
+    expect(change.new_val).to.not.have.property('age');
+  });
 }
 
 async function TestChangesWithWithout() {
@@ -116,6 +182,16 @@ async function TestChangesWithWithout() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  result.forEach((change) => {
+    expect(change).to.not.have.property('new_val');
+    expect(change).to.not.have.property('old_val');
+  });
 }
 
 async function TestChangesWithWithFields() {
@@ -123,6 +199,16 @@ async function TestChangesWithWithFields() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  result.forEach((change) => {
+    expect(change).to.have.property('new_val');
+    expect(change).to.not.have.property('old_val');
+  });
 }
 
 async function TestChangesWithOrderBy() {
@@ -130,6 +216,16 @@ async function TestChangesWithOrderBy() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(testData.length);
+
+  const sortedNames = testData.map((user) => user.name).sort();
+  result.forEach((change, index) => {
+    expect(change.new_val?.name).to.equal(sortedNames[index]);
+  });
 }
 
 async function TestChangesWithSlice() {
@@ -137,6 +233,11 @@ async function TestChangesWithSlice() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(2);
 }
 
 async function TestChangesWithNth() {
@@ -144,6 +245,11 @@ async function TestChangesWithNth() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(1);
 }
 
 async function TestChangesWithDistinct() {
@@ -151,6 +257,13 @@ async function TestChangesWithDistinct() {
 
   expect(changes).to.be.an('object');
   expect(changes).to.have.property('run');
+  expect(changes).to.have.property(Symbol.asyncIterator);
+
+  const result = await changes.run();
+  expect(result).to.be.an('array');
+
+  const uniqueStatuses = [...new Set(testData.map((user) => user.status))];
+  expect(result).to.have.lengthOf(uniqueStatuses.length);
 }
 
 async function TestChangesWithCount() {
