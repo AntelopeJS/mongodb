@@ -23,7 +23,7 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.6.5",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "dev:prepare": "cd playground && ajs module imports install",
     "dev": "ajs project run -w -p playground",
     "format": "prettier --write .",
