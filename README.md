@@ -2,9 +2,12 @@
 
 # @antelopejs/mongodb
 
-[![npm version](https://img.shields.io/npm/v/@antelopejs/mongodb.svg)](https://www.npmjs.com/package/@antelopejs/mongodb)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+<div align="center">
+<a href="https://www.npmjs.com/package/@antelopejs/mongodb"><img alt="NPM version" src="https://img.shields.io/npm/v/@antelopejs/mongodb.svg?style=for-the-badge&labelColor=000000"></a>
+<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/mongodb.svg?style=for-the-badge&labelColor=000000"></a>
+<a href="https://discord.gg/sjK28QHrA7"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" alt="Discord"></a>
+<a href="https://antelopejs.com/modules/mongodb"><img src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" alt="Documentation"></a>
+</div>
 
 A full-featured MongoDB client module that implements both the MongoDB interface and the Database interface for AntelopeJS.
 
