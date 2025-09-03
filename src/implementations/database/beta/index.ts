@@ -168,7 +168,7 @@ function join_leftexcl(
         let: { [root_var]: root(left) },
         pipeline: [
           ...right.pipeline,
-          { $match: { $expr: processFunction(condition, left, context, '$$' + root_var, '$$ROOT') } },
+          { $match: processFunction(condition, left, context, true, '$$' + root_var, '$$ROOT') },
         ],
         as: temp_var,
       },
@@ -196,7 +196,7 @@ function join_inner(
         let: { [root_var]: root(left) },
         pipeline: [
           ...right.pipeline,
-          { $match: { $expr: processFunction(condition, left, context, '$$' + root_var, '$$ROOT') } },
+          { $match: processFunction(condition, left, context, true, '$$' + root_var, '$$ROOT') },
         ],
         as: root_var,
       },
@@ -226,7 +226,7 @@ function join_left(
         let: { [root_var]: root(left) },
         pipeline: [
           ...right.pipeline,
-          { $match: { $expr: processFunction(condition, left, context, '$$' + root_var, '$$ROOT') } },
+          { $match: processFunction(condition, left, context, true, '$$' + root_var, '$$ROOT') },
         ],
         as: temp_var,
       },
@@ -358,7 +358,9 @@ const aggregationTranslators: Record<
       throw new Error('Unsupported join operation');
     }
     const [root_field_name, joined_field_name] = join_function(agg, right, step.args[3], context);
-    const res = guaranteeObject(processFunction(step.args[2], agg, context, root_field_name, '$' + joined_field_name));
+    const res = guaranteeObject(
+      processFunction(step.args[2], agg, context, false, root_field_name, '$' + joined_field_name),
+    );
 
     agg.pipeline.push({ $project: res });
     if ('__singleval' in res) {
@@ -382,7 +384,7 @@ const aggregationTranslators: Record<
     });
   },
   map: (step, agg, context) => {
-    const res = guaranteeObject(processFunction(step.args[0], agg, context, root(agg)));
+    const res = guaranteeObject(processFunction(step.args[0], agg, context, false, root(agg)));
     agg.pipeline.push({ $project: res });
     if ('__singleval' in res) {
       agg.single_value = true;
@@ -392,7 +394,7 @@ const aggregationTranslators: Record<
   hasFields: () => {},
   filter: (step, agg, context) => {
     agg.pipeline.push({
-      $match: { $expr: processFunction(step.args[0], agg, context, root(agg)) },
+      $match: processFunction(step.args[0], agg, context, true, root(agg)),
     });
   },
   orderBy: (step, agg) => {
@@ -486,7 +488,7 @@ const aggregationTranslators: Record<
       is_datum: true,
       mode: 'get',
     };
-    const setData = processFunction(step.args[0], updateAgg, context, '$$ROOT');
+    const setData = processFunction(step.args[0], updateAgg, context, false, '$$ROOT');
     if (setData && typeof setData === 'object' && !('$literal' in setData) && !Array.isArray(setData)) {
       if (setData._id) {
         if (agg.pipeline.length === 0) {
@@ -512,7 +514,7 @@ const aggregationTranslators: Record<
     };
     updateAgg.pipeline.push({
       $replaceRoot: {
-        newRoot: processFunction(step.args[0], updateAgg, context, '$$ROOT'),
+        newRoot: processFunction(step.args[0], updateAgg, context, false, '$$ROOT'),
       },
     });
     agg.mode = 'replace';
@@ -727,11 +729,11 @@ const expressionTranslators: Record<
   },
   map: (prev, step, agg, context) => {
     const tmp = temporary();
-    return { $map: { input: prev, as: tmp, in: processFunction(step.args[0], agg, context, tmp) } };
+    return { $map: { input: prev, as: tmp, in: processFunction(step.args[0], agg, context, false, tmp) } };
   },
   filter: (prev, step, agg, context) => {
     const tmp = temporary();
-    return { $filter: { input: prev, as: tmp, cond: processFunction(step.args[0], agg, context, tmp) } };
+    return { $filter: { input: prev, as: tmp, cond: processFunction(step.args[0], agg, context, false, tmp) } };
   },
   hasFields: () => ({}), // TODO
   isEmpty: (prev) => ({ $eq: [0, { $size: prev }] }),
@@ -863,6 +865,7 @@ export function processFunction(
   arg: internalRuntime.QueryArg,
   aggregation: AggregateQuery,
   context: TranslationContext,
+  wrapExpr: boolean,
   ...parameters: ExpressionValue[]
 ): ExpressionValue {
   if (arg.type !== 'func') {
@@ -875,7 +878,7 @@ export function processFunction(
   for (let i = 0; i < arg.args.length && i < parameters.length; ++i) {
     delete context.args[arg.args[i]];
   }
-  return res;
+  return wrapExpr ? { $expr: res } : res;
 }
 
 export function processAccumulationFunction(
