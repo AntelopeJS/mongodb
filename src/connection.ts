@@ -23,7 +23,7 @@ export async function GetDatabase(database: string): Promise<Db> {
   return internal.client.then((client) => client.db(database));
 }
 
-export async function ListDatabases(): Promise<{name: string}[]> {
+export async function ListDatabases(): Promise<{ name: string }[]> {
   return internal.client
     .then((client) => client.db('admin').command({ listDatabases: 1, nameOnly: true }))
     .then((result) => result.databases);

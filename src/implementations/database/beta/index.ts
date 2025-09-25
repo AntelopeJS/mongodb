@@ -1101,7 +1101,7 @@ modes.dbDrop = async (dbQuery) => {
 
 modes.dbList = async () => {
   const databases = await ListDatabases();
-  return databases.map(doc => doc.name);
+  return databases.map((doc) => doc.name);
 };
 
 export namespace internal {
