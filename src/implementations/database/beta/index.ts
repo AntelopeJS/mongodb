@@ -1053,7 +1053,7 @@ modes.indexCreate = async (dbQuery) => {
   const collection = await GetCollection(dbQuery.database!, dbQuery.collection!);
 
   if (dbQuery.args?.length === 1) {
-    return await collection.createIndex(dbQuery.args[0], { name: dbQuery.args[0] });
+    return await collection.createIndex(dbQuery.args[0]);
   } else {
     return await collection.createIndex(dbQuery.args!.slice(1), { name: dbQuery.args![0] });
   }
