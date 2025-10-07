@@ -374,6 +374,39 @@ const aggregationTranslators: Record<
       agg.pipeline.push({ $project: remove });
     }
   },
+  lookup: (step, agg, context) => {
+    assert(step.args[0].type === 'query');
+    const subagg = processQuery(step.args[0].value as internalRuntime.QueryBuilderContext, context);
+    assert(agg.database === subagg.database);
+    const from = subagg.collection;
+    const localField = step.args[1].value;
+    const foreignField = step.args[2].value;
+    const tmp = temporary();
+    agg.pipeline.push({
+      $lookup: {
+        from,
+        localField,
+        foreignField,
+        as: tmp,
+        pipeline: subagg.pipeline,
+      },
+    });
+    agg.pipeline.push({
+      $project: {
+        [localField]: {
+          $cond: {
+            if: {
+              $isArray: '$' + localField,
+            },
+            then: '$' + tmp,
+            else: {
+              $arrayElemAt: ['$' + tmp, 0],
+            },
+          },
+        },
+      },
+    });
+  },
   union: (step, agg, context) => {
     const subagg = processQuery(step.args[0].value as internalRuntime.QueryBuilderContext, context);
     agg.pipeline.push({

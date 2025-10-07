@@ -1044,6 +1044,19 @@ export interface Datum<T = any> extends Query<T> {
   default<U>(value: Value<U>): Datum<NonNullable<T> | U>;
 
   /**
+   * Perform a foreign key lookup
+   * 
+   * @param other Other table
+   * @param localKey Key in local object
+   * @param otherKey Key in other table
+   */
+  lookup<U = any, TK extends keyof T = keyof T>(
+    other: Stream<U>,
+    localKey: TK,
+    otherKey: keyof U,
+  ): Datum<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>;
+
+  /**
    * For array datums, appends the given value.
    *
    * @param value The value
@@ -1126,6 +1139,19 @@ export interface Stream<T = any> extends Query<T[]> {
     type: JoinType.Cross,
     mapper: (left: ValueProxy.Proxy<T | null>, right: ValueProxy.Proxy<U | null>) => V,
   ): Stream<ValueProxy.ExtractType<V>>;
+
+  /**
+   * Perform a foreign key lookup
+   * 
+   * @param other Other table
+   * @param localKey Key in local object
+   * @param otherKey Key in other table
+   */
+  lookup<U = any, TK extends keyof T = keyof T>(
+    other: Stream<U>,
+    localKey: TK,
+    otherKey: keyof U,
+  ): Stream<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>;
 
   /**
    * Performs a union of two streams.
