@@ -376,7 +376,7 @@ const aggregationTranslators: Record<
   },
   lookup: (step, agg, context) => {
     assert(step.args[0].type === 'query');
-    const subagg = processQuery(step.args[0].value as internalRuntime.QueryBuilderContext, context);
+    const subagg = processQuery(step.args[0].value, context);
     assert(agg.database === subagg.database);
     const from = subagg.collection;
     const localField = step.args[1].value;
