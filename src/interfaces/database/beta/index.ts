@@ -1045,7 +1045,7 @@ export interface Datum<T = any> extends Query<T> {
 
   /**
    * Perform a foreign key lookup
-   * 
+   *
    * @param other Other table
    * @param localKey Key in local object
    * @param otherKey Key in other table
@@ -1142,7 +1142,7 @@ export interface Stream<T = any> extends Query<T[]> {
 
   /**
    * Perform a foreign key lookup
-   * 
+   *
    * @param other Other table
    * @param localKey Key in local object
    * @param otherKey Key in other table
