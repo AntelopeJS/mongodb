@@ -392,7 +392,7 @@ const aggregationTranslators: Record<
       },
     });
     agg.pipeline.push({
-      $project: {
+      $addFields: {
         [localField]: {
           $cond: {
             if: {
@@ -404,6 +404,7 @@ const aggregationTranslators: Record<
             },
           },
         },
+        [tmp]: "$$REMOVE",
       },
     });
   },
