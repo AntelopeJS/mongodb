@@ -33,8 +33,7 @@
     "prepack": "pnpm run build",
     "prepare": "ajs module imports install",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
-    "test": "echo \"No test specified\"",
-    "changelog": "changelogen"
+    "test": "echo \"No test specified\""
   },
   "antelopeJs": {
     "exportsPath": "dist/interfaces",
@@ -58,7 +57,6 @@
     "@eslint/js": "^9.25.0",
     "@types/node": "^22.14.1",
     "@types/randomstring": "^1.3.0",
-    "changelogen": "^0.6.2",
     "eslint": "^9.25.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-import": "^2.31.0",
@@ -66,6 +64,7 @@
     "globals": "^16.0.0",
     "prettier": "^3.5.3",
     "release-it": "^19.0.2",
+    "release-it-changelogen": "^0.1.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.30.1"
   }
