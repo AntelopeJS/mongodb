@@ -404,7 +404,7 @@ const aggregationTranslators: Record<
             },
           },
         },
-        [tmp]: "$$REMOVE",
+        [tmp]: '$$REMOVE',
       },
     });
   },
