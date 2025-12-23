@@ -6,16 +6,13 @@ export class Datum<T> extends Query<T> {
 
   // TODO: Better name?
   public key<K extends keyof T, U = undefined>(key: K, def?: U) {
-    const stage = this.stage(
+    return this.stage(
       Datum<U extends undefined ? T[K] : Exclude<T[K], undefined | null> | U>,
       'key',
       undefined,
       key,
+      def,
     );
-    if (def !== undefined && def !== null) {
-      return stage.default(def);
-    }
-    return stage;
   }
 
   public default<U>(val: Value<U>) {

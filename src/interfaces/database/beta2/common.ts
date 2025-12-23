@@ -16,6 +16,10 @@ export function QueryStage(stage: string, options?: any, ...args: any[]) {
   };
 }
 
+export class FunctionObject {
+  public constructor(public readonly result: StagedObject, public readonly args: number[]) {}
+}
+
 export class StagedObject {
   public readonly stages: QueryStage[];
 
@@ -23,7 +27,7 @@ export class StagedObject {
     this.stages = previous ? [...previous.stages, newStage] : [newStage];
   }
 
-  public stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T {
+  protected stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T {
     return new type(
       {
         stage,
@@ -33,6 +37,8 @@ export class StagedObject {
       this,
     );
   }
+
+  protected call() {}
 }
 
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
