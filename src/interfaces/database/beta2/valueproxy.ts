@@ -509,8 +509,8 @@ export class ValueProxy<T> extends StagedObject {
    * @param mapper Mapping function
    * @returns New array
    */
-  public map<U>(this: IsArray<unknown, T, this>, _mapper: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<U>) {
-    return this.stage(ValueProxy<U[]>, 'arr_map'); // TODO: function
+  public map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<U>) {
+    return this.stage(ValueProxy<U[]>, 'arr_map', undefined, this.callfunc(mapper, ValueProxy<ArrayValue<T>>));
   }
 
   /**
@@ -521,9 +521,14 @@ export class ValueProxy<T> extends StagedObject {
    */
   public filter(
     this: IsArray<unknown, T, this>,
-    _predicate: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<boolean>,
+    predicate: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<boolean>,
   ) {
-    return this.stage(ValueProxy<Array<ArrayValue<T>>>, 'arr_filter'); // TODO: function
+    return this.stage(
+      ValueProxy<Array<ArrayValue<T>>>,
+      'arr_filter',
+      undefined,
+      this.callfunc(predicate, ValueProxy<ArrayValue<T>>),
+    );
   }
 
   /**

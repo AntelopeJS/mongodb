@@ -16,10 +16,6 @@ export function QueryStage(stage: string, options?: any, ...args: any[]) {
   };
 }
 
-export class FunctionObject {
-  public constructor(public readonly result: StagedObject, public readonly args: number[]) {}
-}
-
 export class StagedObject {
   public readonly stages: QueryStage[];
 
@@ -38,7 +34,23 @@ export class StagedObject {
     );
   }
 
-  protected call() {}
+  private static nextargid = 0;
+  protected callfunc<T extends StagedObject[]>(
+    func: (...args: T) => any,
+    ...args: (typeof StagedObject)[]
+  ): QueryStage {
+    const argNumbers: number[] = [];
+    const argValues: StagedObject[] = [];
+    for (let i = 0; i < args.length; ++i) {
+      const id = StagedObject.nextargid++;
+      argNumbers[i] = id;
+      argValues[i] = new args[i](QueryStage('arg', undefined, id));
+    }
+    return {
+      stage: 'func',
+      args: [argNumbers, func(...(argValues as T))],
+    };
+  }
 }
 
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
