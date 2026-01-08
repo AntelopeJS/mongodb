@@ -2,6 +2,20 @@ import { Class } from '@ajs/core/beta/decorators';
 import { ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
 
+export type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends Array<infer U1>
+    ? Array<DeepPartial<U1>>
+    : T[K] extends ReadonlyArray<infer U2>
+      ? ReadonlyArray<DeepPartial<U2>>
+      : DeepPartial<T[K]>;
+};
+
+export interface Changes<T> {
+  changeType: 'added' | 'removed' | 'modified';
+  oldValue?: T;
+  newValue?: T;
+}
+
 export type QueryStage = {
   stage: string;
   options?: any;
@@ -23,8 +37,10 @@ export class StagedObject {
     this.stages = previous ? [...previous.stages, newStage] : [newStage];
   }
 
-  protected stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T {
-    return new type(
+  protected stage(type: undefined, stage: string, options?: any, ...args: any[]): this;
+  protected stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T;
+  protected stage<T extends StagedObject>(type: Class<T> | undefined, stage: string, options?: any, ...args: any[]) {
+    return new (type ?? (this.constructor as Class<StagedObject>))(
       {
         stage,
         options,
