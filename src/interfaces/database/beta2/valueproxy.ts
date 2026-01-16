@@ -14,15 +14,33 @@ export type IsArray<Left, Right, R> = Right extends (infer A)[] ? Is<A, Left, R>
 //@internal
 export type OnlyObject<T> = T extends Record<any, any> ? T : never;
 
+/**
+ * Proxy to an actual value in the database
+ *
+ * Actions performed on this proxy are not executed right away but instead recorded for the actual query
+ */
 export class ValueProxy<T> extends StagedObject {
+  //@internal
   public static arg<T = unknown>(id: number) {
     return new ValueProxy<T>(QueryStage('arg', undefined, id));
   }
 
+  /**
+   * Create a new proxy with a constant value
+   *
+   * @param value Value
+   * @returns Proxy
+   */
   public static constant<T = unknown>(value: unknown) {
     return new ValueProxy<T>(QueryStage('constant', undefined, value));
   }
 
+  /**
+   * Changes the type of this proxy.
+   * This does not actually perform any conversion, it only changes the typescript type.
+   *
+   * @returns Same proxy with a different type
+   */
   public cast<U>() {
     return this as unknown as ValueProxy<U>;
   }
@@ -249,7 +267,7 @@ export class ValueProxy<T> extends StagedObject {
 
   //#endregion
 
-  //#region number
+  //#region Number
 
   /**
    * Multiplication operator.
@@ -478,6 +496,12 @@ export class ValueProxy<T> extends StagedObject {
 
   //#region Array
 
+  /**
+   * Indexes the array with a given number position
+   *
+   * @param key Position in the array
+   * @returns Element at the given position
+   */
   public index(this: IsArray<unknown, T, this>, key: ValueProxyOrValue<number>) {
     return this.stage(ValueProxy<ArrayValue<T>>, 'arr_index', undefined, key);
   }
@@ -589,6 +613,15 @@ export class ValueProxy<T> extends StagedObject {
 
   //#region Object
 
+  /**
+   * Indexes the object.
+   *
+   * TODO: Better name?
+   *
+   * @param key Field name
+   * @param def Default value
+   * @returns Value of the field
+   */
   public key<TO = OnlyObject<T>, K extends keyof TO = keyof TO, U = undefined>(
     this: Is<T, Record<any, any>, this>,
     key: ValueProxyOrValue<K>,

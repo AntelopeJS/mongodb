@@ -2,6 +2,9 @@ import { Class } from '@ajs/core/beta/decorators';
 import { ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
 
+/**
+ * Recursive Partial generic type
+ */
 export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends Array<infer U1>
     ? Array<DeepPartial<U1>>
@@ -10,17 +13,33 @@ export type DeepPartial<T> = {
       : DeepPartial<T[K]>;
 };
 
+/**
+ * Change event
+ */
 export interface Changes<T> {
+  /**
+   * The type of change that occured
+   *
+   * Possible values: added, removed, modified
+   */
   changeType: 'added' | 'removed' | 'modified';
+
+  /**
+   * Value prior to the change
+   */
   oldValue?: T;
+
+  /**
+   * New value after the change
+   */
   newValue?: T;
 }
 
-export type QueryStage = {
+export interface QueryStage {
   stage: string;
   options?: any;
   args: any[];
-};
+}
 
 export function QueryStage(stage: string, options?: any, ...args: any[]) {
   return {
@@ -31,7 +50,7 @@ export function QueryStage(stage: string, options?: any, ...args: any[]) {
 }
 
 export class StagedObject {
-  public readonly stages: QueryStage[];
+  protected readonly stages: QueryStage[];
 
   public constructor(newStage: QueryStage, previous?: StagedObject) {
     this.stages = previous ? [...previous.stages, newStage] : [newStage];
@@ -69,4 +88,5 @@ export class StagedObject {
   }
 }
 
+// TODO: This adds a lot of complexity to implementations, investigate if we should remove it.
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
