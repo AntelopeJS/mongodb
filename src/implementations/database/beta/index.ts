@@ -35,6 +35,19 @@ function root(agg: AggregateQuery, ...fields: string[]) {
   return [agg.single_value ? '$__singleval' : '$$ROOT', ...fields].join('.');
 }
 
+function literalValue(arg: internalRuntime.QueryArg): any {
+  switch (arg.type) {
+    case 'value':
+      return arg.value;
+    case 'array':
+      return arg.value.map((val) => literalValue(val));
+    case 'object':
+      return Object.fromEntries(Object.entries(arg.value).map(([k, v]) => [k, literalValue(v)]));
+    default:
+      return arg;
+  }
+}
+
 export type ExpressionValue =
   | string
   | number
@@ -635,7 +648,7 @@ const aggregationTranslators: Record<
   },
 
   expr: (step, agg) => {
-    agg.pipeline.push({ $documents: [{ __singleval: { $literal: step.args[0].value } }] });
+    agg.pipeline.push({ $documents: [{ __singleval: { $literal: literalValue(step.args[0]) } }] });
     agg.single_value = true;
     agg.is_datum = true;
   },
@@ -656,7 +669,7 @@ const expressionTranslators: Record<
     return context.args[step.args[0].value];
   },
   expr: (_prev, step) => {
-    return { $literal: step.args[0].value };
+    return { $literal: literalValue(step.args[0]) };
   },
   index: (prev, step, agg, context) => {
     return typeof prev === 'string' && typeof step.args[0].value === 'string'
