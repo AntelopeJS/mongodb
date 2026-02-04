@@ -1,6 +1,5 @@
 import { StagedObject } from '@ajs.local/database/beta2/common';
 import { generate as randomstring } from 'randomstring';
-import { AggregationPipeline } from './pipeline';
 import assert from 'assert';
 
 export function Temporary() {
@@ -26,6 +25,6 @@ export class DecodingContext {
     if (this.subquery) {
       return this.subquery(stages);
     }
-    throw new Error("TODO: subquery");
+    throw new Error('Subquery with no handler?');
   }
 }
