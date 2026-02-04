@@ -56,6 +56,11 @@ export class StagedObject {
     this.stages = previous ? [...previous.stages, newStage] : [newStage];
   }
 
+  //@internal
+  public build() {
+    return this.stages;
+  }
+
   protected stage(type: undefined, stage: string, options?: any, ...args: any[]): this;
   protected stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T;
   protected stage<T extends StagedObject>(type: Class<T> | undefined, stage: string, options?: any, ...args: any[]) {
@@ -82,7 +87,7 @@ export class StagedObject {
       argValues[i] = new args[i](QueryStage('arg', undefined, id));
     }
     return {
-      stage: 'func',
+      stage: 'func', // TODO: using the query stage structure here doesnt make any sense
       args: [argNumbers, func(...(argValues as T))],
     };
   }

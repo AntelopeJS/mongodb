@@ -4,15 +4,6 @@ import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 
 export class Datum<T> extends Query<T> {
   /**
-   * Converts the Datum to a value proxy to use ValueProxy-specific methods.
-   *
-   * @returns New ValueProxy
-   */
-  public value() {
-    return this.stage(ValueProxy<T>, 'toproxy');
-  }
-
-  /**
    * Changes the type of this datum.
    * This does not actually perform any conversion, it only changes the typescript type.
    *
@@ -58,7 +49,7 @@ export class Datum<T> extends Query<T> {
    * @returns New datum with the result of the mapper
    */
   public do<U>(mapper: (val: ValueProxy<T>) => ValueProxyOrValue<U>) {
-    return this.stage(Datum<U>, 'do', undefined, this.callfunc(mapper, ValueProxy<T>));
+    return this.stage(Datum<U>, 'map', undefined, this.callfunc(mapper, ValueProxy<T>));
   }
 
   /**

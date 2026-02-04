@@ -154,25 +154,12 @@ export class ValueProxy<T> extends StagedObject {
     return this.stage(ValueProxy<boolean>, 'date_during', undefined, left, right);
   }
 
-  /**
-   * Changes the timezone of the date to the specified offset.
-   *
-   * Note: may not perform validation on the offset string.
-   *
-   * @param timezone UTC Offset
-   * @returns New date
-   */
-  public intimezone(this: Is<Date, T, this>, timezone: ValueProxyOrValue<string>) {
-    return this.stage(ValueProxy<Date>, 'date_settimezone', undefined, timezone);
-  }
-
-  /**
-   * Gets the timezone offset of the date.
-   *
-   * @returns Timezone offset
-   */
-  public timezone(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<string>, 'date_gettimezone');
+  //@internal
+  private withTimezone(timezone?: ValueProxyOrValue<string>) {
+    if (timezone) {
+      return this.stage(ValueProxy<Date>, 'date_with_timezone', undefined, timezone);
+    }
+    return this.cast<Date>();
   }
 
   /**
@@ -180,8 +167,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Seconds
    */
-  public timeofday(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_tod');
+  public timeofday(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_tod');
   }
 
   /**
@@ -189,8 +176,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Year
    */
-  public year(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_year');
+  public year(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_year', undefined, timezone);
   }
 
   /**
@@ -198,8 +185,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Month
    */
-  public month(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_month');
+  public month(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_month', undefined, timezone);
   }
 
   /**
@@ -207,8 +194,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Day of the month
    */
-  public day(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_day');
+  public day(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_day', undefined, timezone);
   }
 
   /**
@@ -216,8 +203,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Day of the week
    */
-  public dayofweek(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_dow');
+  public dayofweek(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_dow', undefined, timezone);
   }
 
   /**
@@ -225,8 +212,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Day of the year
    */
-  public dayofyear(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_doy');
+  public dayofyear(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_doy', undefined, timezone);
   }
 
   /**
@@ -234,8 +221,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Hours
    */
-  public hours(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_hours');
+  public hours(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_hours', undefined, timezone);
   }
 
   /**
@@ -243,8 +230,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Minutes
    */
-  public minutes(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_minutes');
+  public minutes(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_minutes', undefined, timezone);
   }
 
   /**
@@ -252,8 +239,8 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Seconds
    */
-  public seconds(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_seconds');
+  public seconds(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_seconds', undefined, timezone);
   }
 
   /**
@@ -629,7 +616,7 @@ export class ValueProxy<T> extends StagedObject {
   ) {
     return this.stage(
       ValueProxy<U extends undefined ? TO[K] : Exclude<TO[K], undefined | null> | U>,
-      'arr_index',
+      'obj_index',
       undefined,
       key,
       def,
