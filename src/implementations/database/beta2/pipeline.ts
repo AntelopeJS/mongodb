@@ -228,9 +228,42 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected stage_join(_stage: QueryStage) {
+  protected stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, 'Join not supported in change streams');
-    // TODO
+    const innerOnly = stage.options.innerOnly;
+    const rightStream = SelectionQuery.decode(stage.args[0]);
+    const predicate = stage.args[1];
+    const mapper = stage.args[2];
+    assert(rightStream instanceof SelectionQuery);
+    assert(rightStream.database === this.database);
+    const root = this.getRoot();
+    const tmp = Temporary();
+    this.pipeline.push(
+      {
+        from: rightStream.collection,
+        let: { [tmp]: root },
+        pipeline: [
+          {
+            $match: { $expr: DecodeFunction(predicate, this.context, ['$$' + tmp, '$$ROOT']) },
+          },
+          ...rightStream.pipeline,
+        ],
+        as: tmp,
+      },
+      {
+        $unwind: {
+          path: '$' + tmp,
+          preserveNullAndEmptyArrays: !innerOnly,
+        },
+      },
+    );
+    this.setRoot(DecodeFunction(mapper, this.context, [root, '$' + tmp]));
+    this.pipeline.push({
+      // TODO?: collect obsolete fields and remove them all at the end
+      $unset: {
+        [tmp]: 1,
+      },
+    });
     return this;
   }
 
@@ -281,11 +314,12 @@ export class AggregationPipeline {
       const tmp = Temporary();
       const subquery = await AggregationPipeline.decode(stages, this.context, (subquery) => {
         subquery.wrappedObject = tmp;
+        subquery.inCompoundObject = true;
       });
       for (const stage of subquery.pipeline) {
         if ('$group' in stage) {
           if (stage.$group._id) {
-            stage.$group._id = `$${tmp}.${stage.$group._id}`
+            stage.$group._id = `$${tmp}.${stage.$group._id}`;
           } else {
             stage.$group._id = '$' + group;
           }
