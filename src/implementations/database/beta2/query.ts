@@ -11,14 +11,7 @@ export async function DecodeValue(value: Value<unknown>, context: DecodingContex
   }
 
   if (value instanceof Query) {
-    const query = await SelectionQuery.decode(value.build(), context);
-    if (query.database === '$ARG') {
-      const num = query.collection as unknown as number;
-      const translator = context.args[num];
-      assert(translator, 'Unknown arg used');
-      return typeof translator === 'string' ? translator : translator(query);
-    }
-    return query; // TODO: context.subquery(query); // inserts subquery into pipeline and returns temp var
+    return context.decodeSubquery(value.build());
   }
 
   if (value && typeof value === 'object') {

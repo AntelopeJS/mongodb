@@ -49,10 +49,17 @@ export class AggregationPipeline {
     }
   }
 
-  public static async decode(stages: QueryStage[], context?: DecodingContext): Promise<AggregationPipeline> {
+  public static async decode(
+    stages: QueryStage[],
+    context?: DecodingContext,
+    modifier?: (pipeline: AggregationPipeline) => any,
+  ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === 'arg') {
       assert(context, 'Arg query without context?');
       const query = new AggregationPipeline('$ARG', stages[0].args[0], [], false, context);
+      if (modifier) {
+        await modifier(query);
+      }
       await query.addStages(stages.slice(1));
       return query;
     }
@@ -84,6 +91,18 @@ export class AggregationPipeline {
 
   private getRoot() {
     return this.wrappedObject ? '$' + this.wrappedObject : '$$ROOT';
+  }
+
+  private setRoot(val: unknown) {
+    if (this.wrappedObject) {
+      this.pipeline.push({
+        $project: { [this.wrappedObject]: val },
+      });
+    } else {
+      this.pipeline.push({
+        $replaceRoot: { newRoot: { [this.makeWrapped()]: val } },
+      });
+    }
   }
 
   private getField(field?: string) {
@@ -120,11 +139,7 @@ export class AggregationPipeline {
       });
     } else {
       const root = this.getRoot();
-      const field = DefaultConstant(`${root}.${fieldName}`, defaultValue);
-      const wrapped = this.makeWrapped();
-      this.pipeline.push({
-        $replaceRoot: { newRoot: { [wrapped]: field } },
-      });
+      this.setRoot(DefaultConstant(`${root}.${fieldName}`, defaultValue));
     }
     return this;
   }
@@ -139,9 +154,7 @@ export class AggregationPipeline {
         },
       });
     } else if (this.wrappedObject) {
-      this.pipeline.push({
-        $replaceRoot: { newRoot: { [this.wrappedObject]: DefaultConstant('$' + this.wrappedObject, defaultValue) } },
-      });
+      this.setRoot(DefaultConstant('$' + this.wrappedObject, defaultValue));
     }
     return this;
   }
@@ -158,10 +171,7 @@ export class AggregationPipeline {
       });
     } else {
       const root = this.getRoot();
-      const wrapped = this.makeWrapped();
-      this.pipeline.push({
-        $replaceRoot: { newRoot: { [wrapped]: runmap(root) } },
-      });
+      this.setRoot(runmap(root));
     }
     return this;
   }
@@ -260,9 +270,34 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected stage_group(_stage: QueryStage) {
-    // TODO
-    // run stream "inline", stop on $group stage
+  protected stage_group(stage: QueryStage) {
+    const root = this.getRoot();
+    const group = Temporary();
+    const setupStage: Record<string, unknown> = { [group]: this.getField(stage.options.index) };
+    this.pipeline.push({
+      $addFields: setupStage,
+    });
+    const pipelineInserter = async (stages: QueryStage[]) => {
+      const tmp = Temporary();
+      const subquery = await AggregationPipeline.decode(stages, this.context, (subquery) => {
+        subquery.wrappedObject = tmp;
+      });
+      for (const stage of subquery.pipeline) {
+        if ('$group' in stage) {
+          if (stage.$group._id) {
+            stage.$group._id = `$${tmp}.${stage.$group._id}`
+          } else {
+            stage.$group._id = '$' + group;
+          }
+        }
+        this.pipeline.push(stage);
+      }
+      //TODO: interleave stages?
+      setupStage[tmp] = root;
+      return '$' + tmp;
+    };
+    const result = DecodeFunction(stage.args[0], this.context, [pipelineInserter, '$' + group]); // TODO: support named indexes by referencing schema
+    this.setRoot(result);
     return this;
   }
 
