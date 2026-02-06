@@ -18,6 +18,8 @@ export interface IndexDefinition {
   multi?: boolean;
 }
 
+export type FieldType = string | Array<FieldType> | { [subfield: string]: FieldType };
+
 /**
  * Schema table definition
  */
@@ -25,7 +27,7 @@ export interface TableDefinition {
   /**
    * Field names and their data types
    */
-  fields: Record<string, string>;
+  fields: Record<string, FieldType>;
 
   /**
    * List of secondary indexes

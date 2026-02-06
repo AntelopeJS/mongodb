@@ -4,6 +4,7 @@ import assert from 'assert';
 import { SelectionQuery } from './selection';
 import { DecodingContext, Temporary } from './utils';
 import { GetCollection } from '../../../connection';
+import { GetIndex } from './schema';
 
 function DefaultConstant(data: any, def: any) {
   if (def) {
@@ -33,6 +34,7 @@ export class AggregationPipeline {
   public inCompoundObject = false;
 
   public constructor(
+    public readonly schemaId: string,
     public readonly database: string,
     public readonly collection: string,
     public readonly pipeline: any[],
@@ -56,7 +58,7 @@ export class AggregationPipeline {
   ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === 'arg') {
       assert(context, 'Arg query without context?');
-      const query = new AggregationPipeline('$ARG', stages[0].args[0], [], false, context);
+      const query = new AggregationPipeline('', '$ARG', stages[0].args[0], [], false, context);
       if (modifier) {
         await modifier(query);
       }
@@ -337,9 +339,11 @@ export class AggregationPipeline {
 
   protected stage_orderBy(stage: QueryStage) {
     assert(!this.isChangeStream, 'OrderBy not supported in change streams');
-    const localField = this.getField(stage.options.index); // TODO: support named indexes by referencing schema
+    const index = GetIndex(this.schemaId, this.collection, stage.options.index);
+    const direction = stage.options.direction === 'desc' ? -1 : 1;
+    const fields = index.fields!.map((field) => [this.getField(field), direction]);
     this.pipeline.push({
-      $sort: { [localField]: stage.options.direction === 'desc' ? -1 : 1 },
+      $sort: Object.fromEntries(fields),
     });
     return this;
   }

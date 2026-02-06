@@ -3,19 +3,21 @@ import { AggregationPipeline } from './pipeline';
 import { assert } from 'console';
 import { DecodingContext } from './utils';
 import { DecodeValue } from './query';
+import { CreateInstance, IsValidInstance } from './schema';
+import { GetCollection } from '../../../connection';
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
 
   public constructor(
-    public readonly schemaId: string,
+    schemaId: string,
     public readonly instanceId: string,
     public readonly tableName: string,
     isChangeStream: boolean,
     context: DecodingContext,
   ) {
     // database-level
-    super(`${schemaId}-${instanceId}`, tableName, [], isChangeStream, context);
+    super(schemaId, `${schemaId}-${instanceId}`, tableName, [], isChangeStream, context);
 
     // row-level
     // super(schemaId, tableName, [{ $match: { tenant_id: instanceId } }]); // TODO: use isChangeStream
@@ -26,7 +28,7 @@ export class SelectionQuery extends AggregationPipeline {
     if (stages[0]?.stage === 'schema') {
       const schemaId = stages[0]?.options?.id;
       const instanceId = stages[1]?.options?.id;
-      // TODO: assert schema & instance exist
+      assert(IsValidInstance(schemaId, instanceId));
       assert(stages[0]?.stage === 'schema' && schemaId);
       assert(instanceId);
       if (stages[1].stage === 'createInstance') {
@@ -49,18 +51,70 @@ export class SelectionQuery extends AggregationPipeline {
     return AggregationPipeline.decode(stages, context);
   }
 
+  private getFilter() {
+    const filters = [];
+    const filterDoc = {};
+    for (let i = 0; i < this.pipeline.length; ++i) {
+      if ('$match' in this.pipeline[i]) {
+        if ('$expr' in this.pipeline[i].$match) {
+          filters.push(this.pipeline[i].$match.$expr);
+        } else {
+          Object.assign(filterDoc, this.pipeline[i].$match);
+        }
+      }
+    }
+    if (filters.length === 0) {
+      return filterDoc;
+    } else {
+      for (const [key, val] of Object.entries(filterDoc)) {
+        filters.push({ $eq: ['$' + key, val] });
+      }
+      return { $expr: filters.length === 1 ? filters[0] : { $and: filters } };
+    }
+  }
+
+  private createInstance() {
+    return CreateInstance(this.schemaId, this.instanceId);
+  }
+
+  private async insert() {
+    const collection = await GetCollection(this.database, this.collection);
+    const documents = Array.isArray(this._newValue) ? this._newValue : [this._newValue];
+    for (const document of documents) {
+      document._id = document._id ?? '';
+      // tenant_id = this.instanceId;
+    }
+    await collection.insertMany(documents);
+  }
+
+  private async update() {
+    const collection = await GetCollection(this.database, this.collection);
+    await collection.updateMany(this.getFilter(), { $set: this._newValue });
+  }
+
+  private async replace() {
+    const collection = await GetCollection(this.database, this.collection);
+    // add tenant_id
+    await collection.updateMany(this.getFilter(), { $replaceRoot: { newRoot: this._newValue } });
+  }
+
+  private async delete() {
+    const collection = await GetCollection(this.database, this.collection);
+    await collection.deleteMany(this.getFilter());
+  }
+
   public async run(): Promise<any> {
     switch (this.resultType) {
       case 'createInstance':
-        return;
+        return this.createInstance();
       case 'insert':
-        return;
+        return this.insert();
       case 'update':
-        return;
+        return this.update();
       case 'replace':
-        return;
+        return this.replace();
       case 'delete':
-        return;
+        return this.delete();
     }
     return super.run();
   }
@@ -103,19 +157,19 @@ export class SelectionQuery extends AggregationPipeline {
   protected stage_insert(stage: QueryStage) {
     assert(this.resultType === 'table');
     this.resultType = 'insert';
-    this._newValue = stage.args[0];
+    this._newValue = DecodeValue(stage.args[0], this.context);
   }
 
   protected stage_update(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'update';
-    this._newValue = stage.args[0];
+    this._newValue = DecodeValue(stage.args[0], this.context);
   }
 
   protected stage_replace(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'replace';
-    this._newValue = stage.args[0];
+    this._newValue = DecodeValue(stage.args[0], this.context);
   }
 
   protected stage_delete() {
