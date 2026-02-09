@@ -5,6 +5,7 @@ import { DecodingContext } from './utils';
 import { DecodeValue } from './query';
 import { CreateInstance, IsValidInstance } from './schema';
 import { GetCollection } from '../../../connection';
+import { v4 as uuidv4 } from 'uuid';
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
@@ -28,15 +29,15 @@ export class SelectionQuery extends AggregationPipeline {
     if (stages[0]?.stage === 'schema') {
       const schemaId = stages[0]?.options?.id;
       const instanceId = stages[1]?.options?.id;
-      assert(IsValidInstance(schemaId, instanceId));
-      assert(stages[0]?.stage === 'schema' && schemaId);
-      assert(instanceId);
+      assert(stages[0]?.stage === 'schema' && schemaId, 'Unknown schema');
       if (stages[1].stage === 'createInstance') {
-        const selection = new SelectionQuery(schemaId, instanceId, '', false, null!);
+        const selection = new SelectionQuery(schemaId, instanceId ?? uuidv4(), '', false, null!);
         selection.resultType = 'createInstance';
         return selection;
       }
-      assert(stages[1].stage === 'instance' && stages[2]?.stage === 'table');
+      assert(instanceId, 'Missing instance');
+      assert(IsValidInstance(schemaId, instanceId), 'Unknown instance');
+      assert(stages[1].stage === 'instance' && stages[2]?.stage === 'table', 'Invalid request');
       const tableName = stages[2].options.id;
       const selection = new SelectionQuery(
         schemaId,
@@ -73,34 +74,39 @@ export class SelectionQuery extends AggregationPipeline {
     }
   }
 
-  private createInstance() {
-    return CreateInstance(this.schemaId, this.instanceId);
+  private async createInstance() {
+    await CreateInstance(this.schemaId, this.instanceId);
+    return this.instanceId;
   }
 
   private async insert() {
     const collection = await GetCollection(this.database, this.collection);
     const documents = Array.isArray(this._newValue) ? this._newValue : [this._newValue];
     for (const document of documents) {
-      document._id = document._id ?? '';
+      document._id = document._id ?? uuidv4();
       // tenant_id = this.instanceId;
     }
-    await collection.insertMany(documents);
+    const res = await collection.insertMany(documents);
+    return Object.values(res.insertedIds);
   }
 
   private async update() {
     const collection = await GetCollection(this.database, this.collection);
-    await collection.updateMany(this.getFilter(), { $set: this._newValue });
+    const res = await collection.updateMany(this.getFilter(), { $set: this._newValue });
+    return res.modifiedCount;
   }
 
   private async replace() {
     const collection = await GetCollection(this.database, this.collection);
     // add tenant_id
-    await collection.updateMany(this.getFilter(), { $replaceRoot: { newRoot: this._newValue } });
+    const res = await collection.updateMany(this.getFilter(), { $replaceRoot: { newRoot: this._newValue } });
+    return res.modifiedCount;
   }
 
   private async delete() {
     const collection = await GetCollection(this.database, this.collection);
-    await collection.deleteMany(this.getFilter());
+    const res = await collection.deleteMany(this.getFilter());
+    return res.deletedCount;
   }
 
   public async run(): Promise<any> {
@@ -128,13 +134,13 @@ export class SelectionQuery extends AggregationPipeline {
     });
   }
 
-  protected stage_getAll(stage: QueryStage) {
+  protected async stage_getAll(stage: QueryStage) {
     assert(this.resultType === 'table');
     this.resultType = 'selection';
     const index = stage.options?.index ?? '_id';
     if (Array.isArray(stage.args[0])) {
       this.pipeline.push({
-        $match: { $expr: { $in: ['$' + index, DecodeValue(stage.args[0], this.context)] } },
+        $match: { $expr: { $in: ['$' + index, await DecodeValue(stage.args[0], this.context)] } },
       });
     } else {
       this.pipeline.push({
@@ -154,22 +160,22 @@ export class SelectionQuery extends AggregationPipeline {
     });
   }
 
-  protected stage_insert(stage: QueryStage) {
+  protected async stage_insert(stage: QueryStage) {
     assert(this.resultType === 'table');
     this.resultType = 'insert';
-    this._newValue = DecodeValue(stage.args[0], this.context);
+    this._newValue = stage.args[0];
   }
 
-  protected stage_update(stage: QueryStage) {
+  protected async stage_update(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'update';
-    this._newValue = DecodeValue(stage.args[0], this.context);
+    this._newValue = await DecodeValue(stage.args[0], this.context);
   }
 
-  protected stage_replace(stage: QueryStage) {
+  protected async stage_replace(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'replace';
-    this._newValue = DecodeValue(stage.args[0], this.context);
+    this._newValue = await DecodeValue(stage.args[0], this.context);
   }
 
   protected stage_delete() {

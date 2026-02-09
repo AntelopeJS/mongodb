@@ -161,26 +161,26 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected stage_map(stage: QueryStage) {
+  protected async stage_map(stage: QueryStage) {
     const runmap = (root: string) => DecodeFunction(stage.args[0], this.context, [root]);
 
     if (this.isChangeStream) {
       this.pipeline.push({
         $project: {
-          fullDocument: runmap('$fullDocument'),
-          fullDocumentBeforeChange: runmap('$fullDocumentBeforeChange'),
+          fullDocument: await runmap('$fullDocument'),
+          fullDocumentBeforeChange: await runmap('$fullDocumentBeforeChange'),
         },
       });
     } else {
       const root = this.getRoot();
-      this.setRoot(runmap(root));
+      this.setRoot(await runmap(root));
     }
     return this;
   }
 
-  protected stage_filter(stage: QueryStage) {
+  protected async stage_filter(stage: QueryStage) {
     const filterRoot = this.isChangeStream ? '$fullDocument' : this.getRoot();
-    const filterResult = DecodeFunction(stage.args[0], this.context, [filterRoot]);
+    const filterResult = await DecodeFunction(stage.args[0], this.context, [filterRoot]);
     this.pipeline.push({
       $match: { $expr: filterResult },
     });
@@ -230,7 +230,7 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected stage_join(stage: QueryStage) {
+  protected async stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, 'Join not supported in change streams');
     const innerOnly = stage.options.innerOnly;
     const rightStream = SelectionQuery.decode(stage.args[0]);
@@ -246,7 +246,7 @@ export class AggregationPipeline {
         let: { [tmp]: root },
         pipeline: [
           {
-            $match: { $expr: DecodeFunction(predicate, this.context, ['$$' + tmp, '$$ROOT']) },
+            $match: { $expr: await DecodeFunction(predicate, this.context, ['$$' + tmp, '$$ROOT']) },
           },
           ...rightStream.pipeline,
         ],
@@ -259,7 +259,7 @@ export class AggregationPipeline {
         },
       },
     );
-    this.setRoot(DecodeFunction(mapper, this.context, [root, '$' + tmp]));
+    this.setRoot(await DecodeFunction(mapper, this.context, [root, '$' + tmp]));
     this.pipeline.push({
       // TODO?: collect obsolete fields and remove them all at the end
       $unset: {
@@ -305,7 +305,7 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected stage_group(stage: QueryStage) {
+  protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
     const group = Temporary();
     const setupStage: Record<string, unknown> = { [group]: this.getField(stage.options.index) };
@@ -332,7 +332,7 @@ export class AggregationPipeline {
       setupStage[tmp] = root;
       return '$' + tmp;
     };
-    const result = DecodeFunction(stage.args[0], this.context, [pipelineInserter, '$' + group]); // TODO: support named indexes by referencing schema
+    const result = await DecodeFunction(stage.args[0], this.context, [pipelineInserter, '$' + group]); // TODO: support named indexes by referencing schema
     this.setRoot(result);
     return this;
   }

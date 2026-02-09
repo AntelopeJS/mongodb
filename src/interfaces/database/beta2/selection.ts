@@ -88,10 +88,10 @@ export class Table<T> extends Selection<T> {
    * Inserts one or more documents into this table
    *
    * @param obj Document(s) to insert
-   * @returns Number of documents inserted
+   * @returns Inserted IDs
    */
   public insert(obj: DeepPartial<T> | DeepPartial<T>[]) {
-    return this.stage(Query<number>, 'insert', undefined, obj);
+    return this.stage(Query<string[]>, 'insert', undefined, obj);
   }
 
   /**

@@ -28,17 +28,17 @@ export async function DecodeValue(value: Value<unknown>, context: DecodingContex
     return undefined;
   }
 
-  return { $literal: value };
+  return typeof value === 'object' ? { $literal: value } : value;
 }
 
 export async function DecodeFunction(func: QueryStage, context: DecodingContext, args: (string | ArgumentProvider)[]) {
   const argNumbers = func.args[0];
-  for (let i = 0; i < argNumbers; ++i) {
+  for (let i = 0; i < argNumbers.length; ++i) {
     assert(args[i], 'Unexpected argument');
     context.args[argNumbers[i]] = args[i];
   }
   const val = await DecodeValue(func.args[1], context);
-  for (let i = 0; i < argNumbers; ++i) {
+  for (let i = 0; i < argNumbers.length; ++i) {
     delete context.args[argNumbers[i]];
   }
   return val;
@@ -46,5 +46,6 @@ export async function DecodeFunction(func: QueryStage, context: DecodingContext,
 
 export async function RunQuery(stages: QueryStage[]) {
   const query = await SelectionQuery.decode(stages);
+  console.log(JSON.stringify(query));
   return await query.run();
 }

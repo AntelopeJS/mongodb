@@ -46,20 +46,20 @@ export class Expression {
       const callback = this[stageCallback as keyof this];
       if (typeof callback === 'string') {
         this.value = {
-          [callback]: stage.args.length === 0 ? this.value : stage.args.map((arg) => DecodeValue(arg, this.context)),
+          [callback]: stage.args.length === 0 ? this.value : [this.value, ...await Promise.all(stage.args.map((arg) => DecodeValue(arg, this.context)))],
         };
       } else if (callback instanceof Function) {
         this.options = stage.options;
-        this.value = callback.apply(
+        this.value = await callback.apply(
           this,
-          stage.args.map((arg) => DecodeValue(arg, this.context)),
+          await Promise.all(stage.args.map((arg) => DecodeValue(arg, this.context))),
         );
       }
     }
     delete this.options;
   }
 
-  stage_arg(num: number) {
+  async stage_arg(num: number) {
     return this.context.args[num];
   }
   stage_constant(constant: unknown) {
