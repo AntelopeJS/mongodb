@@ -2,8 +2,8 @@ import { StagedObject } from '@ajs.local/database/beta2/common';
 import { generate as randomstring } from 'randomstring';
 import assert from 'assert';
 
-export function Temporary() {
-  return `temporary_${randomstring({ capitalization: 'lowercase', length: 16 })}`;
+export function Temporary(name?: string) {
+  return `temporary_${name ? name + '_' : ''}${randomstring({ capitalization: 'lowercase', length: 16 })}`;
 }
 
 export type QueryStage = StagedObject['stages'][number];

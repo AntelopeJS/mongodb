@@ -91,6 +91,19 @@ export class AggregationPipeline {
     return this.singleElement ? result[0] : result;
   }
 
+  public async runDebug(limit = 10): Promise<any[]> {
+    const collection = await GetCollection(this.database, this.collection);
+    const results = [];
+    try {
+      for (let i = 0; i <= this.pipeline.length; ++i) {
+        results[i] = await collection.aggregate([...this.pipeline.slice(0, i), { $limit: limit }]).toArray();
+      }
+    } catch (e) {
+      results.push(e);
+    }
+    return results;
+  }
+
   private getRoot() {
     return this.wrappedObject ? '$' + this.wrappedObject : '$$ROOT';
   }
@@ -98,7 +111,7 @@ export class AggregationPipeline {
   private setRoot(val: unknown) {
     if (this.wrappedObject) {
       this.pipeline.push({
-        $project: { [this.wrappedObject]: val },
+        $addFields: { [this.wrappedObject]: val },
       });
     } else {
       this.pipeline.push({
@@ -239,7 +252,7 @@ export class AggregationPipeline {
     assert(rightStream instanceof SelectionQuery);
     assert(rightStream.database === this.database);
     const root = this.getRoot();
-    const tmp = Temporary();
+    const tmp = Temporary('join');
     this.pipeline.push(
       {
         from: rightStream.collection,
@@ -278,7 +291,7 @@ export class AggregationPipeline {
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;
 
-    const tmp = Temporary();
+    const tmp = Temporary('lookup');
     this.pipeline.push(
       {
         $lookup: {
@@ -307,32 +320,51 @@ export class AggregationPipeline {
 
   protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
-    const group = Temporary();
-    const setupStage: Record<string, unknown> = { [group]: this.getField(stage.options.index) };
+    const group = Temporary('group');
+    const setupStage: Record<string, unknown> = { [group]: '$' + this.getField(stage.options.index) };
     this.pipeline.push({
-      $addFields: setupStage,
+      [this.wrappedObject ? '$addFields' : '$project']: setupStage,
     });
+    const groupStage: Record<string, any> = {
+      _id: '$' + group,
+      [group]: { $first: '$' + group },
+    };
+    const beforeGroup: any[] = [];
+    const afterGroup: any[] = [];
     const pipelineInserter = async (stages: QueryStage[]) => {
-      const tmp = Temporary();
+      const tmp = Temporary('groupstream');
       const subquery = await AggregationPipeline.decode(stages, this.context, (subquery) => {
         subquery.wrappedObject = tmp;
         subquery.inCompoundObject = true;
       });
+      let isBeforeGroup = true;
       for (const stage of subquery.pipeline) {
         if ('$group' in stage) {
           if (stage.$group._id) {
             stage.$group._id = `$${tmp}.${stage.$group._id}`;
+            // TODO: sub groups are way more complicated than anticipated
           } else {
-            stage.$group._id = '$' + group;
+            delete stage.$group._id;
+            Object.assign(groupStage, stage.$group);
+            isBeforeGroup = false;
           }
+        } else if (isBeforeGroup) {
+          beforeGroup.push(stage)
+        } else {
+          afterGroup.push(stage);
         }
-        this.pipeline.push(stage);
+      }
+      if (isBeforeGroup) {
+        // no group stage found, make stream into an array
+        groupStage[tmp] = { $push: '$' + tmp };
       }
       //TODO: interleave stages?
       setupStage[tmp] = root;
       return '$' + tmp;
     };
     const result = await DecodeFunction(stage.args[0], this.context, [pipelineInserter, '$' + group]); // TODO: support named indexes by referencing schema
+    this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
+    console.log(result, stage.args[0], group);
     this.setRoot(result);
     return this;
   }
