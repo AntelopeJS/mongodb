@@ -46,6 +46,5 @@ export async function DecodeFunction(func: QueryStage, context: DecodingContext,
 
 export async function RunQuery(stages: QueryStage[]) {
   const query = await SelectionQuery.decode(stages);
-  console.log(JSON.stringify(query));
   return await query.run();
 }
