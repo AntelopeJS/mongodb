@@ -11,7 +11,7 @@ export type User = {
   version?: number;
   status?: string;
   salary?: number;
-  score?: bigint;
+  score?: number;
   metadata?: {
     level?: number;
     tags?: string[];
@@ -37,7 +37,7 @@ export const users: User[] = [
     version: 1,
     status: 'active',
     salary: 50000,
-    score: BigInt(1000000000000000),
+    score: 1000000000000000,
     metadata: {
       level: 3,
       tags: ['senior', 'frontend'],
@@ -59,7 +59,7 @@ export const users: User[] = [
     version: 1,
     status: 'inactive',
     salary: -15000,
-    score: BigInt(-999999999999999),
+    score: -999999999999999,
     metadata: {
       level: 1,
       tags: ['junior', 'design'],
@@ -81,7 +81,7 @@ export const users: User[] = [
     version: 1,
     status: 'active',
     salary: 0,
-    score: BigInt(0),
+    score: 0,
     metadata: {
       level: 2,
       tags: ['mid-level', 'backend'],
@@ -103,7 +103,7 @@ export const users: User[] = [
     version: 1,
     status: 'active',
     salary: 90000,
-    score: BigInt('999999999999999999'),
+    score: 999999999999999999,
     metadata: {
       level: 5,
       tags: ['senior', 'management'],
@@ -125,7 +125,7 @@ export const users: User[] = [
     version: 1,
     status: 'active',
     salary: 60000,
-    score: BigInt(-500000000000000),
+    score: -500000000000000,
     metadata: {
       level: 4,
       tags: ['senior', 'backend'],

@@ -4,8 +4,20 @@ export type Vehicle = {
   manufactured: Date;
   price: number;
   isElectric: boolean;
-  kilometers: bigint;
+  kilometers: number;
 };
+
+export const Vehicle = {
+  fields: {
+    id: 'string',
+    car: 'string',
+    manufactured: 'date',
+    price: 'number',
+    isElectric: 'boolean',
+    kilometers: 'number'
+  },
+  indexes: {},
+}
 
 export const vehicles: Vehicle[] = [
   {
@@ -13,20 +25,20 @@ export const vehicles: Vehicle[] = [
     manufactured: new Date('2003-01-01'),
     price: 3000,
     isElectric: false,
-    kilometers: BigInt(9876543210),
+    kilometers: 9876543210,
   },
   {
     car: 'Renault',
     manufactured: new Date('1960-06-30'),
     price: -1000,
     isElectric: false,
-    kilometers: BigInt(123456789012345),
+    kilometers: 123456789012345,
   },
   {
     car: 'Citroen',
     manufactured: new Date('2040-12-31'),
     price: 0,
     isElectric: true,
-    kilometers: BigInt(-100000000000000),
+    kilometers: -100000000000000,
   },
 ];

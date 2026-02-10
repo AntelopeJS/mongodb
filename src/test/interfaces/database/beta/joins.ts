@@ -1,8 +1,8 @@
 import { Database, JoinType } from '@ajs/database/beta';
 import { expect } from 'chai';
-import { getUniqueUsers, User } from '../datasets/users';
-import { getUniqueProducts, Product } from '../datasets/products';
-import { getUniqueOrders, Order } from '../datasets/orders';
+import { getUniqueUsers, User } from '../../../datasets/users';
+import { getUniqueProducts, Product } from '../../../datasets/products';
+import { getUniqueOrders, Order } from '../../../datasets/orders';
 
 const db = Database<{
   [ordersTable]: Order;

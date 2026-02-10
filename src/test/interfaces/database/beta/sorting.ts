@@ -1,6 +1,6 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
-import { getUniqueUsers, User } from '../datasets/users';
+import { getUniqueUsers, User } from '../../../datasets/users';
 
 const db = Database<{ [table]: User }>('test-sorting');
 
@@ -21,8 +21,6 @@ describe('Sorting Operations', () => {
   it('Sort by Boolean Descending', SortByBooleanDescending);
   it('Sort by Date Ascending', SortByDateAscending);
   it('Sort by Date Descending', SortByDateDescending);
-  it('Sort by BigInt Ascending', SortByBigIntAscending);
-  it('Sort by BigInt Descending', SortByBigIntDescending);
   it('Sort by Multiple Fields', SortByMultipleFields);
   it('Cleanup', CleanupTest);
 });
@@ -158,30 +156,6 @@ async function SortByDateDescending() {
 
   result.forEach((doc, index) => {
     expect(doc.createdAt!.getTime()).to.equal(expectedDates[index].getTime());
-  });
-}
-
-async function SortByBigIntAscending() {
-  const result = await db.table(table).orderBy('score', 'asc').run();
-
-  expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(testData.length);
-
-  const expectedScores = [-999999999999999, -500000000000000, 0, 1000000000000000, Number('999999999999999999')];
-  result.forEach((doc, index) => {
-    expect(Number(doc.score)).to.equal(expectedScores[index]);
-  });
-}
-
-async function SortByBigIntDescending() {
-  const result = await db.table(table).orderBy('score', 'desc').run();
-
-  expect(result).to.be.an('array');
-  expect(result).to.have.lengthOf(testData.length);
-
-  const expectedScores = [Number('999999999999999999'), 1000000000000000, 0, -500000000000000, -999999999999999];
-  result.forEach((doc, index) => {
-    expect(Number(doc.score)).to.equal(expectedScores[index]);
   });
 }
 

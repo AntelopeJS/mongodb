@@ -1,6 +1,6 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
-import { getUniqueOrders, Order } from '../datasets/orders';
+import { getUniqueOrders, Order } from '../../../datasets/orders';
 
 const db = Database<{ [table]: Order }>('test-group-operations');
 

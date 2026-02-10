@@ -1,6 +1,6 @@
 import { Database, JoinType } from '@ajs/database/beta';
 import { expect } from 'chai';
-import { getUniqueUsers, User } from '../datasets/users';
+import { getUniqueUsers, User } from '../../../datasets/users';
 
 const db = Database<{ [table]: User }>('test-change-feeds');
 

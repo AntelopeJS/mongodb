@@ -1,6 +1,6 @@
 import { Database } from '@ajs/database/beta';
 import { expect } from 'chai';
-import { vehicles, Vehicle } from '../datasets/vehicles';
+import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
 const db = Database<{ [table]: Vehicle }>('test-basic-operations');
 
@@ -112,7 +112,7 @@ async function ReplaceTest() {
     manufactured: new Date('2023-01-01'),
     price: 50000,
     isElectric: true,
-    kilometers: BigInt(100000),
+    kilometers: 100000,
   };
 
   const result = await db.table(table).get(insertedKeys[1]).update(replacementData).run();
