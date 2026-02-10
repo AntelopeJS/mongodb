@@ -1,5 +1,5 @@
 export type OrderItem = {
-  id?: string;
+  _id?: string;
   name?: string;
   sku?: string;
   productSku?: string;
@@ -12,7 +12,7 @@ export type OrderItem = {
 };
 
 export type Order = {
-  id?: string;
+  _id?: string;
   orderId: string;
   customerName?: string;
   customerEmail?: string;
@@ -35,6 +35,30 @@ export type Order = {
     source?: string;
     priority?: number;
   };
+};
+
+export const Order = {
+  fields: {
+    orderId: 'string',
+    customerName: 'string',
+    customerEmail: 'string',
+    customerId: 'string',
+    customer: 'object',
+    deliveryType: 'string',
+    orderDate: 'Date',
+    totalAmount: 'number',
+    isPaid: 'boolean',
+    status: 'string',
+    items: 'object[]',
+    caddy: 'object[]',
+    productSku: 'string',
+    quantity: 'number',
+    totalPrice: 'number',
+    metadata: 'object',
+  },
+  indexes: {
+    customerId: {}
+  },
 };
 
 export const orders: Order[] = [

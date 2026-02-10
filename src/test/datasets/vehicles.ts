@@ -1,5 +1,5 @@
 export type Vehicle = {
-  id?: string;
+  _id?: string;
   car: string;
   manufactured: Date;
   price: number;
@@ -9,15 +9,14 @@ export type Vehicle = {
 
 export const Vehicle = {
   fields: {
-    id: 'string',
     car: 'string',
     manufactured: 'date',
     price: 'number',
     isElectric: 'boolean',
-    kilometers: 'number'
+    kilometers: 'number',
   },
   indexes: {},
-}
+};
 
 export const vehicles: Vehicle[] = [
   {

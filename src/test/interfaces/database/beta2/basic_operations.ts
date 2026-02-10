@@ -2,9 +2,9 @@ import { Schema } from '@ajs/database/beta2';
 import { expect } from 'chai';
 import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
-const table = 'test-table';
-const schema = new Schema<{ [table]: Vehicle }>('test-basic-operations', { [table]: Vehicle });
-const instance = schema.default;
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: Vehicle }>('test-basic-operations', { [tableName]: Vehicle });
+const table = schema.default.table(tableName);
 
 let insertedKeys: string[] = [];
 
@@ -19,7 +19,7 @@ describe('Basic Operations', () => {
 });
 
 async function InsertTest() {
-  const response = await instance.table(table).insert(vehicles).run();
+  const response = await table.insert(vehicles).run();
   expect(response).to.be.an('array');
 
   expect(response).to.have.lengthOf(vehicles.length);
@@ -31,7 +31,7 @@ async function InsertTest() {
 
 async function GetTest() {
   for (const key of insertedKeys) {
-    const result = await instance.table(table).get(key).run();
+    const result = await table.get(key).run();
 
     validateDocumentStructure(result, key);
     validateDocumentContent(result);
@@ -72,14 +72,14 @@ function validateDocumentContent(result: any) {
 }
 
 async function GetAllTest() {
-  const result = await instance.table(table).getAll(false as any, 'isElectric').run();
+  const result = await table.getAll(false as any, 'isElectric').run();
 
   expect(result).to.be.an('array');
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   for (const doc of result) {
-    validateDocumentStructure(doc, (doc as any)._id);
+    validateDocumentStructure(doc, doc._id!);
     expect(doc.isElectric).to.equal(false);
 
     const originalData = findOriginalTestData(doc);
@@ -88,12 +88,12 @@ async function GetAllTest() {
 }
 
 async function UpdateTest() {
-  const result = await instance.table(table).get(insertedKeys[0]).update({ price: 4000 }).run();
+  const result = await table.get(insertedKeys[0]).update({ price: 4000 }).run();
 
   expect(result).to.equal(1);
 
   vehicles[0].price = 4000;
-  const doc = await instance.table(table).get(insertedKeys[0]).run();
+  const doc = await table.get(insertedKeys[0]).run();
   expect(doc).to.not.equal(undefined);
   validateDocumentStructure(doc!, insertedKeys[0]);
   validateDocumentContent(doc!);
@@ -109,11 +109,11 @@ async function ReplaceTest() {
     kilometers: 100000,
   };
 
-  const result = await instance.table(table).get(insertedKeys[1]).update(replacementData).run();
+  const result = await table.get(insertedKeys[1]).replace(replacementData).run();
 
   expect(result).to.equal(1);
 
-  const doc = await instance.table(table).get(insertedKeys[1]).run();
+  const doc = await table.get(insertedKeys[1]).run();
   expect(doc).to.not.equal(undefined);
   validateDocumentStructure(doc!, insertedKeys[1]);
   expect(doc!.car).to.equal(replacementData.car);
@@ -123,10 +123,10 @@ async function ReplaceTest() {
 }
 
 async function DeleteTest() {
-  const result = await instance.table(table).get(insertedKeys[2]).delete().run();
+  const result = await table.get(insertedKeys[2]).delete().run();
 
   expect(result).to.equal(1);
 
-  const doc = await instance.table(table).get(insertedKeys[2]).run();
+  const doc = await table.get(insertedKeys[2]).run();
   expect(doc).to.equal(undefined);
 }

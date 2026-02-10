@@ -1,5 +1,5 @@
 export type Product = {
-  id?: string;
+  _id?: string;
   sku: string;
   name: string;
   description?: string;
@@ -19,6 +19,31 @@ export type Product = {
     warranty?: string;
     rating?: number;
   };
+};
+
+export const Product = {
+  fields: {
+    sku: 'string',
+    name: 'string',
+    description: 'string',
+    price: 'number',
+    category: 'string',
+    brand: 'string',
+    inStock: 'boolean',
+    weight: 'number',
+    dimensions: {
+      length: 'number',
+      width: 'number',
+      height: 'number',
+    },
+    tags: 'string[]',
+    metadata: {
+      manufacturer: 'string',
+      warranty: 'string',
+      rating: 'number',
+    },
+  },
+  indexes: {},
 };
 
 export const products: Product[] = [

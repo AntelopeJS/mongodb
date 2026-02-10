@@ -82,7 +82,7 @@ async function GetAllTest() {
   expect(result).to.have.lengthOf(expectedCount);
 
   for (const doc of result) {
-    validateDocumentStructure(doc, (doc as any)._id);
+    validateDocumentStructure(doc, doc._id!);
     expect(doc.isElectric).to.equal(false);
 
     const originalData = findOriginalTestData(doc);

@@ -1,5 +1,5 @@
 export type User = {
-  id?: string;
+  _id?: string;
   name: string;
   age: number;
   email?: string;
@@ -15,13 +15,36 @@ export type User = {
   metadata?: {
     level?: number;
     tags?: string[];
-    preferences?:
-      | string[]
-      | {
-          theme?: string;
-          language?: string;
-        };
+    preferences?: {
+      theme?: string;
+      language?: string;
+    };
   };
+};
+
+export const User = {
+  fields: {
+    name: 'string',
+    age: 'number',
+    email: 'string',
+    isActive: 'boolean',
+    department: 'string',
+    skills: 'string[]',
+    createdAt: 'date',
+    lastModified: 'date',
+    version: 'number',
+    status: 'string',
+    salary: 'number',
+    score: 'number',
+    metadata: {
+      level: 'number',
+      tags: 'string[]',
+      preferences: 'object',
+    },
+  },
+  indexes: {
+    email: {}
+  },
 };
 
 export const users: User[] = [
