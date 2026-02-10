@@ -169,13 +169,13 @@ export class SelectionQuery extends AggregationPipeline {
   protected async stage_update(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'update';
-    this._newValue = await DecodeValue(stage.args[0], this.context);
+    this._newValue = stage.args[0];
   }
 
   protected async stage_replace(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'replace';
-    this._newValue = await DecodeValue(stage.args[0], this.context);
+    this._newValue = stage.args[0];
   }
 
   protected stage_delete() {
