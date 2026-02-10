@@ -99,7 +99,8 @@ export class SelectionQuery extends AggregationPipeline {
   private async replace() {
     const collection = await GetCollection(this.database, this.collection);
     // add tenant_id
-    const res = await collection.updateMany(this.getFilter(), { $replaceRoot: { newRoot: this._newValue } });
+    // TODO: what should we do when there's more than one?
+    const res = await collection.replaceOne(this.getFilter(), this._newValue);
     return res.modifiedCount;
   }
 
