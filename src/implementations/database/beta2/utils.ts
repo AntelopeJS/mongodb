@@ -8,10 +8,12 @@ export function Temporary(name?: string) {
 
 export type QueryStage = StagedObject['stages'][number];
 
-export type ArgumentProvider = (subQuery: QueryStage[]) => string | Promise<string>;
+export type ArgumentProvider = (
+  subQuery: QueryStage[],
+) => Record<string, any> | string | Promise<Record<string, any> | string>;
 
 export class DecodingContext {
-  public args: Record<number, ArgumentProvider | string> = {};
+  public args: Record<string, ArgumentProvider | string> = {};
   public subquery?: ArgumentProvider; // TODO: implement in relevant pipeline stages
 
   public decodeSubquery(stages: QueryStage[]) {
@@ -26,5 +28,23 @@ export class DecodingContext {
       return this.subquery(stages);
     }
     throw new Error('Subquery with no handler?');
+  }
+
+  public withRoot(parentRoot: string) {
+    const newContext = new DecodingContext();
+    for (const [id, arg] of Object.entries(this.args)) {
+      if (typeof arg === 'string') {
+        if (arg === '$$ROOT') {
+          newContext.args[id] = parentRoot;
+        } else if (arg.match(/^\$[^\$]/)) {
+          newContext.args[id] = `${parentRoot}.${arg.substring(1)}`;
+        } else {
+          newContext.args[id] = arg; // variables? this will definitely break.
+        }
+      } else {
+        // TODO: functions, { $first } objects, anything that is passed to an arg
+      }
+    }
+    return newContext;
   }
 }

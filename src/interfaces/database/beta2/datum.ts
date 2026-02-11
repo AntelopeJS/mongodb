@@ -17,14 +17,15 @@ export class Datum<T> extends Query<T> {
    * Indexes the datum.
    *
    * TODO: Better name?
+   * TODO: typing for compound keys (a.b.c)
    *
    * @param key Field name
    * @param def Default value
    * @returns New datum with the value
    */
-  public key<K extends keyof T, U = undefined>(key: K, def?: U) {
+  public key<K extends keyof NonNullable<T>, U = undefined>(key: K, def?: U) {
     return this.stage(
-      Datum<U extends undefined ? T[K] : Exclude<T[K], undefined | null> | U>,
+      Datum<U extends undefined ? NonNullable<T>[K] : NonNullable<NonNullable<T>[K]> | U>,
       'key',
       undefined,
       key,

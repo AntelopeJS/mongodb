@@ -69,16 +69,37 @@ export class AggregationPipeline {
   }
 
   public async addStages(stages: QueryStage[]) {
-    for (const stage of stages) {
-      const stageCallback = `stage_${stage.stage}`;
-      if (!(stageCallback in this)) {
-        throw new Error('Unimplemented stage: ' + stage.stage);
+    const oldSubquery = this.context.subquery;
+    this.context.subquery = async (subQuery) => {
+      const tmp = Temporary('join');
+      const tmpRoot = Temporary('parentRoot');
+      const root = this.getRoot();
+      const rightStream = await SelectionQuery.decode(subQuery, this.context.withRoot('$$' + tmpRoot));
+      this.pipeline.push({
+        $lookup: {
+          from: rightStream.collection,
+          let: { [tmpRoot]: root },
+          pipeline: rightStream.pipeline,
+          as: tmp,
+        },
+      });
+      const resultField = `$${tmp}${rightStream.wrappedObject ? '.' + rightStream.wrappedObject : ''}`;
+      return rightStream.singleElement ? { $first: resultField } : resultField;
+    };
+    try {
+      for (const stage of stages) {
+        const stageCallback = `stage_${stage.stage}`;
+        if (!(stageCallback in this)) {
+          throw new Error('Unimplemented stage: ' + stage.stage);
+        }
+        const callback = this[stageCallback as keyof this];
+        if (!(callback instanceof Function)) {
+          continue;
+        }
+        await callback.apply(this, [stage]);
       }
-      const callback = this[stageCallback as keyof this];
-      if (!(callback instanceof Function)) {
-        continue;
-      }
-      await callback.apply(this, [stage]);
+    } finally {
+      this.context.subquery = oldSubquery;
     }
   }
 
@@ -349,7 +370,7 @@ export class AggregationPipeline {
             isBeforeGroup = false;
           }
         } else if (isBeforeGroup) {
-          beforeGroup.push(stage)
+          beforeGroup.push(stage);
         } else {
           afterGroup.push(stage);
         }

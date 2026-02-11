@@ -630,7 +630,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns `{...A, ...B}`
    */
   public merge<U, TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>, other: ValueProxyOrValue<U>) {
-    return this.stage(ValueProxy<Omit<TO, keyof U> & U>, 'obj_merge', undefined, other);
+    return this.stage(ValueProxy<Omit<TO, keyof U> & ExtractType<U>>, 'obj_merge', undefined, other);
   }
 
   /**
