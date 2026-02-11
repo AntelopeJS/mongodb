@@ -1,4 +1,4 @@
-import { Value } from './common';
+import { ExtractType, Value } from './common';
 import { Query } from './query';
 import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 
@@ -48,8 +48,8 @@ export class Datum<T> extends Query<T> {
    * @param mapper Mapping function
    * @returns New datum with the result of the mapper
    */
-  public do<U>(mapper: (val: ValueProxy<T>) => ValueProxyOrValue<U>) {
-    return this.stage(Datum<U>, 'map', undefined, this.callfunc(mapper, ValueProxy<T>));
+  public do<U>(mapper: (val: ValueProxy<T>) => U) {
+    return this.stage(Datum<ExtractType<U>>, 'map', undefined, this.callfunc(mapper, ValueProxy<T>));
   }
 
   /**

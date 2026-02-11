@@ -364,7 +364,6 @@ export class AggregationPipeline {
     };
     const result = await DecodeFunction(stage.args[0], this.context, [pipelineInserter, '$' + group]); // TODO: support named indexes by referencing schema
     this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
-    console.log(result, stage.args[0], group);
     this.setRoot(result);
     return this;
   }

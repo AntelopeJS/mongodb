@@ -1,6 +1,7 @@
 import { Class } from '@ajs/core/beta/decorators';
-import { ValueProxyOrValue } from './valueproxy';
+import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
+import { Query } from './query';
 
 /**
  * Recursive Partial generic type
@@ -95,3 +96,18 @@ export class StagedObject {
 
 // TODO: This adds a lot of complexity to implementations, investigate if we should remove it.
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
+
+type UnknownObject = Record<keyof any, unknown>;
+type ExtractTypeObject<T extends UnknownObject> = T extends infer O ? {
+  [K in keyof O]: ExtractType<O[K]>;
+} : never;
+export type ExtractType<T> = 
+  T extends ValueProxy<infer A>
+    ? A
+    : T extends Query<infer A>
+      ? A
+      : T extends UnknownObject
+        ? ExtractTypeObject<T>
+        : T extends Array<infer A>
+          ? Array<ExtractType<A>>
+          : T;

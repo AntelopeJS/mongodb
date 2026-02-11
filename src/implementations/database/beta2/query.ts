@@ -28,7 +28,7 @@ export async function DecodeValue(value: Value<unknown>, context: DecodingContex
     return undefined;
   }
 
-  return typeof value === 'object' ? { $literal: value } : value;
+  return typeof value === 'object' && !(value instanceof Date) ? { $literal: value } : value;
 }
 
 export async function DecodeFunction(func: QueryStage, context: DecodingContext, args: (string | ArgumentProvider)[]) {

@@ -1,4 +1,4 @@
-import { QueryStage, StagedObject } from './common';
+import { ExtractType, QueryStage, StagedObject } from './common';
 
 export type ValueProxyOrValue<T> = ValueProxy<T> | T;
 
@@ -520,8 +520,8 @@ export class ValueProxy<T> extends StagedObject {
    * @param mapper Mapping function
    * @returns New array
    */
-  public map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<U>) {
-    return this.stage(ValueProxy<U[]>, 'arr_map', undefined, this.callfunc(mapper, ValueProxy<ArrayValue<T>>));
+  public map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => U) {
+    return this.stage(ValueProxy<ExtractType<U>[]>, 'arr_map', undefined, this.callfunc(mapper, ValueProxy<ArrayValue<T>>));
   }
 
   /**

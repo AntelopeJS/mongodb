@@ -1,4 +1,4 @@
-import { Changes, Value } from './common';
+import { Changes, ExtractType, Value } from './common';
 import { Query } from './query';
 import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
@@ -50,8 +50,8 @@ export class Stream<T> extends Query<T[]> {
    * @param mapper Mapping function
    * @returns New stream
    */
-  public map<U>(mapper: (val: ValueProxy<T>) => ValueProxyOrValue<U>) {
-    return this.stage(Stream<U>, 'map', undefined, this.callfunc(mapper, ValueProxy<T>));
+  public map<U>(mapper: (val: ValueProxy<T>) => U) {
+    return this.stage(Stream<ExtractType<U>>, 'map', undefined, this.callfunc(mapper, ValueProxy<T>));
   }
 
   /**
@@ -96,11 +96,11 @@ export class Stream<T> extends Query<T[]> {
   public join<U, V>(
     right: Stream<U>,
     predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>,
-    mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => ValueProxyOrValue<V>,
+    mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => V,
     innerOnly = false,
   ) {
     return this.stage(
-      Stream<T>,
+      Stream<ExtractType<V>>,
       'join',
       { innerOnly },
       right,
@@ -139,8 +139,8 @@ export class Stream<T> extends Query<T[]> {
    * @param mapper Mapping function
    * @returns New stream of grouped data
    */
-  public group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => ValueProxyOrValue<U>) {
-    return this.stage(Stream<U>, 'group', { index }, this.callfunc(mapper, Stream<T>, ValueProxy<unknown>));
+  public group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => U) {
+    return this.stage(Stream<ExtractType<U>>, 'group', { index }, this.callfunc(mapper, Stream<T>, ValueProxy<unknown>));
   }
 
   /**
