@@ -43,7 +43,7 @@ export const User = {
     },
   },
   indexes: {
-    email: {}
+    email: {},
   },
 };
 
@@ -126,7 +126,7 @@ export const users: User[] = [
     version: 1,
     status: 'active',
     salary: 90000,
-    score: 999999999999999999,
+    score: 9999999999999,
     metadata: {
       level: 5,
       tags: ['senior', 'management'],

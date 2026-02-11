@@ -521,7 +521,12 @@ export class ValueProxy<T> extends StagedObject {
    * @returns New array
    */
   public map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => U) {
-    return this.stage(ValueProxy<ExtractType<U>[]>, 'arr_map', undefined, this.callfunc(mapper, ValueProxy<ArrayValue<T>>));
+    return this.stage(
+      ValueProxy<ExtractType<U>[]>,
+      'arr_map',
+      undefined,
+      this.callfunc(mapper, ValueProxy<ArrayValue<T>>),
+    );
   }
 
   /**

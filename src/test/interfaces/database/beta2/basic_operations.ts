@@ -95,9 +95,9 @@ async function UpdateTest() {
   vehicles[0].price = 4000;
   const doc = await table.get(insertedKeys[0]).run();
   expect(doc).to.not.equal(undefined);
-  validateDocumentStructure(doc!, insertedKeys[0]);
-  validateDocumentContent(doc!);
-  expect(doc!.price).to.equal(vehicles[0].price);
+  validateDocumentStructure(doc, insertedKeys[0]);
+  validateDocumentContent(doc);
+  expect(doc.price).to.equal(vehicles[0].price);
 }
 
 async function ReplaceTest() {
@@ -115,11 +115,11 @@ async function ReplaceTest() {
 
   const doc = await table.get(insertedKeys[1]).run();
   expect(doc).to.not.equal(undefined);
-  validateDocumentStructure(doc!, insertedKeys[1]);
-  expect(doc!.car).to.equal(replacementData.car);
-  expect(doc!.price).to.equal(replacementData.price);
-  expect(doc!.isElectric).to.equal(replacementData.isElectric);
-  expect(doc!.kilometers).to.equal(Number(replacementData.kilometers));
+  validateDocumentStructure(doc, insertedKeys[1]);
+  expect(doc.car).to.equal(replacementData.car);
+  expect(doc.price).to.equal(replacementData.price);
+  expect(doc.isElectric).to.equal(replacementData.isElectric);
+  expect(doc.kilometers).to.equal(Number(replacementData.kilometers));
 }
 
 async function DeleteTest() {

@@ -57,7 +57,7 @@ export const Order = {
     metadata: 'object',
   },
   indexes: {
-    customerId: {}
+    customerId: {},
   },
 };
 

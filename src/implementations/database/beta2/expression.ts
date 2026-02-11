@@ -46,7 +46,10 @@ export class Expression {
       const callback = this[stageCallback as keyof this];
       if (typeof callback === 'string') {
         this.value = {
-          [callback]: stage.args.length === 0 ? this.value : [this.value, ...await Promise.all(stage.args.map((arg) => DecodeValue(arg, this.context)))],
+          [callback]:
+            stage.args.length === 0
+              ? this.value
+              : [this.value, ...(await Promise.all(stage.args.map((arg) => DecodeValue(arg, this.context))))],
         };
       } else if (callback instanceof Function) {
         this.options = stage.options;

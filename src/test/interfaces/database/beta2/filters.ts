@@ -31,9 +31,7 @@ async function InsertTestData() {
 }
 
 async function FilterByStringEquality() {
-  const result = await table
-    .filter((doc) => doc.key('department').eq('Development'))
-    .run();
+  const result = await table.filter((doc) => doc.key('department').eq('Development')).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.department === 'Development').length;
@@ -48,9 +46,7 @@ async function FilterByStringEquality() {
 }
 
 async function FilterByNumberComparison() {
-  const result = await table
-    .filter((doc) => doc.key('age').gt(25))
-    .run();
+  const result = await table.filter((doc) => doc.key('age').gt(25)).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.age > 25).length;
@@ -65,9 +61,7 @@ async function FilterByNumberComparison() {
 }
 
 async function FilterByBoolean() {
-  const result = await table
-    .filter((doc) => doc.key('isActive').eq(true))
-    .run();
+  const result = await table.filter((doc) => doc.key('isActive').eq(true)).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.isActive === true).length;

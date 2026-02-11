@@ -1,6 +1,6 @@
 import { ExtractType, Value } from './common';
 import { Query } from './query';
-import { ValueProxy, ValueProxyOrValue } from './valueproxy';
+import { ValueProxy } from './valueproxy';
 
 export class Datum<T> extends Query<T> {
   /**

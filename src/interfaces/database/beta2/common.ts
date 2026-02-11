@@ -98,10 +98,12 @@ export class StagedObject {
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
 
 type UnknownObject = Record<keyof any, unknown>;
-type ExtractTypeObject<T extends UnknownObject> = T extends infer O ? {
-  [K in keyof O]: ExtractType<O[K]>;
-} : never;
-export type ExtractType<T> = 
+type ExtractTypeObject<T extends UnknownObject> = T extends infer O
+  ? {
+      [K in keyof O]: ExtractType<O[K]>;
+    }
+  : never;
+export type ExtractType<T> =
   T extends ValueProxy<infer A>
     ? A
     : T extends Query<infer A>

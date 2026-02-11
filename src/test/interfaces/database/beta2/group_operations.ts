@@ -6,7 +6,6 @@ const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Order }>('test-group-operations', { [tableName]: Order });
 const table = schema.default.table(tableName);
 
-
 // Utiliser les données commandes dédupliquées pour les groupements
 const testData = getUniqueOrders(); // Prendre seulement les commandes avec un type de livraison
 

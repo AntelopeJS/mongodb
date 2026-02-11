@@ -140,7 +140,12 @@ export class Stream<T> extends Query<T[]> {
    * @returns New stream of grouped data
    */
   public group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => U) {
-    return this.stage(Stream<ExtractType<U>>, 'group', { index }, this.callfunc(mapper, Stream<T>, ValueProxy<unknown>));
+    return this.stage(
+      Stream<ExtractType<U>>,
+      'group',
+      { index },
+      this.callfunc(mapper, Stream<T>, ValueProxy<unknown>),
+    );
   }
 
   /**

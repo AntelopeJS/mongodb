@@ -287,7 +287,7 @@ export class AggregationPipeline {
             ...rightStream.pipeline,
           ],
           as: tmp,
-        }
+        },
       },
       {
         $unwind: {
@@ -299,7 +299,7 @@ export class AggregationPipeline {
     this.setRoot(await DecodeFunction(mapper, this.context, [root, '$' + tmp]));
     this.pipeline.push({
       // TODO?: collect obsolete fields and remove them all at the end
-      $unset: [tmp]
+      $unset: [tmp],
     });
     return this;
   }

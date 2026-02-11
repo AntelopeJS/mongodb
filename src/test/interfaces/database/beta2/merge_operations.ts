@@ -9,7 +9,10 @@ const ordersTableName = 'orders';
 const usersTableName = 'users';
 const productsTableName = 'products';
 
-const schema = new Schema<{ [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product }>('test-sorting', { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product });
+const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User; [productsTableName]: Product }>(
+  'test-sorting',
+  { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product },
+);
 
 const ordersTable = schema.default.table(ordersTableName);
 const usersTable = schema.default.table(usersTableName);

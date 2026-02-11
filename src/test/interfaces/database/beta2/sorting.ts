@@ -6,7 +6,6 @@ const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: User }>('test-sorting', { [tableName]: User });
 const table = schema.default.table(tableName);
 
-
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
 
