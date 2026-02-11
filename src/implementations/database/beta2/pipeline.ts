@@ -5,6 +5,7 @@ import { SelectionQuery } from './selection';
 import { DecodingContext, Temporary } from './utils';
 import { GetCollection } from '../../../connection';
 import { GetIndex } from './schema';
+import { Stream } from '@ajs.local/database/beta2';
 
 function DefaultConstant(data: any, def: any) {
   if (def) {
@@ -267,24 +268,26 @@ export class AggregationPipeline {
   protected async stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, 'Join not supported in change streams');
     const innerOnly = stage.options.innerOnly;
-    const rightStream = SelectionQuery.decode(stage.args[0]);
+    const rightStream = await SelectionQuery.decode((stage.args[0] as Stream<any>).build(), this.context);
     const predicate = stage.args[1];
     const mapper = stage.args[2];
-    assert(rightStream instanceof SelectionQuery);
+    assert(rightStream instanceof AggregationPipeline);
     assert(rightStream.database === this.database);
     const root = this.getRoot();
     const tmp = Temporary('join');
     this.pipeline.push(
       {
-        from: rightStream.collection,
-        let: { [tmp]: root },
-        pipeline: [
-          {
-            $match: { $expr: await DecodeFunction(predicate, this.context, ['$$' + tmp, '$$ROOT']) },
-          },
-          ...rightStream.pipeline,
-        ],
-        as: tmp,
+        $lookup: {
+          from: rightStream.collection,
+          let: { [tmp]: root },
+          pipeline: [
+            {
+              $match: { $expr: await DecodeFunction(predicate, this.context, ['$$' + tmp, '$$ROOT']) },
+            },
+            ...rightStream.pipeline,
+          ],
+          as: tmp,
+        }
       },
       {
         $unwind: {
@@ -296,16 +299,14 @@ export class AggregationPipeline {
     this.setRoot(await DecodeFunction(mapper, this.context, [root, '$' + tmp]));
     this.pipeline.push({
       // TODO?: collect obsolete fields and remove them all at the end
-      $unset: {
-        [tmp]: 1,
-      },
+      $unset: [tmp]
     });
     return this;
   }
 
   protected async stage_lookup(stage: QueryStage) {
     assert(!this.isChangeStream, 'Lookup not supported in change streams');
-    const rightStream = SelectionQuery.decode(stage.args[0]);
+    const rightStream = await SelectionQuery.decode((stage.args[0] as Stream<any>).build(), this.context);
     assert(rightStream instanceof SelectionQuery);
     assert(rightStream.database === this.database);
 
