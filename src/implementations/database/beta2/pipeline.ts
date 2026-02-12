@@ -6,6 +6,7 @@ import { DecodingContext, Temporary } from './utils';
 import { GetCollection } from '../../../connection';
 import { GetIndex } from './schema';
 import { Stream } from '@ajs.local/database/beta2';
+import { AggregationCursor } from 'mongodb';
 
 function DefaultConstant(data: any, def: any) {
   if (def) {
@@ -16,6 +17,8 @@ function DefaultConstant(data: any, def: any) {
 
 export class AggregationPipeline {
   public resultType = 'stream';
+
+  private cursor?: AggregationCursor;
 
   /**
    * This query will only return one document, ignore the other
@@ -45,7 +48,7 @@ export class AggregationPipeline {
     if (isChangeStream) {
       pipeline.unshift({
         $changeStream: {
-          fullDocument: 'whenAvailable',
+          fullDocument: 'updateLookup',
           fullDocumentBeforeChange: 'whenAvailable',
         },
       });
@@ -124,6 +127,36 @@ export class AggregationPipeline {
       results.push(e);
     }
     return results;
+  }
+
+  public async readCursor() {
+    if (!this.cursor) {
+      const collection = await GetCollection(this.database, this.collection);
+      this.cursor = collection.aggregate(this.pipeline, {});
+    }
+    const change = await this.cursor.next();
+    if (this.isChangeStream) {
+      const operations: Record<string, string> = {
+        insert: 'added',
+        replace: 'modified',
+        delete: 'removed',
+      };
+      return {
+        changeType: operations[change.operationType] ?? change.operationType,
+        // TODO: figure out why fullDocumentBeforeChange is undefined
+        oldValue:
+          change.fullDocumentBeforeChange ?? (change.operationType === 'insert' ? undefined : change.documentKey),
+        newValue: change.fullDocument,
+      };
+    } else {
+      return this.wrappedObject ? change[this.wrappedObject] : change;
+    }
+  }
+
+  public async closeCursor() {
+    if (this.cursor) {
+      await this.cursor.close();
+    }
   }
 
   private getRoot() {

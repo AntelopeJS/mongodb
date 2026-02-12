@@ -4,6 +4,7 @@ import { SelectionQuery } from './selection';
 import { Query, ValueProxy } from '@ajs.local/database/beta2';
 import { ArgumentProvider, DecodingContext, QueryStage } from './utils';
 import { Expression } from './expression';
+import { AggregationPipeline } from './pipeline';
 
 export async function DecodeValue(value: Value<unknown>, context: DecodingContext): Promise<unknown> {
   if (value instanceof ValueProxy) {
@@ -47,4 +48,25 @@ export async function DecodeFunction(func: QueryStage, context: DecodingContext,
 export async function RunQuery(stages: QueryStage[]) {
   const query = await SelectionQuery.decode(stages);
   return await query.run();
+}
+
+const openQueries: Record<number, AggregationPipeline> = {};
+export async function ReadCursor(reqId: number, stages: QueryStage[]) {
+  if (!(reqId in openQueries)) {
+    const query = await SelectionQuery.decode(stages);
+    openQueries[reqId] = query;
+  }
+  const next = await openQueries[reqId].readCursor();
+  if (next === null) {
+    delete openQueries[reqId];
+  }
+
+  return { done: next === null, value: next };
+}
+
+export async function CloseCursor(reqId: number) {
+  if (reqId in openQueries) {
+    await openQueries[reqId].closeCursor();
+    delete openQueries[reqId];
+  }
 }
