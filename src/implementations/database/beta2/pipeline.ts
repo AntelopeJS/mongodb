@@ -146,6 +146,7 @@ export class AggregationPipeline {
       const operations: Record<string, string> = {
         insert: 'added',
         replace: 'modified',
+        update: 'modified',
         delete: 'removed',
       };
       return {
