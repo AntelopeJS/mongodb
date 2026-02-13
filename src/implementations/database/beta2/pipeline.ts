@@ -46,12 +46,19 @@ export class AggregationPipeline {
     public readonly context: DecodingContext,
   ) {
     if (isChangeStream) {
-      pipeline.unshift({
-        $changeStream: {
-          fullDocument: 'updateLookup',
-          fullDocumentBeforeChange: 'whenAvailable',
+      pipeline.unshift(
+        {
+          $changeStream: {
+            fullDocument: 'updateLookup',
+            fullDocumentBeforeChange: 'whenAvailable',
+          },
         },
-      });
+        {
+          $addFields: {
+            fullDocumentBeforeChange: { $ifNull: ['$fullDocumentBeforeChange', '$documentKey'] },
+          },
+        },
+      );
     }
   }
 
@@ -143,10 +150,10 @@ export class AggregationPipeline {
       };
       return {
         changeType: operations[change.operationType] ?? change.operationType,
-        // TODO: figure out why fullDocumentBeforeChange is undefined
-        oldValue:
-          change.fullDocumentBeforeChange ?? (change.operationType === 'insert' ? undefined : change.documentKey),
+        // TODO: Handle undefined fullDocumentBeforeChange better
+        oldValue: change.fullDocumentBeforeChange,
         newValue: change.fullDocument,
+        _mongo: change
       };
     } else {
       return this.wrappedObject ? change[this.wrappedObject] : change;
@@ -202,7 +209,7 @@ export class AggregationPipeline {
 
     if (this.isChangeStream) {
       this.pipeline.push({
-        $project: {
+        $addFields: {
           fullDocument: DefaultConstant(`$fullDocument.${fieldName}`, defaultValue),
           fullDocumentBeforeChange: DefaultConstant(`$fullDocumentBeforeChange.${fieldName}`, defaultValue),
         },
@@ -218,7 +225,7 @@ export class AggregationPipeline {
     const defaultValue = await DecodeValue(stage.args[0], this.context);
     if (this.isChangeStream) {
       this.pipeline.push({
-        $project: {
+        $addFields: {
           fullDocument: DefaultConstant(`$fullDocument`, defaultValue),
           fullDocumentBeforeChange: DefaultConstant(`$fullDocumentBeforeChange`, defaultValue),
         },
@@ -234,7 +241,7 @@ export class AggregationPipeline {
 
     if (this.isChangeStream) {
       this.pipeline.push({
-        $project: {
+        $addFields: {
           fullDocument: await runmap('$fullDocument'),
           fullDocumentBeforeChange: await runmap('$fullDocumentBeforeChange'),
         },
