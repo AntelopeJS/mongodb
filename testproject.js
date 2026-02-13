@@ -1,9 +1,9 @@
-const { MongoMemoryServer } = require("mongodb-memory-server-core");
+const { MongoMemoryReplSet } = require("mongodb-memory-server-core");
 
 let mongod;
 
 module.exports.setup = async function() {
-  mongod = await MongoMemoryServer.create();
+  mongod = await MongoMemoryReplSet.create({ replSet: { count: 4 }});
 
   return  {
     cacheFolder: '.antelope/cache',
