@@ -6,6 +6,13 @@ on:
       - main
       - feat/*
       - fix/*
+      - chore/*
+      - docs/*
+      - refactor/*
+      - test/*
+      - ci/*
+      - build/*
+      - perf/*
   pull_request:
     branches:
       - main
