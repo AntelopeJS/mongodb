@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import type { AggregationCursor, Collection, Db } from 'mongodb';
 import { Database, ListDatabases } from '../../../interfaces/database/beta';
-import { internal as databaseInternal, processQuery, type TranslationContext } from '../../../implementations/database/beta';
+import {
+  internal as databaseInternal,
+  processQuery,
+  type TranslationContext,
+} from '../../../implementations/database/beta';
 import * as connectionModule from '../../../connection';
 
 type QueryBuilderContext = Parameters<typeof processQuery>[0];
