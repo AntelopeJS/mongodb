@@ -33,7 +33,7 @@
     "prepack": "pnpm run build",
     "prepare": "ajs module imports install",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
-    "test": "echo \"No test specified\""
+    "test": "pnpm run build && node --test dist/test/interfaces/database/beta.test.js dist/test/interfaces/mongodb/beta.test.js"
   },
   "antelopeJs": {
     "exportsPath": "dist/interfaces",
