@@ -6,6 +6,13 @@ on:
       - main
       - feat/*
       - fix/*
+      - chore/*
+      - docs/*
+      - refactor/*
+      - test/*
+      - ci/*
+      - build/*
+      - perf/*
   pull_request:
     branches:
       - main
@@ -26,5 +33,3 @@ jobs:
       - run: pnpm prepack
       - run: pnpm lint
       - run: pnpm test
-      - name: Publish
-        run: pnpx pkg-pr-new publish --compact --no-template --pnpm
