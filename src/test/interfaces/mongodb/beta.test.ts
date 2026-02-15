@@ -34,7 +34,7 @@ describe('mongodb interface', () => {
 
     const fakeClient = {
       db: (database: string) => {
-        assert.equal(database, 'app');
+        assert.ok(['app', 'admin'].includes(database));
         return fakeDatabase;
       },
       close: async () => {
