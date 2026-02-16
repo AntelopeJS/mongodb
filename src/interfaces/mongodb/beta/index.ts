@@ -9,6 +9,7 @@
 import { MongoClient } from 'mongodb';
 
 /**
+ * @internal
  * Internal namespace for MongoDB client management
  *
  * Contains implementation details that should not be directly accessed by application code.

@@ -2,20 +2,6 @@ name: ci
 
 on:
   push:
-    branches:
-      - main
-      - feat/*
-      - fix/*
-      - chore/*
-      - docs/*
-      - refactor/*
-      - test/*
-      - ci/*
-      - build/*
-      - perf/*
-  pull_request:
-    branches:
-      - main
 
 jobs:
   ubuntu:
@@ -33,3 +19,4 @@ jobs:
       - run: pnpm prepack
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:coverage
