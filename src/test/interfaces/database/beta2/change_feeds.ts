@@ -69,8 +69,8 @@ async function InsertEventTest() {
 }
 
 async function UpdateEventTest() {
-  const results = await ReadChanges(table.filter(doc => doc.key('car').eq('Renault')).changes(), async () => {
-    await table.filter(doc => doc.key('car').eq('Renault')).update({ price: 0 });
+  const results = await ReadChanges(table.filter((doc) => doc.key('car').eq('Renault')).changes(), async () => {
+    await table.filter((doc) => doc.key('car').eq('Renault')).update({ price: 0 });
   });
 
   expect(results).to.be.an('array').of.length(2);

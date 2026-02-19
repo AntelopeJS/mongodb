@@ -154,7 +154,7 @@ export class AggregationPipeline {
         // TODO: Handle undefined fullDocumentBeforeChange better
         oldValue: change.fullDocumentBeforeChange,
         newValue: change.fullDocument,
-        _mongo: change
+        _mongo: change,
       };
     } else {
       return this.wrappedObject ? change[this.wrappedObject] : change;
