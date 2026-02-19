@@ -1,6 +1,7 @@
 import { Class } from '@ajs/core/beta/decorators';
-import { ValueProxyOrValue } from './valueproxy';
+import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
+import { Query } from './query';
 /**
  * Recursive Partial generic type
  */
@@ -45,3 +46,9 @@ export declare class StagedObject {
     protected callfunc<T extends StagedObject[]>(func: (...args: T) => any, ...args: (typeof StagedObject)[]): QueryStage;
 }
 export type Value<T> = Datum<T> | ValueProxyOrValue<T>;
+type UnknownObject = Record<keyof any, unknown>;
+type ExtractTypeObject<T extends UnknownObject> = T extends infer O ? {
+    [K in keyof O]: ExtractType<O[K]>;
+} : never;
+export type ExtractType<T> = T extends ValueProxy<infer A> ? A : T extends Query<infer A> ? A : T extends UnknownObject ? ExtractTypeObject<T> : T extends Array<infer A> ? Array<ExtractType<A>> : T;
+export {};

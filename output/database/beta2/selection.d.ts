@@ -66,9 +66,9 @@ export declare class Table<T> extends Selection<T> {
      * Inserts one or more documents into this table
      *
      * @param obj Document(s) to insert
-     * @returns Number of documents inserted
+     * @returns Inserted IDs
      */
-    insert(obj: DeepPartial<T> | DeepPartial<T>[]): Query<number>;
+    insert(obj: DeepPartial<T> | DeepPartial<T>[]): Query<string[]>;
     /**
      * Gets a document using its primary key
      *

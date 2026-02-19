@@ -1,4 +1,4 @@
-import { StagedObject } from './common';
+import { ExtractType, StagedObject } from './common';
 export type ValueProxyOrValue<T> = ValueProxy<T> | T;
 /**
  * Proxy to an actual value in the database
@@ -84,74 +84,59 @@ export declare class ValueProxy<T> extends StagedObject {
      */
     during(this: Is<Date, T, this>, left: ValueProxyOrValue<Date>, right: ValueProxyOrValue<Date>): ValueProxy<boolean>;
     /**
-     * Changes the timezone of the date to the specified offset.
-     *
-     * Note: may not perform validation on the offset string.
-     *
-     * @param timezone UTC Offset
-     * @returns New date
-     */
-    intimezone(this: Is<Date, T, this>, timezone: ValueProxyOrValue<string>): ValueProxy<Date>;
-    /**
-     * Gets the timezone offset of the date.
-     *
-     * @returns Timezone offset
-     */
-    timezone(this: Is<Date, T, this>): ValueProxy<string>;
-    /**
      * Number of seconds since the start of the day.
      *
      * @returns Seconds
      */
-    timeofday(this: Is<Date, T, this>): ValueProxy<number>;
+    timeofday(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Year.
      *
      * @returns Year
      */
-    year(this: Is<Date, T, this>): ValueProxy<number>;
+    year(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Month.
      *
      * @returns Month
      */
-    month(this: Is<Date, T, this>): ValueProxy<number>;
+    month(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Day of the month.
      *
      * @returns Day of the month
      */
-    day(this: Is<Date, T, this>): ValueProxy<number>;
+    day(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Day of the week.
      *
      * @returns Day of the week
      */
-    dayofweek(this: Is<Date, T, this>): ValueProxy<number>;
+    dayofweek(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Day of the year.
      *
      * @returns Day of the year
      */
-    dayofyear(this: Is<Date, T, this>): ValueProxy<number>;
+    dayofyear(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Hour of the day.
      *
      * @returns Hours
      */
-    hours(this: Is<Date, T, this>): ValueProxy<number>;
+    hours(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Minutes.
      *
      * @returns Minutes
      */
-    minutes(this: Is<Date, T, this>): ValueProxy<number>;
+    minutes(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Seconds.
      *
      * @returns Seconds
      */
-    seconds(this: Is<Date, T, this>): ValueProxy<number>;
+    seconds(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>): ValueProxy<number>;
     /**
      * Seconds since the UNIX epoch with millisecond precision.
      *
@@ -335,7 +320,7 @@ export declare class ValueProxy<T> extends StagedObject {
      * @param mapper Mapping function
      * @returns New array
      */
-    map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => ValueProxyOrValue<U>): ValueProxy<U[]>;
+    map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => U): ValueProxy<ExtractType<U>[]>;
     /**
      * Filters the array using a predicate function.
      *
@@ -395,7 +380,7 @@ export declare class ValueProxy<T> extends StagedObject {
      * @param value Other object
      * @returns `{...A, ...B}`
      */
-    merge<U, TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>, other: ValueProxyOrValue<U>): ValueProxy<Omit<TO, keyof U> & U>;
+    merge<U, TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>, other: ValueProxyOrValue<U>): ValueProxy<Omit<TO, keyof U> & ExtractType<U>>;
     /**
      * Gets the keys of the object as an array.
      *

@@ -1,4 +1,4 @@
-import { Changes, Value } from './common';
+import { Changes, ExtractType, Value } from './common';
 import { Query } from './query';
 import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
@@ -34,7 +34,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param mapper Mapping function
      * @returns New stream
      */
-    map<U>(mapper: (val: ValueProxy<T>) => ValueProxyOrValue<U>): Stream<U>;
+    map<U>(mapper: (val: ValueProxy<T>) => U): Stream<ExtractType<U>>;
     /**
      * Filters the array using a predicate function.
      *
@@ -65,7 +65,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param innerOnly Exclude documents in the left stream that have no match in the right stream
      * @returns New stream with results of the mapping function
      */
-    join<U, V>(right: Stream<U>, predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>, mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => ValueProxyOrValue<V>, innerOnly?: boolean): Stream<T>;
+    join<U, V>(right: Stream<U>, predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>, mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => V, innerOnly?: boolean): Stream<ExtractType<V>>;
     /**
      * Transform a foreign key or array of foreign keys into a document from another stream
      *
@@ -88,7 +88,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param mapper Mapping function
      * @returns New stream of grouped data
      */
-    group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => ValueProxyOrValue<U>): Stream<U>;
+    group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => U): Stream<ExtractType<U>>;
     /**
      * Sort the stream using the given index and direction
      *
