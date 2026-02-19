@@ -28,3 +28,63 @@ export async function ListDatabases(): Promise<{ name: string }[]> {
     .then((client) => client.db('admin').command({ listDatabases: 1, nameOnly: true }))
     .then((result) => result.databases);
 }
+
+export interface IndexDefinition {
+  fields?: string[];
+}
+
+export interface TableDefinition {
+  indexes: Record<string, IndexDefinition>;
+}
+
+export interface SchemaDefinition {
+  [tableName: string]: TableDefinition;
+}
+
+async function InitializeDatabase(db: Db, schema: SchemaDefinition, _rowLevel?: boolean) {
+  const existingCollections = new Set((await db.listCollections().toArray()).map((collection) => collection.name));
+  for (const [tableId, table] of Object.entries(schema)) {
+    if (!existingCollections.has(tableId)) {
+      await db.createCollection(tableId);
+    }
+    const indexes = Object.fromEntries(
+      (await db.collection(tableId).indexes()).map((index) => [index.name ?? index.key[0], index]),
+    );
+    for (const [indexId, index] of Object.entries(table.indexes)) {
+      const fields = index.fields ?? [indexId];
+      if (indexId in indexes) {
+        const oldIndex = indexes[indexId];
+        if (Object.keys(oldIndex.key).length === fields.length && fields.every((field) => oldIndex.key[field])) {
+          continue;
+        }
+      }
+      await db.collection(tableId).createIndex(fields, { name: indexId });
+    }
+  }
+}
+
+export async function CreateTables(schemaId: string, schema: SchemaDefinition): Promise<string[]> {
+  const databases = await ListDatabases();
+  const instances = [];
+  // database-level
+  for (const { name } of databases) {
+    if (name.startsWith(schemaId + '-')) {
+      instances.push(name.substring(schemaId.length + 1));
+      const db = await GetDatabase(name);
+      await InitializeDatabase(db, schema);
+    }
+  }
+  return instances;
+}
+
+export async function CreateSchemaInstance(schemaId: string, instanceId: string, schema: SchemaDefinition) {
+  // database-level
+  const db = await GetDatabase(`${schemaId}-${instanceId}`);
+  await InitializeDatabase(db, schema);
+}
+
+export async function DestroySchemaInstance(schemaId: string, instanceId: string) {
+  // database-level
+  const db = await GetDatabase(`${schemaId}-${instanceId}`);
+  await db.dropDatabase();
+}
