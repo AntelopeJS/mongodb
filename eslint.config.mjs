@@ -18,6 +18,7 @@ export default tseslint.config(
       '**/*.min.js',
       'pnpm-lock.yaml',
       'eslint.config.mjs',
+      'testproject.js',
       'playground/dist',
       'playground/.antelope/cache',
       'playground/node_modules',
