@@ -1,11 +1,11 @@
-import { QueryStage } from '@ajs.local/database/beta2/common';
+import { QueryStage } from '@ajs.local/database/beta/common';
 import { DecodeFunction, DecodeValue } from './query';
 import assert from 'assert';
 import { SelectionQuery } from './selection';
 import { DecodingContext, Temporary } from './utils';
 import { GetCollection } from '../../../connection';
 import { GetIndex } from './schema';
-import { Stream } from '@ajs.local/database/beta2';
+import { Stream } from '@ajs.local/database/beta';
 import { AggregationCursor } from 'mongodb';
 
 function DefaultConstant(data: any, def: any) {

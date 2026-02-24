@@ -1,4 +1,4 @@
-import { StagedObject } from '@ajs.local/database/beta2/common';
+import { StagedObject } from '@ajs.local/database/beta/common';
 import { generate as randomstring } from 'randomstring';
 import assert from 'assert';
 

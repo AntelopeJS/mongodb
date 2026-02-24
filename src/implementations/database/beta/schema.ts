@@ -1,4 +1,4 @@
-import { SchemaDefinition } from '@ajs.local/database/beta2/schema';
+import { SchemaDefinition } from '@ajs.local/database/beta/schema';
 import { CreateSchemaInstance, CreateTables, DestroySchemaInstance } from '../../../connection';
 import { assert } from 'console';
 

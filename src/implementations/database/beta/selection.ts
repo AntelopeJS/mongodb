@@ -1,4 +1,4 @@
-import { QueryStage } from '@ajs.local/database/beta2/common';
+import { QueryStage } from '@ajs.local/database/beta/common';
 import { AggregationPipeline } from './pipeline';
 import { assert } from 'console';
 import { DecodingContext } from './utils';

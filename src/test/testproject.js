@@ -1,11 +1,11 @@
-const { MongoMemoryReplSet } = require("mongodb-memory-server-core");
+const { MongoMemoryReplSet } = require('mongodb-memory-server-core');
 
 let mongod;
 
-module.exports.setup = async function() {
-  mongod = await MongoMemoryReplSet.create({ replSet: { count: 4 }});
+module.exports.setup = async function () {
+  mongod = await MongoMemoryReplSet.create({ replSet: { count: 4 } });
 
-  return  {
+  return {
     cacheFolder: '.antelope/cache',
     modules: {
       local: {
@@ -19,9 +19,8 @@ module.exports.setup = async function() {
       },
     },
   };
-}
+};
 
-module.exports.cleanup = async function() {
+module.exports.cleanup = async function () {
   await mongod.stop();
-}
-
+};

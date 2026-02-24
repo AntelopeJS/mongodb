@@ -24,8 +24,6 @@
   "packageManager": "pnpm@10.6.5",
   "scripts": {
     "build": "rimraf dist && tsc",
-    "dev:prepare": "cd playground && ajs module imports install",
-    "dev": "ajs project run -w -p playground",
     "format": "prettier --write .",
     "generate": "ajs module exports generate",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
@@ -46,7 +44,7 @@
       "url": "mongodb://localhost:27017"
     },
     "test": {
-      "project": "testproject.js",
+      "project": "src/test/testproject.js",
       "folder": "dist/test"
     }
   },

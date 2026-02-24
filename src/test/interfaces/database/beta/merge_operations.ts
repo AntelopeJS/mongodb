@@ -1,19 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueUsers, User } from '../../../datasets/users';
 import { getUniqueProducts, Product } from '../../../datasets/products';
 import { getUniqueOrders, Order } from '../../../datasets/orders';
 
-const db = Database<{
-  [ordersTable]: Order;
-  [usersTable]: User;
-  [productsTable]: Product;
-}>('test-merge-operations');
+const ordersTableName = 'orders';
+const usersTableName = 'users';
+const productsTableName = 'products';
 
-const ordersTable = 'orders';
-const usersTable = 'users';
-const productsTable = 'products';
+const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User; [productsTableName]: Product }>(
+  'test-merge-operations',
+  { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product },
+);
+
+const ordersTable = schema.default.table(ordersTableName);
+const usersTable = schema.default.table(usersTableName);
+const productsTable = schema.default.table(productsTableName);
 
 // Utiliser le dataset unifié
 const usersData = getUniqueUsers();
@@ -42,23 +45,22 @@ describe('Merge Operations', () => {
 });
 
 async function InsertTestData() {
-  const usersResponse = await db.table(usersTable).insert(usersData).run();
-  const productsResponse = await db.table(productsTable).insert(productsData).run();
-  const ordersResponse = await db.table(ordersTable).insert(ordersData).run();
+  const usersResponse = await usersTable.insert(usersData).run();
+  const productsResponse = await productsTable.insert(productsData).run();
+  const ordersResponse = await ordersTable.insert(ordersData).run();
 
-  expect(usersResponse).to.have.property('inserted', usersData.length);
-  expect(productsResponse).to.have.property('inserted', productsData.length);
-  expect(ordersResponse).to.have.property('inserted', ordersData.length);
+  expect(usersResponse).to.be.an('array');
+  expect(productsResponse).to.be.an('array');
+  expect(ordersResponse).to.be.an('array');
 
-  insertedKeys.users = Object.values(usersResponse.generated_keys ?? {});
-  insertedKeys.products = Object.values(productsResponse.generated_keys ?? {});
-  insertedKeys.orders = Object.values(ordersResponse.generated_keys ?? {});
+  insertedKeys.users = usersResponse;
+  insertedKeys.products = productsResponse;
+  insertedKeys.orders = ordersResponse;
 }
 
 async function MergeCustomerWithUserData() {
-  const result = await db
-    .table(ordersTable)
-    .map((row) => row.merge({ orderSummary: { totalAmount: row('totalAmount'), isPaid: row('isPaid') } }))
+  const result = await ordersTable
+    .map((row) => row.merge({ orderSummary: { totalAmount: row.key('totalAmount'), isPaid: row.key('isPaid') } }))
     .run();
 
   expect(result).to.be.an('array');
@@ -76,9 +78,8 @@ async function MergeCustomerWithUserData() {
 }
 
 async function MergeOrderItemsWithProductData() {
-  const result = await db
-    .table(ordersTable)
-    .map((row) => row.merge({ orderInfo: { totalAmount: row('totalAmount'), isPaid: row('isPaid') } }))
+  const result = await ordersTable
+    .map((row) => row.merge({ orderInfo: { totalAmount: row.key('totalAmount'), isPaid: row.key('isPaid') } }))
     .run();
 
   expect(result).to.be.an('array');
@@ -96,14 +97,13 @@ async function MergeOrderItemsWithProductData() {
 }
 
 async function MergeMultipleObjects() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .map((row) =>
       row.merge({
         orderDetails: {
-          customerEmail: row('customerEmail'),
-          customerName: row('customerName'),
-          totalAmount: row('totalAmount'),
+          customerEmail: row.key('customerEmail'),
+          customerName: row.key('customerName'),
+          totalAmount: row.key('totalAmount'),
         },
         metadata: {
           orderDate: new Date(),
@@ -128,14 +128,13 @@ async function MergeMultipleObjects() {
 }
 
 async function MergeWithConditionalLogic() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .map((row) =>
       row.merge({
-        orderStatus: row('status').eq('completed').default('pending'),
-        totalAmount: row('totalAmount'),
-        isHighValue: row('totalAmount').gt(1000),
-        isPremium: row('totalAmount').gt(1200),
+        orderStatus: row.key('status').eq('completed').default('pending'),
+        totalAmount: row.key('totalAmount'),
+        isHighValue: row.key('totalAmount').gt(1000),
+        isPremium: row.key('totalAmount').gt(1200),
       }),
     )
     .run();
@@ -166,17 +165,16 @@ async function MergeWithConditionalLogic() {
 }
 
 async function MergeNestedObjects() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .map((row) =>
       row.merge({
         customerInfo: {
-          customerEmail: row('customerEmail'),
-          customerName: row('customerName'),
+          customerEmail: row.key('customerEmail'),
+          customerName: row.key('customerName'),
         },
         orderInfo: {
-          totalAmount: row('totalAmount'),
-          isPaid: row('isPaid'),
+          totalAmount: row.key('totalAmount'),
+          isPaid: row.key('isPaid'),
         },
       }),
     )
@@ -196,8 +194,7 @@ async function MergeNestedObjects() {
 }
 
 async function MergeWithDefaultValues() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .map((row) =>
       row.merge({
         shipping: {
@@ -229,12 +226,12 @@ async function MergeWithDefaultValues() {
 
 async function CleanupTest() {
   for (const key of insertedKeys.orders) {
-    await db.table(ordersTable).get(key).delete().run();
+    await ordersTable.get(key).delete().run();
   }
   for (const key of insertedKeys.products) {
-    await db.table(productsTable).get(key).delete().run();
+    await productsTable.get(key).delete().run();
   }
   for (const key of insertedKeys.users) {
-    await db.table(usersTable).get(key).delete().run();
+    await usersTable.get(key).delete().run();
   }
 }
