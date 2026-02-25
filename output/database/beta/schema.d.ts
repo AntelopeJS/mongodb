@@ -46,6 +46,14 @@ export interface SchemaDefinition {
 export declare class Schema<T = any> extends StagedObject {
     readonly id: string;
     readonly definition: SchemaDefinition;
+    private static readonly registry;
+    /**
+     * Retrieves a previously defined schema by its ID
+     *
+     * @param id Schema ID
+     * @returns The schema instance, or undefined if not found
+     */
+    static get(id: string): Schema | undefined;
     /**
      * Default instance of this schema for convenience
      */
@@ -71,6 +79,12 @@ export declare class Schema<T = any> extends StagedObject {
      * @returns Created instance ID
      */
     createInstance(id?: string): Query<string>;
+    /**
+     * Destroys an existing instance of the schema
+     *
+     * @param id Instance ID
+     */
+    destroyInstance(id: string): Query<void>;
 }
 /**
  * Schema instance, could be a database or a filtered portion of one depending on the implementation

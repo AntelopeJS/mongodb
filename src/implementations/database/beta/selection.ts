@@ -3,7 +3,7 @@ import { AggregationPipeline } from './pipeline';
 import { assert } from 'console';
 import { DecodingContext } from './utils';
 import { DecodeValue } from './query';
-import { CreateInstance, IsValidInstance } from './schema';
+import { CreateInstance, DestroyInstance, IsValidInstance } from './schema';
 import { GetCollection } from '../../../connection';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -33,6 +33,11 @@ export class SelectionQuery extends AggregationPipeline {
       if (stages[1].stage === 'createInstance') {
         const selection = new SelectionQuery(schemaId, instanceId ?? uuidv4(), '', false, null!);
         selection.resultType = 'createInstance';
+        return selection;
+      }
+      if (stages[1].stage === 'destroyInstance') {
+        const selection = new SelectionQuery(schemaId, instanceId, '', false, null!);
+        selection.resultType = 'destroyInstance';
         return selection;
       }
       assert(instanceId, 'Missing instance');
@@ -79,6 +84,10 @@ export class SelectionQuery extends AggregationPipeline {
     return this.instanceId;
   }
 
+  private async destroyInstance() {
+    await DestroyInstance(this.schemaId, this.instanceId);
+  }
+
   private async insert() {
     const collection = await GetCollection(this.database, this.collection);
     const documents = Array.isArray(this._newValue) ? this._newValue : [this._newValue];
@@ -114,6 +123,8 @@ export class SelectionQuery extends AggregationPipeline {
     switch (this.resultType) {
       case 'createInstance':
         return this.createInstance();
+      case 'destroyInstance':
+        return this.destroyInstance();
       case 'insert':
         return this.insert();
       case 'update':

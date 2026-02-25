@@ -53,6 +53,18 @@ export const Schemas = new RegisteringProxy<(name: string, def: SchemaDefinition
  * The internal organization of these instances is left up to the module implementation
  */
 export class Schema<T = any> extends StagedObject {
+  private static readonly registry = new Map<string, Schema>();
+
+  /**
+   * Retrieves a previously defined schema by its ID
+   *
+   * @param id Schema ID
+   * @returns The schema instance, or undefined if not found
+   */
+  public static get(id: string): Schema | undefined {
+    return Schema.registry.get(id);
+  }
+
   /**
    * Default instance of this schema for convenience
    */
@@ -70,6 +82,7 @@ export class Schema<T = any> extends StagedObject {
   ) {
     super(QueryStage('schema', { id }));
     Schemas.register(id, definition);
+    Schema.registry.set(id, this);
   }
 
   /**
@@ -90,6 +103,15 @@ export class Schema<T = any> extends StagedObject {
    */
   public createInstance(id?: string) {
     return this.stage(Query<string>, 'createInstance', { id });
+  }
+
+  /**
+   * Destroys an existing instance of the schema
+   *
+   * @param id Instance ID
+   */
+  public destroyInstance(id: string) {
+    return this.stage(Query<void>, 'destroyInstance', { id });
   }
 }
 

@@ -263,7 +263,7 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected pluck(stage: QueryStage) {
+  protected stage_pluck(stage: QueryStage) {
     const pluckObject: any = {};
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
@@ -462,6 +462,7 @@ export class AggregationPipeline {
   // Reduction stages
 
   protected stage_count(stage: QueryStage) {
+    this.singleElement = true;
     if (stage.options.field) {
       const field = this.getField(stage.options.field);
       const wrapped = this.makeWrapped();
@@ -489,6 +490,7 @@ export class AggregationPipeline {
   }
 
   protected stage_sum(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -501,6 +503,7 @@ export class AggregationPipeline {
   }
 
   protected stage_avg(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -513,6 +516,7 @@ export class AggregationPipeline {
   }
 
   protected stage_min(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -525,6 +529,7 @@ export class AggregationPipeline {
   }
 
   protected stage_max(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -539,25 +544,16 @@ export class AggregationPipeline {
   protected stage_distinct(stage: QueryStage) {
     const field = this.getField(stage.options.field);
     const wrapped = this.makeWrapped();
-    if (stage.options.field) {
-      this.pipeline.push({
+    this.pipeline.push(
+      {
         $group: {
           _id: null,
           [wrapped]: { $addToSet: '$' + field },
         },
-      });
-    } else {
-      this.pipeline.push(
-        {
-          $group: {
-            _id: null,
-            [wrapped]: { $addToSet: '$' + field },
-          },
-        },
-        {
-          $unwind: { path: '$' + wrapped },
-        },
-      );
-    }
+      },
+      {
+        $unwind: { path: '$' + wrapped },
+      },
+    );
   }
 }
