@@ -26,6 +26,16 @@ let insertedKeys: {
 };
 
 describe('Lookup Operations', () => {
+  before(async () => {
+    await ordersTable.delete().run();
+    await usersTable.delete().run();
+  });
+
+  after(async () => {
+    await ordersTable.delete().run();
+    await usersTable.delete().run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Lookup Basic', LookupBasic);
   it('Lookup With Filter', LookupWithFilter);

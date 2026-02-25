@@ -9,6 +9,14 @@ const table = schema.default.table(tableName);
 let insertedKeys: string[] = [];
 
 describe('Aggregation & Projection Operations', () => {
+  before(async () => {
+    await table.delete().run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Count All', CountAll);
   it('Count Field', CountField);

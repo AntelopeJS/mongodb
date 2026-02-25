@@ -12,6 +12,14 @@ const testData = getUniqueOrders(); // Prendre seulement les commandes avec un t
 let insertedKeys: string[] = [];
 
 describe('Group Operations', () => {
+  before(async () => {
+    await table.delete().run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Group by Delivery Type with Simple Count', GroupByDeliveryTypeWithCount);
   it('Group by Delivery Type with Average Price', GroupByDeliveryTypeWithAveragePrice);

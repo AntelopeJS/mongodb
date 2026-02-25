@@ -44,6 +44,7 @@ export const User = {
   },
   indexes: {
     email: {},
+    name: {},
   },
 };
 

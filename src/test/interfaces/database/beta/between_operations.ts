@@ -9,6 +9,14 @@ const table = schema.default.table(tableName);
 let insertedKeys: string[] = [];
 
 describe('Between Operations', () => {
+  before(async () => {
+    await table.delete().run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Between Inclusive Low Exclusive High', BetweenInclusiveExclusive);
   it('Between All', BetweenAll);

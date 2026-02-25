@@ -435,7 +435,8 @@ export class AggregationPipeline {
     assert(!this.isChangeStream, 'OrderBy not supported in change streams');
     const index = GetIndex(this.schemaId, this.collection, stage.options.index);
     const direction = stage.options.direction === 'desc' ? -1 : 1;
-    const fields = index.fields!.map((field) => [this.getField(field), direction]);
+    const indexFields = index.fields ?? [stage.options.index];
+    const fields = indexFields.map((field) => [this.getField(field), direction]);
     this.pipeline.push({
       $sort: Object.fromEntries(fields),
     });

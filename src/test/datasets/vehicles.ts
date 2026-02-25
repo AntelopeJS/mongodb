@@ -17,6 +17,8 @@ export const Vehicle = {
   },
   indexes: {
     isElectric: {},
+    price: {},
+    car: {},
   },
 };
 
