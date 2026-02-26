@@ -15,7 +15,6 @@ export const Schemas = {
     for (const instance of instances) {
       existingInstances[schemaId].add(instance);
     }
-    await CreateInstance(schemaId, 'default');
   },
   unregister(schemaId: string) {
     delete existingSchemas[schemaId];
