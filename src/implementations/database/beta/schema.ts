@@ -10,10 +10,13 @@ export const existingInstances: Record<string, Set<string>> = {};
 export const Schemas = {
   async register(schemaId: string, schema: SchemaDefinition) {
     existingSchemas[schemaId] = schema;
-    existingInstances[schemaId] = new Set<string>();
+    const instanceSet = new Set<string>();
+    existingInstances[schemaId] = instanceSet;
     const instances = await CreateTables(schemaId, schema);
+    // If unregistered during await (e.g. HMR), skip
+    if (existingInstances[schemaId] !== instanceSet) return;
     for (const instance of instances) {
-      existingInstances[schemaId].add(instance);
+      instanceSet.add(instance);
     }
   },
   unregister(schemaId: string) {
