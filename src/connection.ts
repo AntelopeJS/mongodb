@@ -53,9 +53,7 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: b
     }
     const collection = db.collection(tableId);
     const existingIndexes = await collection.indexes();
-    const indexesByName = Object.fromEntries(
-      existingIndexes.map((index) => [index.name, index]),
-    );
+    const indexesByName = Object.fromEntries(existingIndexes.map((index) => [index.name, index]));
     const indexesByFields = Object.fromEntries(
       existingIndexes.map((index) => [Object.keys(index.key).join(','), index]),
     );
@@ -66,8 +64,9 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: b
       const existingByFields = indexesByFields[fieldsKey];
 
       if (existingByName) {
-        const nameFieldsMatch = Object.keys(existingByName.key).length === fields.length
-          && fields.every((field) => existingByName.key[field]);
+        const nameFieldsMatch =
+          Object.keys(existingByName.key).length === fields.length &&
+          fields.every((field) => existingByName.key[field]);
         if (nameFieldsMatch) {
           continue;
         }

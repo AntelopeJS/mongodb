@@ -10,7 +10,11 @@ function vehicle(car: string, price: number): Vehicle {
 
 const dbLevelSchema = new Schema<{ [tableName]: Vehicle }>('test-db-level', { [tableName]: Vehicle });
 const globalSchema = new Schema<{ [tableName]: Vehicle }>('test-global', { [tableName]: Vehicle });
-const rowLevelSchema = new Schema<{ [tableName]: Vehicle }>('test-row-level', { [tableName]: Vehicle }, { rowLevel: true });
+const rowLevelSchema = new Schema<{ [tableName]: Vehicle }>(
+  'test-row-level',
+  { [tableName]: Vehicle },
+  { rowLevel: true },
+);
 
 describe('Database-Level Instances', () => {
   it('createInstance / destroyInstance', CreateAndDestroyInstance);
@@ -196,7 +200,10 @@ async function RowLevelScopedUpdate() {
   const t2Before = await t2Table.run();
   const t2PriceBefore = t2Before[0].price;
 
-  await t1Table.filter((doc: any) => doc.key('car').eq('Peugeot')).update({ price: 1 }).run();
+  await t1Table
+    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .update({ price: 1 })
+    .run();
 
   const t2After = await t2Table.run();
   expect(t2After[0].price).to.equal(t2PriceBefore);

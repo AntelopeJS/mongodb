@@ -1,6 +1,6 @@
 import { QueryStage } from '@ajs.local/database/beta/common';
 import { AggregationPipeline } from './pipeline';
-import { assert } from 'console';
+import assert from 'assert';
 import { DecodingContext } from './utils';
 import { DecodeValue } from './query';
 import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance, existingSchemas } from './schema';

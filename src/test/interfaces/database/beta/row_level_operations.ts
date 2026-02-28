@@ -38,7 +38,6 @@ const t2Users = multiTableSchema.instance('t2').table(usersTableName);
 const t2Products = multiTableSchema.instance('t2').table(productsTableName);
 
 let vehicleKeys: string[] = [];
-let t2VehicleKeys: string[] = [];
 
 const usersData = getUniqueUsers();
 const ordersData = getUniqueOrders();
@@ -114,7 +113,7 @@ async function TenantIsolation() {
   const t2Data: Vehicle[] = [
     { car: 'BMW', manufactured: new Date('2020-01-01'), price: 40000, isElectric: true, kilometers: 5000 },
   ];
-  t2VehicleKeys = await t2Vehicles.insert(t2Data).run();
+  await t2Vehicles.insert(t2Data).run();
 
   const t1Docs = await t1Vehicles.run();
   const t2Docs = await t2Vehicles.run();
@@ -291,7 +290,10 @@ async function UpdateScoped() {
   const t2Before = await t2Vehicles.run();
   const t2PriceBefore = t2Before[0].price;
 
-  await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).update({ price: 1 }).run();
+  await t1Vehicles
+    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .update({ price: 1 })
+    .run();
 
   const t2After = await t2Vehicles.run();
   expect(t2After[0].price).to.equal(t2PriceBefore);

@@ -1,6 +1,6 @@
 import { SchemaDefinition, SchemaOptions } from '@ajs.local/database/beta/schema';
 import { CreateSchemaInstance, CreateTables, DestroySchemaInstance } from '../../../connection';
-import { assert } from 'console';
+import assert from 'assert';
 
 export const existingSchemas: Record<string, { definition: SchemaDefinition; options: SchemaOptions }> = {};
 export const existingInstances: Record<string, Set<string>> = {};
