@@ -51,21 +51,39 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: b
     if (!existingCollections.has(tableId)) {
       await db.createCollection(tableId);
     }
-    const indexes = Object.fromEntries(
-      (await db.collection(tableId).indexes()).map((index) => [index.name ?? index.key[0], index]),
+    const collection = db.collection(tableId);
+    const existingIndexes = await collection.indexes();
+    const indexesByName = Object.fromEntries(
+      existingIndexes.map((index) => [index.name, index]),
+    );
+    const indexesByFields = Object.fromEntries(
+      existingIndexes.map((index) => [Object.keys(index.key).join(','), index]),
     );
     for (const [indexId, index] of Object.entries(table.indexes)) {
       const fields = index.fields ?? [indexId];
-      if (indexId in indexes) {
-        const oldIndex = indexes[indexId];
-        if (Object.keys(oldIndex.key).length === fields.length && fields.every((field) => oldIndex.key[field])) {
+      const fieldsKey = fields.join(',');
+      const existingByName = indexesByName[indexId];
+      const existingByFields = indexesByFields[fieldsKey];
+
+      if (existingByName) {
+        const nameFieldsMatch = Object.keys(existingByName.key).length === fields.length
+          && fields.every((field) => existingByName.key[field]);
+        if (nameFieldsMatch) {
           continue;
         }
+        await collection.dropIndex(indexId);
+      } else if (existingByFields) {
+        continue;
       }
-      await db.collection(tableId).createIndex(fields, { name: indexId });
+      await collection.createIndex(fields, { name: indexId });
     }
-    if (rowLevel && !('tenant_id' in indexes)) {
-      await db.collection(tableId).createIndex(['tenant_id'], { name: 'tenant_id' });
+    if (rowLevel) {
+      const hasTenantIndex = existingIndexes.some(
+        (index) => index.name === 'tenant_id' || (Object.keys(index.key).length === 1 && index.key['tenant_id']),
+      );
+      if (!hasTenantIndex) {
+        await collection.createIndex(['tenant_id'], { name: 'tenant_id' });
+      }
     }
   }
 }
