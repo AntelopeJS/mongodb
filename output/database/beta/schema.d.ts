@@ -36,6 +36,9 @@ export interface TableDefinition {
 export interface SchemaDefinition {
     [tableName: string]: TableDefinition;
 }
+export interface SchemaOptions {
+    rowLevel?: boolean;
+}
 /**
  * A schema determines the structure of a database
  *
@@ -46,6 +49,7 @@ export interface SchemaDefinition {
 export declare class Schema<T = any> extends StagedObject {
     readonly id: string;
     readonly definition: SchemaDefinition;
+    readonly options: SchemaOptions;
     private static readonly registry;
     /**
      * Retrieves a previously defined schema by its ID
@@ -64,14 +68,14 @@ export declare class Schema<T = any> extends StagedObject {
      * @param id ID of this schema, changing this will leave previous data inaccessible
      * @param definition Schema definition (tables, fields, indexes..)
      */
-    constructor(id: string, definition: SchemaDefinition);
+    constructor(id: string, definition: SchemaDefinition, options?: SchemaOptions);
     /**
      * Gets a specific instance of the schema
      *
      * @param id Instance ID
      * @returns Schema instance
      */
-    instance(id: string): SchemaInstance<T>;
+    instance(id?: string): SchemaInstance<T>;
     /**
      * Creates a new instance of the schema
      *
@@ -84,7 +88,7 @@ export declare class Schema<T = any> extends StagedObject {
      *
      * @param id Instance ID
      */
-    destroyInstance(id: string): Query<void>;
+    destroyInstance(id?: string): Query<void>;
 }
 /**
  * Schema instance, could be a database or a filtered portion of one depending on the implementation
