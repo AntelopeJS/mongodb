@@ -42,8 +42,12 @@ export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
+export interface SchemaOptions {
+  rowLevel?: boolean;
+}
+
 //@internal
-export const Schemas = new RegisteringProxy<(name: string, def: SchemaDefinition) => void>();
+export const Schemas = new RegisteringProxy<(name: string, def: SchemaDefinition, options: SchemaOptions) => void>();
 
 /**
  * A schema determines the structure of a database
@@ -79,9 +83,10 @@ export class Schema<T = any> extends StagedObject {
   public constructor(
     public readonly id: string,
     public readonly definition: SchemaDefinition,
+    public readonly options: SchemaOptions = {},
   ) {
     super(QueryStage('schema', { id }));
-    Schemas.register(id, definition);
+    Schemas.register(id, definition, options);
     Schema.registry.set(id, this);
   }
 
@@ -91,7 +96,7 @@ export class Schema<T = any> extends StagedObject {
    * @param id Instance ID
    * @returns Schema instance
    */
-  public instance(id: string) {
+  public instance(id?: string) {
     return this.stage(SchemaInstance<T>, 'instance', { id });
   }
 
@@ -110,7 +115,7 @@ export class Schema<T = any> extends StagedObject {
    *
    * @param id Instance ID
    */
-  public destroyInstance(id: string) {
+  public destroyInstance(id?: string) {
     return this.stage(Query<void>, 'destroyInstance', { id });
   }
 }

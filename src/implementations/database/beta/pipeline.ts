@@ -25,6 +25,8 @@ export class AggregationPipeline {
    */
   public singleElement = false;
 
+  public reductionDefault?: number;
+
   /**
    * MongoDB does not support values other than objects at the root of aggregation pipelines
    *
@@ -120,7 +122,10 @@ export class AggregationPipeline {
     if (this.wrappedObject) {
       result = result.map((element: any) => element[this.wrappedObject!]);
     }
-    return this.singleElement ? result[0] : result;
+    if (this.singleElement) {
+      return result.length > 0 ? result[0] : this.reductionDefault;
+    }
+    return result;
   }
 
   public async runDebug(limit = 10): Promise<any[]> {
@@ -464,6 +469,7 @@ export class AggregationPipeline {
 
   protected stage_count(stage: QueryStage) {
     this.singleElement = true;
+    this.reductionDefault = 0;
     if (stage.options.field) {
       const field = this.getField(stage.options.field);
       const wrapped = this.makeWrapped();
@@ -492,6 +498,7 @@ export class AggregationPipeline {
 
   protected stage_sum(stage: QueryStage) {
     this.singleElement = true;
+    this.reductionDefault = 0;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({

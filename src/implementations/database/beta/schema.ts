@@ -1,17 +1,17 @@
-import { SchemaDefinition } from '@ajs.local/database/beta/schema';
+import { SchemaDefinition, SchemaOptions } from '@ajs.local/database/beta/schema';
 import { CreateSchemaInstance, CreateTables, DestroySchemaInstance } from '../../../connection';
 import { assert } from 'console';
 
-export const existingSchemas: Record<string, SchemaDefinition> = {};
+export const existingSchemas: Record<string, { definition: SchemaDefinition; options: SchemaOptions }> = {};
 export const existingInstances: Record<string, Set<string>> = {};
 
 // TODO: watch changes to db to update existingInstances
 
 export const Schemas = {
-  async register(schemaId: string, schema: SchemaDefinition) {
-    existingSchemas[schemaId] = schema;
+  async register(schemaId: string, schema: SchemaDefinition, options: SchemaOptions) {
+    existingSchemas[schemaId] = { definition: schema, options };
     existingInstances[schemaId] = new Set<string>();
-    const instances = await CreateTables(schemaId, schema);
+    const instances = await CreateTables(schemaId, schema, options.rowLevel);
     for (const instance of instances) {
       existingInstances[schemaId].add(instance);
     }
@@ -22,9 +22,13 @@ export const Schemas = {
   },
 };
 
+export function IsRowLevel(schemaId: string): boolean {
+  return existingSchemas[schemaId]?.options?.rowLevel === true;
+}
+
 export function GetSchema(schemaId: string) {
   assert(schemaId in existingSchemas);
-  return existingSchemas[schemaId];
+  return existingSchemas[schemaId].definition;
 }
 
 export function GetTable(schemaId: string, tableId: string) {
@@ -43,24 +47,37 @@ export function GetIndex(schemaId: string, tableId: string, indexId: string, onl
   }
 }
 
-export function IsValidInstance(schemaId: string, instanceId: string) {
+export function IsValidInstance(schemaId: string, instanceId: string | undefined) {
   assert(schemaId in existingInstances);
+  if (IsRowLevel(schemaId)) {
+    if (instanceId === undefined) {
+      throw new Error(`Row-level schema '${schemaId}' requires a tenant ID`);
+    }
+    return true;
+  }
   const instances = existingInstances[schemaId];
-  return instances.has(instanceId);
+  return instances.has(instanceId ?? '');
 }
 
-export async function CreateInstance(schemaId: string, instanceId: string) {
+export async function CreateInstance(schemaId: string, instanceId: string | undefined) {
+  if (IsRowLevel(schemaId)) {
+    return;
+  }
   const schema = GetSchema(schemaId);
   const instances = existingInstances[schemaId];
-  instances.add(instanceId);
+  instances.add(instanceId ?? '');
   await CreateSchemaInstance(schemaId, instanceId, schema);
 }
 
-export async function DestroyInstance(schemaId: string, instanceId: string) {
+export async function DestroyInstance(schemaId: string, instanceId: string | undefined) {
+  if (IsRowLevel(schemaId)) {
+    return;
+  }
   assert(schemaId in existingInstances);
   const instances = existingInstances[schemaId];
-  if (instances.has(instanceId)) {
-    instances.delete(instanceId);
+  const key = instanceId ?? '';
+  if (instances.has(key)) {
+    instances.delete(key);
   }
   await DestroySchemaInstance(schemaId, instanceId);
 }

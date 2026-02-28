@@ -1,6 +1,10 @@
 import { Collection, MongoClient, MongoClientOptions, Db } from 'mongodb';
 import { internal } from '@ajs.local/mongodb/beta';
 
+export function buildDatabaseName(schemaId: string, instanceId: string | undefined): string {
+  return instanceId !== undefined ? `${schemaId}-${instanceId}` : schemaId;
+}
+
 export async function Connect(url: string, options?: MongoClientOptions) {
   Disconnect();
   const mongoClient = await MongoClient.connect(url, options);
@@ -41,7 +45,7 @@ export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
-async function InitializeDatabase(db: Db, schema: SchemaDefinition, _rowLevel?: boolean) {
+async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: boolean) {
   const existingCollections = new Set((await db.listCollections().toArray()).map((collection) => collection.name));
   for (const [tableId, table] of Object.entries(schema)) {
     if (!existingCollections.has(tableId)) {
@@ -60,13 +64,16 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, _rowLevel?: 
       }
       await db.collection(tableId).createIndex(fields, { name: indexId });
     }
+    if (rowLevel && !('tenant_id' in indexes)) {
+      await db.collection(tableId).createIndex(['tenant_id'], { name: 'tenant_id' });
+    }
   }
 }
 
-export async function CreateTables(schemaId: string, schema: SchemaDefinition): Promise<string[]> {
+export async function CreateTables(schemaId: string, schema: SchemaDefinition, rowLevel?: boolean): Promise<string[]> {
   const databases = await ListDatabases();
   const instances = [];
-  // database-level
+  // database-level instances
   for (const { name } of databases) {
     if (name.startsWith(schemaId + '-')) {
       instances.push(name.substring(schemaId.length + 1));
@@ -74,17 +81,26 @@ export async function CreateTables(schemaId: string, schema: SchemaDefinition): 
       await InitializeDatabase(db, schema);
     }
   }
+  // global instance (no instanceId)
+  for (const { name } of databases) {
+    if (name === schemaId) {
+      instances.push('');
+      const db = await GetDatabase(name);
+      await InitializeDatabase(db, schema, rowLevel);
+      break;
+    }
+  }
   return instances;
 }
 
-export async function CreateSchemaInstance(schemaId: string, instanceId: string, schema: SchemaDefinition) {
-  // database-level
-  const db = await GetDatabase(`${schemaId}-${instanceId}`);
+export async function CreateSchemaInstance(schemaId: string, instanceId: string | undefined, schema: SchemaDefinition) {
+  const dbName = buildDatabaseName(schemaId, instanceId);
+  const db = await GetDatabase(dbName);
   await InitializeDatabase(db, schema);
 }
 
-export async function DestroySchemaInstance(schemaId: string, instanceId: string) {
-  // database-level
-  const db = await GetDatabase(`${schemaId}-${instanceId}`);
+export async function DestroySchemaInstance(schemaId: string, instanceId: string | undefined) {
+  const dbName = buildDatabaseName(schemaId, instanceId);
+  const db = await GetDatabase(dbName);
   await db.dropDatabase();
 }
