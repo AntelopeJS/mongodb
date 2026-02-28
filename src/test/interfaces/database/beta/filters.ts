@@ -1,10 +1,10 @@
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueUsers, User } from '../../../datasets/users';
 
-const db = Database<{ [table]: User }>('test-filters');
-
-const table = 'test-table';
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: User }>('test-filters', { [tableName]: User });
+const table = schema.default.table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
@@ -20,24 +20,18 @@ describe('Filter Operations', () => {
 });
 
 async function InsertTestData() {
-  const response = await db.table(table).insert(testData).run();
-  expect(response).to.have.property('inserted', testData.length);
-  expect(response).to.have.property('generated_keys');
-  expect(response.generated_keys).to.be.an('object');
+  const response = await table.insert(testData).run();
+  expect(response).to.be.an('array');
 
-  const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(testData.length);
-  keys.forEach((val) => {
+  expect(response).to.have.lengthOf(testData.length);
+  response.forEach((val) => {
     expect(val).to.be.a('string');
   });
-  insertedKeys = keys;
+  insertedKeys = response;
 }
 
 async function FilterByStringEquality() {
-  const result = await db
-    .table(table)
-    .filter((doc) => doc('department').eq('Development'))
-    .run();
+  const result = await table.filter((doc) => doc.key('department').eq('Development')).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.department === 'Development').length;
@@ -52,10 +46,7 @@ async function FilterByStringEquality() {
 }
 
 async function FilterByNumberComparison() {
-  const result = await db
-    .table(table)
-    .filter((doc) => doc('age').gt(25))
-    .run();
+  const result = await table.filter((doc) => doc.key('age').gt(25)).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.age > 25).length;
@@ -70,10 +61,7 @@ async function FilterByNumberComparison() {
 }
 
 async function FilterByBoolean() {
-  const result = await db
-    .table(table)
-    .filter((doc) => doc('isActive').eq(true))
-    .run();
+  const result = await table.filter((doc) => doc.key('isActive').eq(true)).run();
 
   expect(result).to.be.an('array');
   const expectedCount = testData.filter((user) => user.isActive === true).length;
@@ -89,6 +77,6 @@ async function FilterByBoolean() {
 
 async function CleanupTest() {
   for (const key of insertedKeys) {
-    await db.table(table).get(key).delete().run();
+    await table.get(key).delete().run();
   }
 }

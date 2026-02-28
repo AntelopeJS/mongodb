@@ -1,10 +1,10 @@
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueUsers, User } from '../../../datasets/users';
 
-const db = Database<{ [table]: User }>('test-sorting');
-
-const table = 'test-table';
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: User }>('test-sorting', { [tableName]: User });
+const table = schema.default.table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
@@ -26,21 +26,18 @@ describe('Sorting Operations', () => {
 });
 
 async function InsertTestData() {
-  const response = await db.table(table).insert(testData).run();
-  expect(response).to.have.property('inserted', testData.length);
-  expect(response).to.have.property('generated_keys');
-  expect(response.generated_keys).to.be.an('object');
+  const response = await table.insert(testData).run();
+  expect(response).to.be.an('array');
 
-  const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(testData.length);
-  keys.forEach((val) => {
+  expect(response).to.have.lengthOf(testData.length);
+  response.forEach((val) => {
     expect(val).to.be.a('string');
   });
-  insertedKeys = keys;
+  insertedKeys = response;
 }
 
 async function SortByStringAscending() {
-  const result = await db.table(table).orderBy('name', 'asc').run();
+  const result = await table.orderBy('name', 'asc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -52,7 +49,7 @@ async function SortByStringAscending() {
 }
 
 async function SortByStringDescending() {
-  const result = await db.table(table).orderBy('name', 'desc').run();
+  const result = await table.orderBy('name', 'desc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -64,7 +61,7 @@ async function SortByStringDescending() {
 }
 
 async function SortByNumberAscending() {
-  const result = await db.table(table).orderBy('age', 'asc').run();
+  const result = await table.orderBy('age', 'asc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -76,7 +73,7 @@ async function SortByNumberAscending() {
 }
 
 async function SortByNumberDescending() {
-  const result = await db.table(table).orderBy('salary', 'desc').run();
+  const result = await table.orderBy('salary', 'desc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -88,7 +85,7 @@ async function SortByNumberDescending() {
 }
 
 async function SortByBooleanAscending() {
-  const result = await db.table(table).orderBy('isActive', 'asc').run();
+  const result = await table.orderBy('isActive', 'asc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -105,7 +102,7 @@ async function SortByBooleanAscending() {
 }
 
 async function SortByBooleanDescending() {
-  const result = await db.table(table).orderBy('isActive', 'desc').run();
+  const result = await table.orderBy('isActive', 'desc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -122,7 +119,7 @@ async function SortByBooleanDescending() {
 }
 
 async function SortByDateAscending() {
-  const result = await db.table(table).orderBy('createdAt', 'asc').run();
+  const result = await table.orderBy('createdAt', 'asc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -141,7 +138,7 @@ async function SortByDateAscending() {
 }
 
 async function SortByDateDescending() {
-  const result = await db.table(table).orderBy('createdAt', 'desc').run();
+  const result = await table.orderBy('createdAt', 'desc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -160,7 +157,7 @@ async function SortByDateDescending() {
 }
 
 async function SortByMultipleFields() {
-  const result = await db.table(table).orderBy('name', 'asc').orderBy('age', 'desc').run();
+  const result = await table.orderBy('name', 'asc').orderBy('age', 'desc').run();
 
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(testData.length);
@@ -181,6 +178,6 @@ async function SortByMultipleFields() {
 
 async function CleanupTest() {
   for (const key of insertedKeys) {
-    await db.table(table).get(key).delete().run();
+    await table.get(key).delete().run();
   }
 }

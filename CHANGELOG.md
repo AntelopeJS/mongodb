@@ -48,6 +48,6 @@
 
 ### Features
 
-* default config ([#4](https://github.com/AntelopeJS/mongodb/issues/4)) ([65b7174](https://github.com/AntelopeJS/mongodb/commit/65b7174ae0a091a9b7d496a49bbf45a7df9654f5))
+- default config ([#4](https://github.com/AntelopeJS/mongodb/issues/4)) ([65b7174](https://github.com/AntelopeJS/mongodb/commit/65b7174ae0a091a9b7d496a49bbf45a7df9654f5))
 
 ## 0.0.1 (2025-05-08)

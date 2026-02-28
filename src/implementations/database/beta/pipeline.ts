@@ -1,11 +1,11 @@
-import { QueryStage } from '@ajs.local/database/beta2/common';
+import { QueryStage } from '@ajs.local/database/beta/common';
 import { DecodeFunction, DecodeValue } from './query';
 import assert from 'assert';
 import { SelectionQuery } from './selection';
 import { DecodingContext, Temporary } from './utils';
 import { GetCollection } from '../../../connection';
 import { GetIndex } from './schema';
-import { Stream } from '@ajs.local/database/beta2';
+import { Stream } from '@ajs.local/database/beta';
 import { AggregationCursor } from 'mongodb';
 
 function DefaultConstant(data: any, def: any) {
@@ -24,6 +24,8 @@ export class AggregationPipeline {
    * This query will only return one document, ignore the other
    */
   public singleElement = false;
+
+  public reductionDefault?: number;
 
   /**
    * MongoDB does not support values other than objects at the root of aggregation pipelines
@@ -120,7 +122,10 @@ export class AggregationPipeline {
     if (this.wrappedObject) {
       result = result.map((element: any) => element[this.wrappedObject!]);
     }
-    return this.singleElement ? result[0] : result;
+    if (this.singleElement) {
+      return result.length > 0 ? result[0] : this.reductionDefault;
+    }
+    return result;
   }
 
   public async runDebug(limit = 10): Promise<any[]> {
@@ -263,7 +268,7 @@ export class AggregationPipeline {
     return this;
   }
 
-  protected pluck(stage: QueryStage) {
+  protected stage_pluck(stage: QueryStage) {
     const pluckObject: any = {};
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
@@ -435,7 +440,8 @@ export class AggregationPipeline {
     assert(!this.isChangeStream, 'OrderBy not supported in change streams');
     const index = GetIndex(this.schemaId, this.collection, stage.options.index);
     const direction = stage.options.direction === 'desc' ? -1 : 1;
-    const fields = index.fields!.map((field) => [this.getField(field), direction]);
+    const indexFields = index.fields ?? [stage.options.index];
+    const fields = indexFields.map((field) => [this.getField(field), direction]);
     this.pipeline.push({
       $sort: Object.fromEntries(fields),
     });
@@ -462,6 +468,8 @@ export class AggregationPipeline {
   // Reduction stages
 
   protected stage_count(stage: QueryStage) {
+    this.singleElement = true;
+    this.reductionDefault = 0;
     if (stage.options.field) {
       const field = this.getField(stage.options.field);
       const wrapped = this.makeWrapped();
@@ -489,6 +497,8 @@ export class AggregationPipeline {
   }
 
   protected stage_sum(stage: QueryStage) {
+    this.singleElement = true;
+    this.reductionDefault = 0;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -501,6 +511,7 @@ export class AggregationPipeline {
   }
 
   protected stage_avg(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -513,6 +524,7 @@ export class AggregationPipeline {
   }
 
   protected stage_min(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -525,6 +537,7 @@ export class AggregationPipeline {
   }
 
   protected stage_max(stage: QueryStage) {
+    this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
     this.pipeline.push({
@@ -539,25 +552,16 @@ export class AggregationPipeline {
   protected stage_distinct(stage: QueryStage) {
     const field = this.getField(stage.options.field);
     const wrapped = this.makeWrapped();
-    if (stage.options.field) {
-      this.pipeline.push({
+    this.pipeline.push(
+      {
         $group: {
           _id: null,
           [wrapped]: { $addToSet: '$' + field },
         },
-      });
-    } else {
-      this.pipeline.push(
-        {
-          $group: {
-            _id: null,
-            [wrapped]: { $addToSet: '$' + field },
-          },
-        },
-        {
-          $unwind: { path: '$' + wrapped },
-        },
-      );
-    }
+      },
+      {
+        $unwind: { path: '$' + wrapped },
+      },
+    );
   }
 }

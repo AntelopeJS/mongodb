@@ -1,7 +1,7 @@
-import { Value } from '@ajs.local/database/beta2/common';
+import { Value } from '@ajs.local/database/beta/common';
 import assert from 'assert';
 import { SelectionQuery } from './selection';
-import { Query, ValueProxy } from '@ajs.local/database/beta2';
+import { Query, ValueProxy } from '@ajs.local/database/beta';
 import { ArgumentProvider, DecodingContext, QueryStage } from './utils';
 import { Expression } from './expression';
 import { AggregationPipeline } from './pipeline';

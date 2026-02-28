@@ -15,7 +15,11 @@ export const Vehicle = {
     isElectric: 'boolean',
     kilometers: 'number',
   },
-  indexes: {},
+  indexes: {
+    isElectric: {},
+    price: {},
+    car: {},
+  },
 };
 
 export const vehicles: Vehicle[] = [

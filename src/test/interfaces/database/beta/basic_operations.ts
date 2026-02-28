@@ -1,10 +1,10 @@
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
-const db = Database<{ [table]: Vehicle }>('test-basic-operations');
-
-const table = 'test-table';
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: Vehicle }>('test-basic-operations', { [tableName]: Vehicle });
+const table = schema.default.table(tableName);
 
 let insertedKeys: string[] = [];
 
@@ -16,25 +16,26 @@ describe('Basic Operations', () => {
   it('Update', UpdateTest);
   it('Replace', ReplaceTest);
   it('Delete', DeleteTest);
+
+  after(async () => {
+    await table.delete().run();
+  });
 });
 
 async function InsertTest() {
-  const response = await db.table(table).insert(vehicles).run();
-  expect(response).to.have.property('inserted', vehicles.length);
-  expect(response).to.have.property('generated_keys');
-  expect(response.generated_keys).to.be.an('object');
+  const response = await table.insert(vehicles).run();
+  expect(response).to.be.an('array');
 
-  const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(vehicles.length);
-  keys.forEach((val) => {
+  expect(response).to.have.lengthOf(vehicles.length);
+  response.forEach((val) => {
     expect(val).to.be.a('string');
   });
-  insertedKeys = keys;
+  insertedKeys = response;
 }
 
 async function GetTest() {
   for (const key of insertedKeys) {
-    const result = await db.table(table).get(key).run();
+    const result = await table.get(key).run();
 
     validateDocumentStructure(result, key);
     validateDocumentContent(result);
@@ -75,7 +76,7 @@ function validateDocumentContent(result: any) {
 }
 
 async function GetAllTest() {
-  const result = await db.table(table).getAll('isElectric', false).run();
+  const result = await table.getAll(false as any, 'isElectric').run();
 
   expect(result).to.be.an('array');
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;
@@ -91,19 +92,16 @@ async function GetAllTest() {
 }
 
 async function UpdateTest() {
-  const result = await db.table(table).get(insertedKeys[0]).update({ price: 4000 }).run();
+  const result = await table.get(insertedKeys[0]).update({ price: 4000 }).run();
 
-  expect(result).to.have.property('acknowledged', true);
-  expect(result).to.have.property('modifiedCount', 1);
-  expect(result).to.have.property('matchedCount', 1);
-  expect(result).to.have.property('upsertedCount', 0);
+  expect(result).to.equal(1);
 
   vehicles[0].price = 4000;
-  const doc = await db.table(table).get(insertedKeys[0]).run();
+  const doc = await table.get(insertedKeys[0]).run();
   expect(doc).to.not.equal(undefined);
-  validateDocumentStructure(doc!, insertedKeys[0]);
-  validateDocumentContent(doc!);
-  expect(doc!.price).to.equal(vehicles[0].price);
+  validateDocumentStructure(doc, insertedKeys[0]);
+  validateDocumentContent(doc);
+  expect(doc.price).to.equal(vehicles[0].price);
 }
 
 async function ReplaceTest() {
@@ -115,28 +113,24 @@ async function ReplaceTest() {
     kilometers: 100000,
   };
 
-  const result = await db.table(table).get(insertedKeys[1]).update(replacementData).run();
+  const result = await table.get(insertedKeys[1]).replace(replacementData).run();
 
-  expect(result).to.have.property('acknowledged', true);
-  expect(result).to.have.property('modifiedCount', 1);
-  expect(result).to.have.property('matchedCount', 1);
-  expect(result).to.have.property('upsertedCount', 0);
+  expect(result).to.equal(1);
 
-  const doc = await db.table(table).get(insertedKeys[1]).run();
+  const doc = await table.get(insertedKeys[1]).run();
   expect(doc).to.not.equal(undefined);
-  validateDocumentStructure(doc!, insertedKeys[1]);
-  expect(doc!.car).to.equal(replacementData.car);
-  expect(doc!.price).to.equal(replacementData.price);
-  expect(doc!.isElectric).to.equal(replacementData.isElectric);
-  expect(doc!.kilometers).to.equal(Number(replacementData.kilometers));
+  validateDocumentStructure(doc, insertedKeys[1]);
+  expect(doc.car).to.equal(replacementData.car);
+  expect(doc.price).to.equal(replacementData.price);
+  expect(doc.isElectric).to.equal(replacementData.isElectric);
+  expect(doc.kilometers).to.equal(Number(replacementData.kilometers));
 }
 
 async function DeleteTest() {
-  const result = await db.table(table).get(insertedKeys[2]).delete().run();
+  const result = await table.get(insertedKeys[2]).delete().run();
 
-  expect(result).to.have.property('acknowledged', true);
-  expect(result).to.have.property('deletedCount', 1);
+  expect(result).to.equal(1);
 
-  const doc = await db.table(table).get(insertedKeys[2]).run();
+  const doc = await table.get(insertedKeys[2]).run();
   expect(doc).to.equal(undefined);
 }

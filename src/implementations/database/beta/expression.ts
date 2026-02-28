@@ -1,4 +1,4 @@
-import { QueryStage } from '@ajs.local/database/beta2/common';
+import { QueryStage } from '@ajs.local/database/beta/common';
 import { DecodingContext, Temporary } from './utils';
 import { DecodeFunction, DecodeValue } from './query';
 

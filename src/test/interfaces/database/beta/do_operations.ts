@@ -1,10 +1,10 @@
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueUsers, User } from '../../../datasets/users';
 
-const db = Database<{ [table]: User }>('test-do-operations');
-
-const table = 'test-table';
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: User }>('test-do-operations', { [tableName]: User });
+const table = schema.default.table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
@@ -24,29 +24,25 @@ describe('Do Operations', () => {
 });
 
 async function InsertTestData() {
-  const response = await db.table(table).insert(testData).run();
-  expect(response).to.have.property('inserted', testData.length);
-  expect(response).to.have.property('generated_keys');
-  expect(response.generated_keys).to.be.an('object');
+  const response = await table.insert(testData).run();
+  expect(response).to.be.an('array');
 
-  const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(testData.length);
-  keys.forEach((val) => {
+  expect(response).to.have.lengthOf(testData.length);
+  response.forEach((val) => {
     expect(val).to.be.a('string');
   });
-  insertedKeys = keys;
+  insertedKeys = response;
 }
 
 async function DoWithMergeOperation() {
-  const result = await db
-    .table(table)
-    .nth(0)
+  const result = await table
+    .get(insertedKeys[0])
     .do((order) =>
       order.merge({
         metadata: {
           level: 10,
           tags: ['expert', 'architect'],
-          preferences: db.table(table).nth(1)('metadata')('preferences'),
+          preferences: table.get(insertedKeys[1]).key('metadata').key('preferences'),
         },
       }),
     )
@@ -67,12 +63,11 @@ async function DoWithMergeOperation() {
 }
 
 async function DoWithPrependOperation() {
-  const result = await db
-    .table(table)
-    .nth(0)
+  const result = await table
+    .get(insertedKeys[0])
     .do((order) =>
       order.merge({
-        skills: db.table(table).nth(1)('skills'),
+        skills: table.get(insertedKeys[1]).key('skills'),
       }),
     )
     .run();
@@ -89,12 +84,11 @@ async function DoWithPrependOperation() {
 }
 
 async function DoWithAppendOperation() {
-  const result = await db
-    .table(table)
-    .nth(0)
+  const result = await table
+    .get(insertedKeys[0])
     .do((order) =>
       order.merge({
-        scores: db.table(table).nth(2)('skills'),
+        scores: table.get(insertedKeys[2]).key('skills'),
       }),
     )
     .run();
@@ -111,18 +105,17 @@ async function DoWithAppendOperation() {
 }
 
 async function DoWithComplexTransformation() {
-  const result = await db
-    .table(table)
-    .nth(0)
+  const result = await table
+    .get(insertedKeys[0])
     .do((order) =>
       order.merge({
         name: 'Antoine - Senior',
-        age: order('age').add(5),
+        age: order.key('age').add(5),
         skills: ['Node.js', 'MongoDB'],
         metadata: {
-          level: order('metadata')('level').add(2),
+          level: order.key('metadata').key('level').add(2),
           tags: ['fullstack'],
-          preferences: order('metadata')('preferences'),
+          preferences: order.key('metadata').key('preferences'),
         },
       }),
     )
@@ -139,14 +132,13 @@ async function DoWithComplexTransformation() {
 }
 
 async function DoWithConditionalLogic() {
-  const result = await db
-    .table(table)
-    .nth(1)
+  const result = await table
+    .get(insertedKeys[1])
     .do((order) =>
       order.merge({
-        status: order('isActive').eq(true).default('inactive'),
-        experience: order('age').gt(25).default('junior'),
-        skills: order('skills'),
+        status: order.key('isActive').eq(true).default('inactive'),
+        experience: order.key('age').gt(25).default('junior'),
+        skills: order.key('skills'),
       }),
     )
     .run();
@@ -159,21 +151,20 @@ async function DoWithConditionalLogic() {
   expect(result.experience).to.be.a('boolean');
   expect(result).to.have.property('skills');
   expect(result.skills).to.be.an('array');
-  const expectedSkillsCount = testData[2].skills?.length || 0;
+  const expectedSkillsCount = testData[1].skills?.length || 0;
   expect(result.skills).to.have.lengthOf(expectedSkillsCount);
 }
 
 async function DoWithArrayOperations() {
-  const result = await db
-    .table(table)
-    .nth(2)
+  const result = await table
+    .get(insertedKeys[2])
     .do((order) =>
       order.merge({
-        averageScore: order('skills').count(),
-        maxScore: order('skills').count(),
-        minScore: order('skills').count(),
-        totalSkills: order('skills').count(),
-        skills: order('skills'),
+        averageScore: order.key('skills').count(),
+        maxScore: order.key('skills').count(),
+        minScore: order.key('skills').count(),
+        totalSkills: order.key('skills').count(),
+        skills: order.key('skills'),
       }),
     )
     .run();
@@ -192,22 +183,21 @@ async function DoWithArrayOperations() {
 }
 
 async function DoWithNestedObjectOperations() {
-  const result = await db
-    .table(table)
-    .nth(3)
+  const result = await table
+    .get(insertedKeys[3])
     .do((order) =>
       order.merge({
         profile: {
           basic: {
-            name: order('name'),
-            age: order('age'),
-            isActive: order('isActive'),
+            name: order.key('name'),
+            age: order.key('age'),
+            isActive: order.key('isActive'),
           },
-          skills: order('skills'),
+          skills: order.key('skills'),
           metadata: {
             preferences: ['remote-first'],
             tags: ['experienced'],
-            level: order('metadata')('level'),
+            level: order.key('metadata').key('level'),
           },
         },
       }),
@@ -236,6 +226,6 @@ async function DoWithNestedObjectOperations() {
 
 async function CleanupTest() {
   for (const key of insertedKeys) {
-    await db.table(table).get(key).delete().run();
+    await table.get(key).delete().run();
   }
 }

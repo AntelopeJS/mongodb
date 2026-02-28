@@ -1,18 +1,21 @@
-import { Database, JoinType } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueUsers, User } from '../../../datasets/users';
 import { getUniqueProducts, Product } from '../../../datasets/products';
 import { getUniqueOrders, Order } from '../../../datasets/orders';
 
-const db = Database<{
-  [ordersTable]: Order;
-  [usersTable]: User;
-  [productsTable]: Product;
-}>('test-joins');
+const ordersTableName = 'orders';
+const usersTableName = 'users';
+const productsTableName = 'products';
 
-const ordersTable = 'orders';
-const usersTable = 'users';
-const productsTable = 'products';
+const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User; [productsTableName]: Product }>(
+  'test-joins',
+  { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product },
+);
+
+const ordersTable = schema.default.table(ordersTableName);
+const usersTable = schema.default.table(usersTableName);
+const productsTable = schema.default.table(productsTableName);
 
 const usersData = getUniqueUsers();
 const productsData = getUniqueProducts();
@@ -39,27 +42,26 @@ describe('Join Operations', () => {
 });
 
 async function InsertTestData() {
-  const usersResponse = await db.table(usersTable).insert(usersData).run();
-  const productsResponse = await db.table(productsTable).insert(productsData).run();
-  const ordersResponse = await db.table(ordersTable).insert(ordersData).run();
+  const usersResponse = await usersTable.insert(usersData).run();
+  const productsResponse = await productsTable.insert(productsData).run();
+  const ordersResponse = await ordersTable.insert(ordersData).run();
 
-  expect(usersResponse).to.have.property('inserted', usersData.length);
-  expect(productsResponse).to.have.property('inserted', productsData.length);
-  expect(ordersResponse).to.have.property('inserted', ordersData.length);
+  expect(usersResponse).to.be.an('array');
+  expect(productsResponse).to.be.an('array');
+  expect(ordersResponse).to.be.an('array');
 
-  insertedKeys.users = Object.values(usersResponse.generated_keys ?? {});
-  insertedKeys.products = Object.values(productsResponse.generated_keys ?? {});
-  insertedKeys.orders = Object.values(ordersResponse.generated_keys ?? {});
+  insertedKeys.users = usersResponse;
+  insertedKeys.products = productsResponse;
+  insertedKeys.orders = ordersResponse;
 }
 
 async function InnerJoinOrdersWithUsers() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .join(
-      db.table(usersTable),
-      JoinType.Inner,
+      usersTable,
+      (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      (left, right) => left('customerEmail').eq(right('email')),
+      true,
     )
     .run();
 
@@ -73,27 +75,26 @@ async function InnerJoinOrdersWithUsers() {
     expect(doc.customer).to.have.property('name');
     expect(doc.customer).to.have.property('age');
     expect(doc.customer).to.have.property('isActive');
-    expect(doc.customerEmail).to.equal(doc.customer.email);
+    expect(doc.customerEmail).to.equal(doc.customer!.email);
   });
 
   const aliceOrders = result.filter((doc) => doc.customerEmail === 'alice@example.com');
   const expectedAliceOrdersCount = ordersData.filter((order) => order.customerEmail === 'alice@example.com').length;
   expect(aliceOrders).to.have.lengthOf(expectedAliceOrdersCount);
   aliceOrders.forEach((order) => {
-    expect(order.customer.name).to.equal('Alice');
-    expect(order.customer.age).to.equal(30);
-    expect(order.customer.isActive).to.equal(false);
+    expect(order.customer!.name).to.equal('Alice');
+    expect(order.customer!.age).to.equal(30);
+    expect(order.customer!.isActive).to.equal(false);
   });
 }
 
 async function InnerJoinOrdersWithProducts() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .join(
-      db.table(productsTable),
-      JoinType.Inner,
+      productsTable,
+      (left, right) => left.key('productSku').eq(right.key('sku')),
       (left, right) => left.merge({ product: right }),
-      (left, right) => left('productSku').eq(right('sku')),
+      true,
     )
     .run();
 
@@ -106,24 +107,22 @@ async function InnerJoinOrdersWithProducts() {
     expect(doc.product).to.have.property('sku');
     expect(doc.product).to.have.property('name');
     expect(doc.product).to.have.property('price');
-    expect(doc.productSku).to.equal(doc.product.sku);
+    expect(doc.productSku).to.equal(doc.product!.sku);
   });
 
   const laptopOrders = result.filter((doc) => doc.productSku === 'LAPTOP-001');
   const expectedLaptopOrdersCount = ordersData.filter((order) => order.productSku === 'LAPTOP-001').length;
   expect(laptopOrders).to.have.lengthOf(expectedLaptopOrdersCount);
-  expect(laptopOrders[0].product.name).to.equal('Asell f00');
-  expect(laptopOrders[0].product.price).to.equal(1200);
+  expect(laptopOrders[0].product!.name).to.equal('Asell f00');
+  expect(laptopOrders[0].product!.price).to.equal(1200);
 }
 
 async function LeftJoinOrdersWithUsers() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .join(
-      db.table(usersTable),
-      JoinType.Left,
+      usersTable,
+      (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      (left, right) => left('customerEmail').eq(right('email')),
     )
     .run();
 
@@ -140,19 +139,18 @@ async function LeftJoinOrdersWithUsers() {
 }
 
 async function MultipleJoins() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .join(
-      db.table(usersTable),
-      JoinType.Inner,
+      usersTable,
+      (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      (left, right) => left('customerEmail').eq(right('email')),
+      true,
     )
     .join(
-      db.table(productsTable),
-      JoinType.Inner,
+      productsTable,
+      (left, right) => left.key('productSku').eq(right.key('sku')),
       (left, right) => left.merge({ product: right }),
-      (left, right) => left('productSku').eq(right('sku')),
+      true,
     )
     .run();
 
@@ -162,28 +160,27 @@ async function MultipleJoins() {
   result.forEach((doc) => {
     expect(doc).to.have.property('customer');
     expect(doc).to.have.property('product');
-    expect(doc.customerEmail).to.equal(doc.customer.email);
-    expect(doc.productSku).to.equal(doc.product.sku);
+    expect(doc.customerEmail).to.equal(doc.customer!.email);
+    expect(doc.productSku).to.equal(doc.product!.sku);
   });
 
   const aliceBookOrder = result.find(
     (doc) => doc.customerEmail === 'alice@example.com' && doc.productSku === 'BOOK-001',
   );
   expect(aliceBookOrder).to.not.equal(undefined);
-  expect(aliceBookOrder!.customer.name).to.equal('Alice');
-  expect(aliceBookOrder!.product.name).to.equal('Programming Fundamentals');
+  expect(aliceBookOrder!.customer!.name).to.equal('Alice');
+  expect(aliceBookOrder!.product!.name).to.equal('Programming Fundamentals');
 }
 
 async function JoinWithFilter() {
-  const result = await db
-    .table(ordersTable)
+  const result = await ordersTable
     .join(
-      db.table(usersTable),
-      JoinType.Inner,
+      usersTable,
+      (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      (left, right) => left('customerEmail').eq(right('email')),
+      true,
     )
-    .filter((order) => order('customer')('isActive').eq(true))
+    .filter((order) => order.key('customer').key('isActive').eq(true))
     .run();
 
   expect(result).to.be.an('array');
@@ -194,7 +191,7 @@ async function JoinWithFilter() {
   expect(result).to.have.lengthOf(expectedActiveOrdersCount);
 
   result.forEach((doc) => {
-    expect(doc.customer.isActive).to.equal(true);
+    expect(doc.customer?.isActive).to.equal(true);
   });
 
   const activeUsers = result.filter((doc) => doc.customerEmail === 'antoine@example.com');
@@ -208,12 +205,12 @@ async function JoinWithFilter() {
 
 async function CleanupTest() {
   for (const key of insertedKeys.orders) {
-    await db.table(ordersTable).get(key).delete().run();
+    await ordersTable.get(key).delete().run();
   }
   for (const key of insertedKeys.products) {
-    await db.table(productsTable).get(key).delete().run();
+    await productsTable.get(key).delete().run();
   }
   for (const key of insertedKeys.users) {
-    await db.table(usersTable).get(key).delete().run();
+    await usersTable.get(key).delete().run();
   }
 }

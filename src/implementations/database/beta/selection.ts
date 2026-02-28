@@ -1,27 +1,37 @@
-import { QueryStage } from '@ajs.local/database/beta2/common';
+import { QueryStage } from '@ajs.local/database/beta/common';
 import { AggregationPipeline } from './pipeline';
-import { assert } from 'console';
+import assert from 'assert';
 import { DecodingContext } from './utils';
 import { DecodeValue } from './query';
-import { CreateInstance, IsValidInstance } from './schema';
-import { GetCollection } from '../../../connection';
+import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance, existingSchemas } from './schema';
+import { buildDatabaseName, GetCollection } from '../../../connection';
 import { v4 as uuidv4 } from 'uuid';
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
+  private readonly rowLevel: boolean;
+  public readonly instanceId: string | undefined;
+  public readonly tableName: string;
 
   public constructor(
     schemaId: string,
-    public readonly instanceId: string,
-    public readonly tableName: string,
+    instanceId: string | undefined,
+    tableName: string,
     isChangeStream: boolean,
     context: DecodingContext,
   ) {
-    // database-level
-    super(schemaId, `${schemaId}-${instanceId}`, tableName, [], isChangeStream, context);
-
-    // row-level
-    // super(schemaId, tableName, [{ $match: { tenant_id: instanceId } }]); // TODO: use isChangeStream
+    const rowLevel = IsRowLevel(schemaId);
+    if (rowLevel) {
+      if (instanceId === undefined) {
+        throw new Error(`Row-level schema '${schemaId}' requires a tenant ID`);
+      }
+      super(schemaId, schemaId, tableName, [{ $match: { tenant_id: instanceId } }], isChangeStream, context);
+    } else {
+      super(schemaId, buildDatabaseName(schemaId, instanceId), tableName, [], isChangeStream, context);
+    }
+    this.instanceId = instanceId;
+    this.tableName = tableName;
+    this.rowLevel = rowLevel;
     this.resultType = 'table';
   }
 
@@ -31,12 +41,15 @@ export class SelectionQuery extends AggregationPipeline {
       const instanceId = stages[1]?.options?.id;
       assert(stages[0]?.stage === 'schema' && schemaId, 'Unknown schema');
       if (stages[1].stage === 'createInstance') {
-        const selection = new SelectionQuery(schemaId, instanceId ?? uuidv4(), '', false, null!);
+        const selection = new SelectionQuery(schemaId, instanceId, '', false, null!);
         selection.resultType = 'createInstance';
         return selection;
       }
-      assert(instanceId, 'Missing instance');
-      assert(IsValidInstance(schemaId, instanceId), 'Unknown instance');
+      if (stages[1].stage === 'destroyInstance') {
+        const selection = new SelectionQuery(schemaId, instanceId, '', false, null!);
+        selection.resultType = 'destroyInstance';
+        return selection;
+      }
       assert(stages[1].stage === 'instance' && stages[2]?.stage === 'table', 'Invalid request');
       const tableName = stages[2].options.id;
       const selection = new SelectionQuery(
@@ -75,8 +88,18 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async createInstance() {
+    if (this.rowLevel) {
+      return this.instanceId;
+    }
     await CreateInstance(this.schemaId, this.instanceId);
     return this.instanceId;
+  }
+
+  private async destroyInstance() {
+    if (this.rowLevel) {
+      return;
+    }
+    await DestroyInstance(this.schemaId, this.instanceId);
   }
 
   private async insert() {
@@ -84,7 +107,9 @@ export class SelectionQuery extends AggregationPipeline {
     const documents = Array.isArray(this._newValue) ? this._newValue : [this._newValue];
     for (const document of documents) {
       document._id = document._id ?? uuidv4();
-      // tenant_id = this.instanceId;
+      if (this.rowLevel) {
+        document.tenant_id = this.instanceId;
+      }
     }
     const res = await collection.insertMany(documents);
     return Object.values(res.insertedIds);
@@ -98,7 +123,9 @@ export class SelectionQuery extends AggregationPipeline {
 
   private async replace() {
     const collection = await GetCollection(this.database, this.collection);
-    // add tenant_id
+    if (this.rowLevel) {
+      this._newValue.tenant_id = this.instanceId;
+    }
     // TODO: what should we do when there's more than one?
     const res = await collection.replaceOne(this.getFilter(), this._newValue);
     return res.modifiedCount;
@@ -110,10 +137,24 @@ export class SelectionQuery extends AggregationPipeline {
     return res.deletedCount;
   }
 
+  private async ensureInstance() {
+    if (IsValidInstance(this.schemaId, this.instanceId)) {
+      return;
+    }
+    if (this.schemaId in existingSchemas) {
+      await CreateInstance(this.schemaId, this.instanceId);
+    }
+  }
+
   public async run(): Promise<any> {
+    if (this.resultType !== 'createInstance' && this.resultType !== 'destroyInstance') {
+      await this.ensureInstance();
+    }
     switch (this.resultType) {
       case 'createInstance':
         return this.createInstance();
+      case 'destroyInstance':
+        return this.destroyInstance();
       case 'insert':
         return this.insert();
       case 'update':

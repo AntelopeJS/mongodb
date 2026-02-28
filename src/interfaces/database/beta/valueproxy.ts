@@ -2,16 +2,12 @@ import { ExtractType, QueryStage, StagedObject } from './common';
 
 export type ValueProxyOrValue<T> = ValueProxy<T> | T;
 
-//@internal
 export type Is<Left, Right, R> = Left extends Right ? R : never;
 
-//@internal
 export type ArrayValue<T> = T extends (infer V)[] ? V : never;
 
-//@internal
 export type IsArray<Left, Right, R> = Right extends (infer A)[] ? Is<A, Left, R> : never;
 
-//@internal
 export type OnlyObject<T> = T extends Record<any, any> ? T : never;
 
 /**

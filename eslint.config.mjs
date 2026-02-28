@@ -23,6 +23,7 @@ export default tseslint.config(
       'playground/.antelope/cache',
       'playground/node_modules',
       'playground/.antelope',
+      'src/test/testproject.js',
     ],
   },
   eslint.configs.recommended,

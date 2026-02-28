@@ -1,10 +1,10 @@
-import { Database } from '@ajs/database/beta';
+import { Schema } from '@ajs/database/beta';
 import { expect } from 'chai';
 import { getUniqueOrders, Order } from '../../../datasets/orders';
 
-const db = Database<{ [table]: Order }>('test-group-operations');
-
-const table = 'test-table';
+const tableName = 'test-table';
+const schema = new Schema<{ [tableName]: Order }>('test-group-operations', { [tableName]: Order });
+const table = schema.default.table(tableName);
 
 // Utiliser les données commandes dédupliquées pour les groupements
 const testData = getUniqueOrders(); // Prendre seulement les commandes avec un type de livraison
@@ -12,6 +12,14 @@ const testData = getUniqueOrders(); // Prendre seulement les commandes avec un t
 let insertedKeys: string[] = [];
 
 describe('Group Operations', () => {
+  before(async () => {
+    await table.delete().run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Group by Delivery Type with Simple Count', GroupByDeliveryTypeWithCount);
   it('Group by Delivery Type with Average Price', GroupByDeliveryTypeWithAveragePrice);
@@ -23,26 +31,22 @@ describe('Group Operations', () => {
 });
 
 async function InsertTestData() {
-  const response = await db.table(table).insert(testData).run();
-  expect(response).to.have.property('inserted', testData.length);
-  expect(response).to.have.property('generated_keys');
-  expect(response.generated_keys).to.be.an('object');
+  const response = await table.insert(testData).run();
+  expect(response).to.be.an('array');
 
-  const keys = Object.values(response.generated_keys ?? {});
-  expect(keys).to.have.lengthOf(testData.length);
-  keys.forEach((val) => {
+  expect(response).to.have.lengthOf(testData.length);
+  response.forEach((val) => {
     expect(val).to.be.a('string');
   });
-  insertedKeys = keys;
+  insertedKeys = response;
 }
 
 async function GroupByDeliveryTypeWithCount() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       orderCount: stream.count(),
-      totalOrders: stream.map((row) => row('orderId')).count(),
+      totalOrders: stream.map((row) => row.key('orderId')).count(),
     }))
     .run();
 
@@ -63,12 +67,11 @@ async function GroupByDeliveryTypeWithCount() {
 }
 
 async function GroupByDeliveryTypeWithAveragePrice() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       totalOrders: stream.count(),
-      totalAmount: stream.map((row) => row('totalAmount')).sum(),
+      totalAmount: stream.map((row) => row.key('totalAmount')).sum(),
     }))
     .run();
 
@@ -95,8 +98,7 @@ async function GroupByDeliveryTypeWithAveragePrice() {
 }
 
 async function GroupByDeliveryTypeWithWeightedAverage() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       totalOrders: stream.count(),
@@ -127,8 +129,7 @@ async function GroupByDeliveryTypeWithWeightedAverage() {
 }
 
 async function GroupByDeliveryTypeWithSumOfTotals() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       totalOrders: stream.count(),
@@ -159,8 +160,7 @@ async function GroupByDeliveryTypeWithSumOfTotals() {
 }
 
 async function GroupByCategoryWithComplexCalculations() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('deliveryType', (stream, group) => ({
       deliveryType: group,
       totalOrders: stream.count(),
@@ -182,8 +182,7 @@ async function GroupByCategoryWithComplexCalculations() {
 }
 
 async function GroupByPaymentStatusWithMultipleAggregations() {
-  const result = await db
-    .table(table)
+  const result = await table
     .group('isPaid', (stream, group) => ({
       isPaid: group,
       orderCount: stream.count(),
@@ -217,6 +216,6 @@ async function GroupByPaymentStatusWithMultipleAggregations() {
 
 async function CleanupTest() {
   for (const key of insertedKeys) {
-    await db.table(table).get(key).delete().run();
+    await table.get(key).delete().run();
   }
 }
