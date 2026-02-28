@@ -3,4 +3,4 @@ export { Query } from './query';
 export { Datum } from './datum';
 export { Stream } from './stream';
 export { Selection, SingleSelection, Table } from './selection';
-export { Schema, SchemaInstance, SchemaDefinition } from './schema';
+export { Schema, SchemaInstance, SchemaDefinition, SchemaOptions } from './schema';
