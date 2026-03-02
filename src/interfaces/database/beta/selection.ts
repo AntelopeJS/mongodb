@@ -1,4 +1,4 @@
-import { Changes, DeepPartial } from './common';
+import { Changes, DeepPartial, ExtractType } from './common';
 import { Datum } from './datum';
 import { Query } from './query';
 import { Stream } from './stream';
@@ -63,8 +63,8 @@ export class Selection<T> extends Stream<T> {
    * @returns Number of modified documents
    */
   public update(document: DeepPartial<T>): Query<number>;
-  public update(document: (val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>): Query<number>;
-  public update(document: DeepPartial<T> | ((val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>)) {
+  public update<U>(document: (val: ValueProxy<T>) => U): ExtractType<U> extends DeepPartial<T> ? Query<number> : never;
+  public update(document: DeepPartial<T> | ((val: ValueProxy<T>) => unknown)) {
     if (typeof document === 'function') {
       return this.stage(Query<number>, 'update', undefined, this.callfunc(document, ValueProxy<T>));
     }
