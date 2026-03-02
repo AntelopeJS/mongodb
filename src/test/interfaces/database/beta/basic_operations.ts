@@ -14,6 +14,7 @@ describe('Basic Operations', () => {
   it('Get All', GetAllTest);
   it('Get By Index', GetAllMultiKeyByIndex);
   it('Get All by primary keys', GetAllMultiKeyByPrimaryKey);
+  it('Get All With OrderBy', GetAllWithOrderBy);
   it('Update', UpdateTest);
   it('Replace', ReplaceTest);
   it('Delete', DeleteTest);
@@ -117,6 +118,20 @@ async function GetAllMultiKeyByPrimaryKey() {
   for (const doc of result) {
     expect(targetKeys).to.include(doc._id);
   }
+}
+
+async function GetAllWithOrderBy() {
+  const result = await table.getAll(false, 'isElectric').orderBy('price', 'asc').run();
+
+  expect(result).to.be.an('array');
+  const expectedCount = vehicles.filter((v) => !v.isElectric).length;
+  expect(result).to.have.lengthOf(expectedCount);
+
+  const expectedOrder = ['Renault', 'Peugeot'];
+  result.forEach((doc, index) => {
+    expect(doc.car).to.equal(expectedOrder[index]);
+    expect(doc.isElectric).to.equal(false);
+  });
 }
 
 async function UpdateTest() {
