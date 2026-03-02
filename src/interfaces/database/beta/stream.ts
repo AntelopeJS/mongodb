@@ -85,27 +85,48 @@ export class Stream<T> extends Query<T[]> {
   }
 
   /**
-   * Perform a join operation between this stream (left) and another stream (right)
+   * Perform a left join operation between this stream (left) and another stream (right)
    *
    * @param right Right stream
    * @param predicate Predicate to match elements from the left stream to the right stream
    * @param mapper Mapping function for each pair of documents
-   * @param innerOnly Exclude documents in the left stream that have no match in the right stream
    * @returns New stream with results of the mapping function
    */
   public join<U, V>(
     right: Stream<U>,
     predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>,
     mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => V,
-    innerOnly = false,
   ) {
     return this.stage(
       Stream<ExtractType<V>>,
       'join',
-      { innerOnly },
+      { innerOnly: false },
       right,
       this.callfunc(predicate, ValueProxy<T>, ValueProxy<U>),
       this.callfunc(mapper, ValueProxy<T>, ValueProxy<U | null>),
+    );
+  }
+
+  /**
+   * Perform an inner join operation between this stream (left) and another stream (right)
+   *
+   * @param right Right stream
+   * @param predicate Predicate to match elements from the left stream to the right stream
+   * @param mapper Mapping function for each pair of documents
+   * @returns New stream with results of the mapping function
+   */
+  public joinInner<U, V>(
+    right: Stream<U>,
+    predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>,
+    mapper: (left: ValueProxy<T>, right: ValueProxy<U>) => V,
+  ) {
+    return this.stage(
+      Stream<ExtractType<V>>,
+      'join',
+      { innerOnly: true },
+      right,
+      this.callfunc(predicate, ValueProxy<T>, ValueProxy<U>),
+      this.callfunc(mapper, ValueProxy<T>, ValueProxy<U>),
     );
   }
 

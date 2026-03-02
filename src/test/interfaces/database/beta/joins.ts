@@ -57,11 +57,10 @@ async function InsertTestData() {
 
 async function InnerJoinOrdersWithUsers() {
   const result = await ordersTable
-    .join(
+    .joinInner(
       usersTable,
       (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      true,
     )
     .run();
 
@@ -90,11 +89,10 @@ async function InnerJoinOrdersWithUsers() {
 
 async function InnerJoinOrdersWithProducts() {
   const result = await ordersTable
-    .join(
+    .joinInner(
       productsTable,
       (left, right) => left.key('productSku').eq(right.key('sku')),
       (left, right) => left.merge({ product: right }),
-      true,
     )
     .run();
 
@@ -140,17 +138,15 @@ async function LeftJoinOrdersWithUsers() {
 
 async function MultipleJoins() {
   const result = await ordersTable
-    .join(
+    .joinInner(
       usersTable,
       (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      true,
     )
-    .join(
+    .joinInner(
       productsTable,
       (left, right) => left.key('productSku').eq(right.key('sku')),
       (left, right) => left.merge({ product: right }),
-      true,
     )
     .run();
 
@@ -174,11 +170,10 @@ async function MultipleJoins() {
 
 async function JoinWithFilter() {
   const result = await ordersTable
-    .join(
+    .joinInner(
       usersTable,
       (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      true,
     )
     .filter((order) => order.key('customer').key('isActive').eq(true))
     .run();
