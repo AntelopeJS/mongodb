@@ -2,7 +2,7 @@ import { QueryStage } from '@ajs.local/database/beta/common';
 import { AggregationPipeline } from './pipeline';
 import assert from 'assert';
 import { DecodingContext } from './utils';
-import { DecodeValue } from './query';
+import { DecodeFunction, DecodeValue } from './query';
 import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance, existingSchemas } from './schema';
 import { buildDatabaseName, GetCollection } from '../../../connection';
 import { v4 as uuidv4 } from 'uuid';
@@ -117,7 +117,7 @@ export class SelectionQuery extends AggregationPipeline {
 
   private async update() {
     const collection = await GetCollection(this.database, this.collection);
-    const res = await collection.updateMany(this.getFilter(), { $set: this._newValue });
+    const res = await collection.updateMany(this.getFilter(), [{ $set: this._newValue }]);
     return res.modifiedCount;
   }
 
@@ -211,7 +211,11 @@ export class SelectionQuery extends AggregationPipeline {
   protected async stage_update(stage: QueryStage) {
     assert(this.resultType === 'table' || this.resultType === 'selection');
     this.resultType = 'update';
-    this._newValue = stage.args[0];
+    if (stage.args[0]?.stage === 'func') {
+      this._newValue = await DecodeFunction(stage.args[0], this.context, ['$$ROOT']);
+    } else {
+      this._newValue = stage.args[0];
+    }
   }
 
   protected async stage_replace(stage: QueryStage) {

@@ -2,6 +2,7 @@ import { Changes, DeepPartial } from './common';
 import { Datum } from './datum';
 import { Query } from './query';
 import { Stream } from './stream';
+import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 
 /**
  * Selection containing a single element
@@ -13,7 +14,12 @@ export class SingleSelection<T> extends Datum<T> {
    * @param document Partial document with new values
    * @returns Number of modified documents
    */
-  public update(document: DeepPartial<T>) {
+  public update(document: DeepPartial<T>): Query<number>;
+  public update(document: (val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>): Query<number>;
+  public update(document: DeepPartial<T> | ((val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>)) {
+    if (typeof document === 'function') {
+      return this.stage(Query<number>, 'update', undefined, this.callfunc(document, ValueProxy<T>));
+    }
     return this.stage(Query<number>, 'update', undefined, document);
   }
 
@@ -56,7 +62,12 @@ export class Selection<T> extends Stream<T> {
    * @param document Partial document with new values
    * @returns Number of modified documents
    */
-  public update(document: DeepPartial<T>) {
+  public update(document: DeepPartial<T>): Query<number>;
+  public update(document: (val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>): Query<number>;
+  public update(document: DeepPartial<T> | ((val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>)) {
+    if (typeof document === 'function') {
+      return this.stage(Query<number>, 'update', undefined, this.callfunc(document, ValueProxy<T>));
+    }
     return this.stage(Query<number>, 'update', undefined, document);
   }
 

@@ -74,6 +74,9 @@ describe('Row-Level Single-Table Operations', () => {
   it('Between', Between);
   it('Between + filter', BetweenPlusFilter);
   it('Update scoped', UpdateScoped);
+  it('Update with expression (numeric)', UpdateWithExpressionNumeric);
+  it('Update with expression (single selection)', UpdateWithExpressionOnSingleSelection);
+  it('Update with expression (mixed)', UpdateWithExpressionMixed);
   it('Replace scoped', ReplaceScoped);
   it('Delete scoped', DeleteScoped);
 
@@ -301,6 +304,61 @@ async function UpdateScoped() {
   const t1Updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
   for (const doc of t1Updated) {
     expect(doc.price).to.equal(1);
+  }
+}
+
+async function UpdateWithExpressionNumeric() {
+  // After UpdateScoped, all Peugeot docs have price=1
+  // Increment price by 100 using expression-based update
+  const modified = await t1Vehicles
+    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .update((doc: any) => ({ price: doc.key('price').add(100) }))
+    .run();
+
+  const peugeotCount = vehicles.filter((v) => v.car === 'Peugeot').length;
+  expect(modified).to.equal(peugeotCount);
+
+  const updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  for (const doc of updated) {
+    expect(doc.price).to.equal(101); // was 1, now 1 + 100
+  }
+}
+
+async function UpdateWithExpressionOnSingleSelection() {
+  // Test expression-based update on SingleSelection (via .get())
+  const modified = await t1Vehicles
+    .get(vehicleKeys[0])
+    .update((doc: any) => ({ kilometers: doc.key('kilometers').mul(2) }))
+    .run();
+
+  expect(modified).to.equal(1);
+
+  const updated = await t1Vehicles.get(vehicleKeys[0]).run();
+  // After UpdateScoped set price=1 and UpdateWithExpressionNumeric set price=101,
+  // the first vehicle was originally a Peugeot which was replaced in ReplaceScoped...
+  // but ReplaceScoped runs later. At this point vehicleKeys[0] still has its original kilometers.
+  // After UpdateScoped, Peugeot docs got price=1. vehicleKeys[0] is a Peugeot.
+  // Original kilometers for Peugeot: 9876543210, now doubled.
+  expect(updated.kilometers).to.equal(9876543210 * 2);
+}
+
+async function UpdateWithExpressionMixed() {
+  // Mix plain values and expressions
+  const modified = await t1Vehicles
+    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .update((doc: any) => ({
+      price: doc.key('price').add(500),
+      isElectric: true,
+    }))
+    .run();
+
+  const peugeotCount = vehicles.filter((v) => v.car === 'Peugeot').length;
+  expect(modified).to.equal(peugeotCount);
+
+  const updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  for (const doc of updated) {
+    expect(doc.price).to.equal(601); // was 101, now 101 + 500
+    expect(doc.isElectric).to.equal(true);
   }
 }
 
