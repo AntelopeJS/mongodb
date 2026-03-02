@@ -317,6 +317,17 @@ export class AggregationPipeline {
     assert(rightStream instanceof AggregationPipeline);
     assert(rightStream.database === this.database);
 
+    if (this.wrappedObject !== rightStream.wrappedObject) {
+      if (!this.wrappedObject) {
+        this.wrappedObject = rightStream.wrappedObject;
+        this.setRoot('$$ROOT');
+      } else {
+        const root = rightStream.getRoot();
+        rightStream.wrappedObject = this.wrappedObject;
+        rightStream.setRoot(root);
+      }
+    }
+
     this.pipeline.push({
       $unionWith: {
         coll: rightStream.collection,
