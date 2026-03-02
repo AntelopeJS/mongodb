@@ -224,10 +224,16 @@ export declare class ValueProxy<T> extends StagedObject {
      * Bitwise right shift operator.
      *
      * @param other Operand B
-     * @param preserveSign Preserve sign bit
      * @returns A >> B
      */
-    brshift(this: Is<number, T, this>, other: ValueProxyOrValue<number>, preserveSign?: boolean): ValueProxy<number>;
+    brshift(this: Is<number, T, this>, other: ValueProxyOrValue<number>): ValueProxy<number>;
+    /**
+     * Bitwise right shift operator with sign preservation.
+     *
+     * @param other Operand B
+     * @returns A >> B (sign-preserving)
+     */
+    brshiftPreserveSign(this: Is<number, T, this>, other: ValueProxyOrValue<number>): ValueProxy<number>;
     /**
      * Greater-than operator.
      *

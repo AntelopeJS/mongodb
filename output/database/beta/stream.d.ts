@@ -57,15 +57,23 @@ export declare class Stream<T> extends Query<T[]> {
      */
     without(...fields: string[]): Stream<Partial<T>>;
     /**
-     * Perform a join operation between this stream (left) and another stream (right)
+     * Perform a left join operation between this stream (left) and another stream (right)
      *
      * @param right Right stream
      * @param predicate Predicate to match elements from the left stream to the right stream
      * @param mapper Mapping function for each pair of documents
-     * @param innerOnly Exclude documents in the left stream that have no match in the right stream
      * @returns New stream with results of the mapping function
      */
-    join<U, V>(right: Stream<U>, predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>, mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => V, innerOnly?: boolean): Stream<ExtractType<V>>;
+    join<U, V>(right: Stream<U>, predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>, mapper: (left: ValueProxy<T>, right: ValueProxy<U | null>) => V): Stream<ExtractType<V>>;
+    /**
+     * Perform an inner join operation between this stream (left) and another stream (right)
+     *
+     * @param right Right stream
+     * @param predicate Predicate to match elements from the left stream to the right stream
+     * @param mapper Mapping function for each pair of documents
+     * @returns New stream with results of the mapping function
+     */
+    joinInner<U, V>(right: Stream<U>, predicate: (left: ValueProxy<T>, right: ValueProxy<U>) => ValueProxyOrValue<boolean>, mapper: (left: ValueProxy<T>, right: ValueProxy<U>) => V): Stream<ExtractType<V>>;
     /**
      * Transform a foreign key or array of foreign keys into a document from another stream
      *

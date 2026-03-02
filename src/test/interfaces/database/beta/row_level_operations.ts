@@ -481,11 +481,10 @@ async function GroupWithAggregations() {
 
 async function InnerJoin() {
   const result = await t1Orders
-    .join(
+    .joinInner(
       t1Users,
       (left, right) => left.key('customerEmail').eq(right.key('email')),
       (left, right) => left.merge({ customer: right }),
-      true,
     )
     .run();
 
