@@ -122,7 +122,7 @@ export class Table<T> extends Selection<T> {
    * @param index Secondary index, will use the primary key if undefined
    * @returns Multiple document selection
    */
-  public getAll(keys: string | number | (string | number)[], index?: string) {
+  public getAll(keys: string | number | boolean | (string | number | boolean)[], index?: string) {
     return this.stage(Selection<T>, 'getAll', { index }, keys);
   }
 

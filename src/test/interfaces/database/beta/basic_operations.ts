@@ -77,7 +77,7 @@ function validateDocumentContent(result: any) {
 }
 
 async function GetAllTest() {
-  const result = await table.getAll(false as any, 'isElectric').run();
+  const result = await table.getAll(false, 'isElectric').run();
 
   expect(result).to.be.an('array');
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;

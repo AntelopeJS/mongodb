@@ -106,7 +106,7 @@ async function GetById() {
 }
 
 async function GetAllByIndex() {
-  const result = await t1Vehicles.getAll(false as any, 'isElectric').run();
+  const result = await t1Vehicles.getAll(false, 'isElectric').run();
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;
   expect(result).to.have.lengthOf(expectedCount);
   result.forEach((doc) => {
