@@ -27,7 +27,7 @@ export class ValueProxy<T> extends StagedObject {
    * @param value Value
    * @returns Proxy
    */
-  public static constant<T = unknown>(value: unknown) {
+  public static constant<T = unknown>(value: T) {
     return new ValueProxy<T>(QueryStage('constant', undefined, value));
   }
 
