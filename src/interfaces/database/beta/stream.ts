@@ -139,7 +139,10 @@ export class Stream<T> extends Query<T[]> {
    * @param mapper Mapping function
    * @returns New stream of grouped data
    */
-  public group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => U) {
+  public group<U, K extends keyof T | string>(
+    index: K,
+    mapper: (stream: Stream<T>, group: ValueProxy<K extends keyof T ? T[K] : unknown>) => U,
+  ) {
     return this.stage(
       Stream<ExtractType<U>>,
       'group',

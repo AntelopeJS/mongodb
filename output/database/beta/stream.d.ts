@@ -88,7 +88,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param mapper Mapping function
      * @returns New stream of grouped data
      */
-    group<U>(index: string, mapper: (stream: Stream<T>, group: ValueProxy<unknown>) => U): Stream<ExtractType<U>>;
+    group<U, K extends keyof T | string>(index: K, mapper: (stream: Stream<T>, group: ValueProxy<K extends keyof T ? T[K] : unknown>) => U): Stream<ExtractType<U>>;
     /**
      * Sort the stream using the given index and direction
      *
