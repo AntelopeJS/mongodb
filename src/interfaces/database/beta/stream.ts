@@ -85,6 +85,16 @@ export class Stream<T> extends Query<T[]> {
   }
 
   /**
+   * Concatenates the results of another stream into this stream without deduplication
+   *
+   * @param other Stream to concatenate
+   * @returns New stream containing elements from both streams
+   */
+  public union<U>(other: Stream<U>) {
+    return this.stage(Stream<T | U>, 'union', undefined, other);
+  }
+
+  /**
    * Perform a left join operation between this stream (left) and another stream (right)
    *
    * @param right Right stream

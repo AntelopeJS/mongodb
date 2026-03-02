@@ -311,6 +311,20 @@ export class AggregationPipeline {
     return this;
   }
 
+  protected async stage_union(stage: QueryStage) {
+    assert(!this.isChangeStream, 'Union not supported in change streams');
+    const rightStream = await SelectionQuery.decode((stage.args[0] as Stream<any>).build(), this.context);
+    assert(rightStream instanceof AggregationPipeline);
+    assert(rightStream.database === this.database);
+
+    this.pipeline.push({
+      $unionWith: {
+        coll: rightStream.collection,
+        pipeline: rightStream.pipeline,
+      },
+    });
+  }
+
   protected async stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, 'Join not supported in change streams');
     const innerOnly = stage.options.innerOnly;
