@@ -1,5 +1,6 @@
 import { ExtractType, Value } from './common';
 import { Query } from './query';
+import { Table } from './selection';
 import { ValueProxy } from './valueproxy';
 
 export class Datum<T> extends Query<T> {
@@ -61,7 +62,7 @@ export class Datum<T> extends Query<T> {
    * @param otherKey Key in other table
    */
   public lookup<U = any, TK extends keyof T = keyof T>(
-    other: Datum<U>, // TODO: swap to Stream<U>
+    other: Table<U>, // TODO: swap to Stream<U>
     localKey: TK,
     otherKey: keyof U,
   ) {

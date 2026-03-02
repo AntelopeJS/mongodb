@@ -1,5 +1,6 @@
 import { ExtractType, Value } from './common';
 import { Query } from './query';
+import { Table } from './selection';
 import { ValueProxy } from './valueproxy';
 export declare class Datum<T> extends Query<T> {
     /**
@@ -41,7 +42,7 @@ export declare class Datum<T> extends Query<T> {
      * @param localKey Key in local object
      * @param otherKey Key in other table
      */
-    lookup<U = any, TK extends keyof T = keyof T>(other: Datum<U>, // TODO: swap to Stream<U>
+    lookup<U = any, TK extends keyof T = keyof T>(other: Table<U>, // TODO: swap to Stream<U>
     localKey: TK, otherKey: keyof U): Datum<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>;
     /**
      * Plucks fields from the documents.
