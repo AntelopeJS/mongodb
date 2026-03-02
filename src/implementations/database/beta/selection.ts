@@ -2,7 +2,7 @@ import { QueryStage } from '@ajs.local/database/beta/common';
 import { AggregationPipeline } from './pipeline';
 import assert from 'assert';
 import { DecodingContext } from './utils';
-import { DecodeFunction, DecodeValue } from './query';
+import { DecodeFunction } from './query';
 import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance, existingSchemas } from './schema';
 import { buildDatabaseName, GetCollection } from '../../../connection';
 import { v4 as uuidv4 } from 'uuid';
@@ -176,17 +176,17 @@ export class SelectionQuery extends AggregationPipeline {
     });
   }
 
-  protected async stage_getAll(stage: QueryStage) {
+  protected stage_getAll(stage: QueryStage) {
     assert(this.resultType === 'table');
     this.resultType = 'selection';
     const index = stage.options?.index ?? '_id';
     if (Array.isArray(stage.args[0])) {
       this.pipeline.push({
-        $match: { $expr: { $in: ['$' + index, await DecodeValue(stage.args[0], this.context)] } },
+        $match: { [index]: { $in: stage.args[0] } },
       });
     } else {
       this.pipeline.push({
-        $match: { [index]: stage.args[0] }, // TODO: multi value
+        $match: { [index]: stage.args[0] },
       });
     }
   }

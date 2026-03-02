@@ -53,6 +53,8 @@ describe('Row-Level Single-Table Operations', () => {
   it('Insert + tenant_id stamp', InsertAndTenantStamp);
   it('Get by ID', GetById);
   it('GetAll by index', GetAllByIndex);
+  it('GetAll multi-key by index', GetAllMultiKeyByIndex);
+  it('GetAll multi-key by primary keys', GetAllMultiKeyByPrimaryKey);
   it('Tenant isolation', TenantIsolation);
   it('Filter by equality', FilterByEquality);
   it('Filter by comparison', FilterByComparison);
@@ -109,6 +111,30 @@ async function GetAllByIndex() {
   expect(result).to.have.lengthOf(expectedCount);
   result.forEach((doc) => {
     expect(doc.isElectric).to.equal(false);
+  });
+}
+
+const TARGET_PRICES = [3000, 0];
+
+async function GetAllMultiKeyByIndex() {
+  const result = await t1Vehicles.getAll(TARGET_PRICES, 'price').run();
+
+  const expectedCount = vehicles.filter((v) => TARGET_PRICES.includes(v.price)).length;
+  expect(result).to.have.lengthOf(expectedCount);
+
+  result.forEach((doc) => {
+    expect(TARGET_PRICES).to.include(doc.price);
+  });
+}
+
+async function GetAllMultiKeyByPrimaryKey() {
+  const targetKeys = [vehicleKeys[0], vehicleKeys[2]];
+  const result = await t1Vehicles.getAll(targetKeys).run();
+
+  expect(result).to.have.lengthOf(targetKeys.length);
+
+  result.forEach((doc) => {
+    expect(targetKeys).to.include(doc._id);
   });
 }
 

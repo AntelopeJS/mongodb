@@ -12,7 +12,8 @@ describe('Basic Operations', () => {
   it('Insert', InsertTest);
   it('Get', GetTest);
   it('Get All', GetAllTest);
-  it('Get By Index', async () => {});
+  it('Get By Index', GetAllMultiKeyByIndex);
+  it('Get All by primary keys', GetAllMultiKeyByPrimaryKey);
   it('Update', UpdateTest);
   it('Replace', ReplaceTest);
   it('Delete', DeleteTest);
@@ -88,6 +89,33 @@ async function GetAllTest() {
 
     const originalData = findOriginalTestData(doc);
     expect(originalData).to.not.equal(undefined);
+  }
+}
+
+const TARGET_PRICES = [3000, 0];
+
+async function GetAllMultiKeyByIndex() {
+  const result = await table.getAll(TARGET_PRICES, 'price').run();
+
+  expect(result).to.be.an('array');
+  const expectedCount = vehicles.filter((v) => TARGET_PRICES.includes(v.price)).length;
+  expect(result).to.have.lengthOf(expectedCount);
+
+  for (const doc of result) {
+    validateDocumentStructure(doc, doc._id!);
+    expect(TARGET_PRICES).to.include(doc.price);
+  }
+}
+
+async function GetAllMultiKeyByPrimaryKey() {
+  const targetKeys = [insertedKeys[0], insertedKeys[2]];
+  const result = await table.getAll(targetKeys).run();
+
+  expect(result).to.be.an('array');
+  expect(result).to.have.lengthOf(targetKeys.length);
+
+  for (const doc of result) {
+    expect(targetKeys).to.include(doc._id);
   }
 }
 
