@@ -2,7 +2,7 @@ import { Changes, DeepPartial, ExtractType } from './common';
 import { Datum } from './datum';
 import { Query } from './query';
 import { Stream } from './stream';
-import { ValueProxy, ValueProxyOrValue } from './valueproxy';
+import { ValueProxy } from './valueproxy';
 /**
  * Selection containing a single element
  */
@@ -14,7 +14,7 @@ export declare class SingleSelection<T> extends Datum<T> {
      * @returns Number of modified documents
      */
     update(document: DeepPartial<T>): Query<number>;
-    update(document: (val: ValueProxy<T>) => ValueProxyOrValue<DeepPartial<T>>): Query<number>;
+    update<U>(document: (val: ValueProxy<T>) => U): ExtractType<U> extends DeepPartial<T> ? Query<number> : never;
     /**
      * Replace documents of this selection
      *
