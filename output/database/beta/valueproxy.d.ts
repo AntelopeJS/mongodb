@@ -16,7 +16,7 @@ export declare class ValueProxy<T> extends StagedObject {
      * @param value Value
      * @returns Proxy
      */
-    static constant<T = unknown>(value: unknown): ValueProxy<T>;
+    static constant<T = unknown>(value: T): ValueProxy<T>;
     /**
      * Changes the type of this proxy.
      * This does not actually perform any conversion, it only changes the typescript type.

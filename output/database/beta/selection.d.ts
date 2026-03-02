@@ -86,7 +86,7 @@ export declare class Table<T> extends Selection<T> {
      * @param index Secondary index, will use the primary key if undefined
      * @returns Multiple document selection
      */
-    getAll(keys: string | number | (string | number)[], index?: string): Selection<T>;
+    getAll(keys: string | number | boolean | (string | number | boolean)[], index?: string): Selection<T>;
     /**
      * Gets multiple documents using a secondary index and bounding values
      *
