@@ -201,14 +201,14 @@ async function RowLevelScopedUpdate() {
   const t2PriceBefore = t2Before[0].price;
 
   await t1Table
-    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .filter((doc) => doc.key('car').eq('Peugeot'))
     .update({ price: 1 })
     .run();
 
   const t2After = await t2Table.run();
   expect(t2After[0].price).to.equal(t2PriceBefore);
 
-  const t1Updated = await t1Table.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  const t1Updated = await t1Table.filter((doc) => doc.key('car').eq('Peugeot')).run();
   for (const doc of t1Updated) {
     expect(doc.price).to.equal(1);
   }

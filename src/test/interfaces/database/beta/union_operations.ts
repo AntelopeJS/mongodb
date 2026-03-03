@@ -11,8 +11,8 @@ const schema = new Schema<{ [usersTableName]: User; [productsTableName]: Product
   [productsTableName]: Product,
 });
 
-const usersTable = schema.default.table(usersTableName);
-const productsTable = schema.default.table(productsTableName);
+const usersTable = schema.instance('default').table(usersTableName);
+const productsTable = schema.instance('default').table(productsTableName);
 
 const usersData = getUniqueUsers();
 const productsData = getUniqueProducts();
@@ -26,6 +26,16 @@ let insertedKeys: {
 };
 
 describe('Union Operations', () => {
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
+  after(async () => {
+    await usersTable.delete().run();
+    await productsTable.delete().run();
+    await schema.destroyInstance('default').run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Union Same Table With Filter', UnionSameTableWithFilter);
   it('Union Different Tables', UnionDifferentTables);
@@ -70,7 +80,7 @@ async function UnionDifferentTables() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(usersData.length + productsData.length);
 
-  const names = result.map((r: any) => r.name);
+  const names = result.map((r) => r.name);
   for (const user of usersData) {
     expect(names).to.include(user.name);
   }
@@ -86,8 +96,8 @@ async function UnionWithRightMap() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(usersData.length + productsData.length);
 
-  const userResults = result.filter((r: any) => 'age' in r);
-  const productResults = result.filter((r: any) => 'price' in r);
+  const userResults = result.filter((r) => 'age' in r);
+  const productResults = result.filter((r) => 'price' in r);
   expect(userResults).to.have.lengthOf(usersData.length);
   expect(productResults).to.have.lengthOf(productsData.length);
 

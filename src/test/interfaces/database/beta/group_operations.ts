@@ -4,7 +4,7 @@ import { getUniqueOrders, Order } from '../../../datasets/orders';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Order }>('test-group-operations', { [tableName]: Order });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 // Utiliser les données commandes dédupliquées pour les groupements
 const testData = getUniqueOrders(); // Prendre seulement les commandes avec un type de livraison
@@ -13,11 +13,13 @@ let insertedKeys: string[] = [];
 
 describe('Group Operations', () => {
   before(async () => {
+    await schema.createInstance('default').run();
     await table.delete().run();
   });
 
   after(async () => {
     await table.delete().run();
+    await schema.destroyInstance('default').run();
   });
 
   it('Insert Test Data', InsertTestData);

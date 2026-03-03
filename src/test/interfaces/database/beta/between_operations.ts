@@ -4,17 +4,19 @@ import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Vehicle }>('test-between-operations', { [tableName]: Vehicle });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 let insertedKeys: string[] = [];
 
 describe('Between Operations', () => {
   before(async () => {
+    await schema.createInstance('default').run();
     await table.delete().run();
   });
 
   after(async () => {
     await table.delete().run();
+    await schema.destroyInstance('default').run();
   });
 
   it('Insert Test Data', InsertTestData);

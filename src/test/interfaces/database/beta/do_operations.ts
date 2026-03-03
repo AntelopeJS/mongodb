@@ -4,7 +4,7 @@ import { getUniqueUsers, User } from '../../../datasets/users';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: User }>('test-do-operations', { [tableName]: User });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
@@ -12,6 +12,15 @@ const testData = getUniqueUsers();
 let insertedKeys: string[] = [];
 
 describe('Do Operations', () => {
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+    await schema.destroyInstance('default').run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Do with Merge Operation', DoWithMergeOperation);
   it('Do with Prepend Operation', DoWithPrependOperation);

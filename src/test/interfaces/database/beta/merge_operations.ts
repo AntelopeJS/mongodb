@@ -14,9 +14,9 @@ const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User; [p
   { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product },
 );
 
-const ordersTable = schema.default.table(ordersTableName);
-const usersTable = schema.default.table(usersTableName);
-const productsTable = schema.default.table(productsTableName);
+const ordersTable = schema.instance('default').table(ordersTableName);
+const usersTable = schema.instance('default').table(usersTableName);
+const productsTable = schema.instance('default').table(productsTableName);
 
 // Utiliser le dataset unifié
 const usersData = getUniqueUsers();
@@ -34,6 +34,17 @@ let insertedKeys: {
 };
 
 describe('Merge Operations', () => {
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
+  after(async () => {
+    await ordersTable.delete().run();
+    await usersTable.delete().run();
+    await productsTable.delete().run();
+    await schema.destroyInstance('default').run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Merge Customer with User Data', MergeCustomerWithUserData);
   it('Merge Order Items with Product Data', MergeOrderItemsWithProductData);

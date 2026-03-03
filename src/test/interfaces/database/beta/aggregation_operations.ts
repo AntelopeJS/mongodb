@@ -4,17 +4,19 @@ import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Vehicle }>('test-aggregation-operations', { [tableName]: Vehicle });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 let insertedKeys: string[] = [];
 
 describe('Aggregation & Projection Operations', () => {
   before(async () => {
+    await schema.createInstance('default').run();
     await table.delete().run();
   });
 
   after(async () => {
     await table.delete().run();
+    await schema.destroyInstance('default').run();
   });
 
   it('Insert Test Data', InsertTestData);
@@ -106,7 +108,7 @@ async function Pluck() {
   const result = await table.pluck('car', 'price').run();
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
     expect(doc).to.not.have.property('isElectric');
@@ -119,7 +121,7 @@ async function Without() {
   const result = await table.without('kilometers').run();
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.not.have.property('kilometers');
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
@@ -140,12 +142,12 @@ async function DistinctWithoutField() {
   const result = await table.distinct().run();
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
     expect(doc).to.have.property('isElectric');
   });
-  const cars = result.map((doc: any) => doc.car).sort();
+  const cars = result.map((doc) => doc.car).sort();
   const expectedCars = vehicles.map((v) => v.car).sort();
   expect(cars).to.deep.equal(expectedCars);
 }

@@ -13,9 +13,9 @@ const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User; [p
   { [ordersTableName]: Order, [usersTableName]: User, [productsTableName]: Product },
 );
 
-const ordersTable = schema.default.table(ordersTableName);
-const usersTable = schema.default.table(usersTableName);
-const productsTable = schema.default.table(productsTableName);
+const ordersTable = schema.instance('default').table(ordersTableName);
+const usersTable = schema.instance('default').table(usersTableName);
+const productsTable = schema.instance('default').table(productsTableName);
 
 const usersData = getUniqueUsers();
 const productsData = getUniqueProducts();
@@ -32,6 +32,17 @@ let insertedKeys: {
 };
 
 describe('Join Operations', () => {
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
+  after(async () => {
+    await ordersTable.delete().run();
+    await usersTable.delete().run();
+    await productsTable.delete().run();
+    await schema.destroyInstance('default').run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Inner Join Orders with Users', InnerJoinOrdersWithUsers);
   it('Inner Join Orders with Products', InnerJoinOrdersWithProducts);

@@ -4,7 +4,7 @@ import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Vehicle }>('test-basic-operations', { [tableName]: Vehicle });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 let insertedKeys: string[] = [];
 
@@ -19,8 +19,13 @@ describe('Basic Operations', () => {
   it('Replace', ReplaceTest);
   it('Delete', DeleteTest);
 
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
   after(async () => {
     await table.delete().run();
+    await schema.destroyInstance('default').run();
   });
 });
 
@@ -44,7 +49,7 @@ async function GetTest() {
   }
 }
 
-function findOriginalTestData(doc: any): Vehicle | undefined {
+function findOriginalTestData(doc: Vehicle): Vehicle | undefined {
   return vehicles.find(
     (item) =>
       item.car === doc.car &&
@@ -55,7 +60,7 @@ function findOriginalTestData(doc: any): Vehicle | undefined {
   );
 }
 
-function validateDocumentStructure(result: any, expectedId: string) {
+function validateDocumentStructure(result: Vehicle, expectedId: string) {
   expect(result).to.be.an('object');
   expect(result).to.have.property('_id', expectedId).and.to.be.a('string');
   expect(result).to.have.property('car').and.to.be.a('string');
@@ -65,7 +70,7 @@ function validateDocumentStructure(result: any, expectedId: string) {
   expect(result).to.have.property('kilometers').and.to.be.a('number');
 }
 
-function validateDocumentContent(result: any) {
+function validateDocumentContent(result: Vehicle) {
   const originalData = findOriginalTestData(result);
   expect(originalData).to.not.equal(undefined);
   expect(result).to.deep.include({

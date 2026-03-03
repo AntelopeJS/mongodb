@@ -4,7 +4,7 @@ import { getUniqueUsers, User } from '../../../datasets/users';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: User }>('test-sorting', { [tableName]: User });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
@@ -12,6 +12,15 @@ const testData = getUniqueUsers();
 let insertedKeys: string[] = [];
 
 describe('Sorting Operations', () => {
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
+  after(async () => {
+    await table.delete().run();
+    await schema.destroyInstance('default').run();
+  });
+
   it('Insert Test Data', InsertTestData);
   it('Sort by String Ascending', SortByStringAscending);
   it('Sort by String Descending', SortByStringDescending);

@@ -11,8 +11,8 @@ const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User }>(
   [usersTableName]: User,
 });
 
-const ordersTable = schema.default.table(ordersTableName);
-const usersTable = schema.default.table(usersTableName);
+const ordersTable = schema.instance('default').table(ordersTableName);
+const usersTable = schema.instance('default').table(usersTableName);
 
 const usersData = getUniqueUsers();
 const ordersData = getUniqueOrders();
@@ -27,6 +27,7 @@ let insertedKeys: {
 
 describe('Lookup Operations', () => {
   before(async () => {
+    await schema.createInstance('default').run();
     await ordersTable.delete().run();
     await usersTable.delete().run();
   });
@@ -34,6 +35,7 @@ describe('Lookup Operations', () => {
   after(async () => {
     await ordersTable.delete().run();
     await usersTable.delete().run();
+    await schema.destroyInstance('default').run();
   });
 
   it('Insert Test Data', InsertTestData);
@@ -59,7 +61,7 @@ async function LookupBasic() {
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(ordersData.length);
 
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('customerName');
     const customerName = doc.customerName;
     expect(customerName).to.be.an('object');
@@ -69,7 +71,7 @@ async function LookupBasic() {
     expect(customerName).to.have.property('isActive');
   });
 
-  const antoineOrder = result.find((doc: any) => doc.orderId === 'ORD-001');
+  const antoineOrder = result.find((doc) => doc.orderId === 'ORD-001');
   expect(antoineOrder).to.not.equal(undefined);
   expect(antoineOrder!.customerName).to.have.property('name', 'Antoine');
   expect(antoineOrder!.customerName).to.have.property('age', 25);
@@ -85,7 +87,7 @@ async function LookupWithFilter() {
   const expectedCount = ordersData.filter((o) => o.isPaid).length;
   expect(result).to.have.lengthOf(expectedCount);
 
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc.isPaid).to.equal(true);
     expect(doc.customerName).to.be.an('object');
     expect(doc.customerName).to.have.property('name');

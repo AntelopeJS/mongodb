@@ -155,7 +155,7 @@ async function TenantIsolation() {
 }
 
 async function FilterByEquality() {
-  const result = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  const result = await t1Vehicles.filter((doc) => doc.key('car').eq('Peugeot')).run();
   const expectedCount = vehicles.filter((v) => v.car === 'Peugeot').length;
   expect(result).to.have.lengthOf(expectedCount);
   result.forEach((doc) => {
@@ -164,7 +164,7 @@ async function FilterByEquality() {
 }
 
 async function FilterByComparison() {
-  const result = await t1Vehicles.filter((doc: any) => doc.key('price').gt(0)).run();
+  const result = await t1Vehicles.filter((doc) => doc.key('price').gt(0)).run();
   const expectedCount = vehicles.filter((v) => v.price > 0).length;
   expect(result).to.have.lengthOf(expectedCount);
   result.forEach((doc) => {
@@ -173,7 +173,7 @@ async function FilterByComparison() {
 }
 
 async function FilterByBoolean() {
-  const result = await t1Vehicles.filter((doc: any) => doc.key('isElectric').eq(true)).run();
+  const result = await t1Vehicles.filter((doc) => doc.key('isElectric').eq(true)).run();
   const expectedCount = vehicles.filter((v) => v.isElectric).length;
   expect(result).to.have.lengthOf(expectedCount);
   result.forEach((doc) => {
@@ -254,7 +254,7 @@ async function Slice() {
 async function Pluck() {
   const result = await t1Vehicles.pluck('car', 'price').run();
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
     expect(doc).to.not.have.property('isElectric');
@@ -266,7 +266,7 @@ async function Pluck() {
 async function Without() {
   const result = await t1Vehicles.without('kilometers').run();
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.not.have.property('kilometers');
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
@@ -286,7 +286,7 @@ async function DistinctWithField() {
 async function DistinctWithoutField() {
   const result = await t1Vehicles.distinct().run();
   expect(result).to.have.lengthOf(vehicles.length);
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('car');
     expect(doc).to.have.property('price');
     expect(doc).to.have.property('isElectric');
@@ -306,7 +306,7 @@ async function Between() {
 async function BetweenPlusFilter() {
   const result = await t1Vehicles
     .between('price', -2000, 5000)
-    .filter((doc: any) => doc.key('isElectric').eq(true))
+    .filter((doc) => doc.key('isElectric').eq(true))
     .run();
   const expected = vehicles.filter((v) => v.price >= -2000 && v.price < 5000 && v.isElectric);
   expect(result).to.have.lengthOf(expected.length);
@@ -320,14 +320,14 @@ async function UpdateScoped() {
   const t2PriceBefore = t2Before[0].price;
 
   await t1Vehicles
-    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .filter((doc) => doc.key('car').eq('Peugeot'))
     .update({ price: 1 })
     .run();
 
   const t2After = await t2Vehicles.run();
   expect(t2After[0].price).to.equal(t2PriceBefore);
 
-  const t1Updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  const t1Updated = await t1Vehicles.filter((doc) => doc.key('car').eq('Peugeot')).run();
   for (const doc of t1Updated) {
     expect(doc.price).to.equal(1);
   }
@@ -337,14 +337,14 @@ async function UpdateWithExpressionNumeric() {
   // After UpdateScoped, all Peugeot docs have price=1
   // Increment price by 100 using expression-based update
   const modified = await t1Vehicles
-    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .filter((doc) => doc.key('car').eq('Peugeot'))
     .update((doc: any) => ({ price: doc.key('price').add(100) }))
     .run();
 
   const peugeotCount = vehicles.filter((v) => v.car === 'Peugeot').length;
   expect(modified).to.equal(peugeotCount);
 
-  const updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  const updated = await t1Vehicles.filter((doc) => doc.key('car').eq('Peugeot')).run();
   for (const doc of updated) {
     expect(doc.price).to.equal(101); // was 1, now 1 + 100
   }
@@ -371,7 +371,7 @@ async function UpdateWithExpressionOnSingleSelection() {
 async function UpdateWithExpressionMixed() {
   // Mix plain values and expressions
   const modified = await t1Vehicles
-    .filter((doc: any) => doc.key('car').eq('Peugeot'))
+    .filter((doc) => doc.key('car').eq('Peugeot'))
     .update((doc: any) => ({
       price: doc.key('price').add(500),
       isElectric: true,
@@ -381,7 +381,7 @@ async function UpdateWithExpressionMixed() {
   const peugeotCount = vehicles.filter((v) => v.car === 'Peugeot').length;
   expect(modified).to.equal(peugeotCount);
 
-  const updated = await t1Vehicles.filter((doc: any) => doc.key('car').eq('Peugeot')).run();
+  const updated = await t1Vehicles.filter((doc) => doc.key('car').eq('Peugeot')).run();
   for (const doc of updated) {
     expect(doc.price).to.equal(601); // was 101, now 101 + 500
     expect(doc.isElectric).to.equal(true);
@@ -503,13 +503,13 @@ async function Lookup() {
 
   expect(result).to.have.lengthOf(ordersData.length);
 
-  result.forEach((doc: any) => {
+  result.forEach((doc) => {
     expect(doc).to.have.property('customerName');
     expect(doc.customerName).to.be.an('object');
     expect(doc.customerName).to.have.property('name');
   });
 
-  const antoineOrder = result.find((doc: any) => doc.orderId === 'ORD-001');
+  const antoineOrder = result.find((doc) => doc.orderId === 'ORD-001');
   expect(antoineOrder).to.not.equal(undefined);
   expect(antoineOrder!.customerName).to.have.property('name', 'Antoine');
 }

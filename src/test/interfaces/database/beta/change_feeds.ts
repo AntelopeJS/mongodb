@@ -4,15 +4,20 @@ import { vehicles, Vehicle } from '../../../datasets/vehicles';
 
 const tableName = 'test-table';
 const schema = new Schema<{ [tableName]: Vehicle }>('test-change-feeds', { [tableName]: Vehicle });
-const table = schema.default.table(tableName);
+const table = schema.instance('default').table(tableName);
 
 describe('Change Streams', () => {
   it('Insert Test Data', InsertTest);
   it('Insert Event', InsertEventTest);
   it('Update Event', UpdateEventTest);
   it('Delete Event', DeleteEventTest);
+  before(async () => {
+    await schema.createInstance('default').run();
+  });
+
   after(async () => {
     await table.delete().run();
+    await schema.destroyInstance('default').run();
   });
 });
 
