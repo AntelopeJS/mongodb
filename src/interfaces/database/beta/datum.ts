@@ -61,11 +61,7 @@ export class Datum<T> extends Query<T> {
    * @param localKey Key in local object
    * @param otherKey Key in other table
    */
-  public lookup<U = any, TK extends keyof T = keyof T>(
-    other: Selection<U>,
-    localKey: TK,
-    otherKey: keyof U,
-  ) {
+  public lookup<U = any, TK extends keyof T = keyof T>(other: Selection<U>, localKey: TK, otherKey: keyof U) {
     return this.stage(
       Datum<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>,
       'lookup',

@@ -2,7 +2,7 @@ import { Changes, ExtractType, Value } from './common';
 import { Query } from './query';
 import { ValueProxy, ValueProxyOrValue } from './valueproxy';
 import { Datum } from './datum';
-import { Table } from './selection';
+import { Selection } from './selection';
 export declare class Stream<T> extends Query<T[]> {
     /**
      * Changes the type of the value in this stream.
@@ -89,7 +89,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param otherKey Key in the other document to match against
      * @returns New stream
      */
-    lookup<U, TK extends keyof T>(right: Table<U>, localKey: TK, otherKey: keyof U): Stream<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>;
+    lookup<U, TK extends keyof T>(right: Selection<U>, localKey: TK, otherKey: keyof U): Stream<Omit<T, TK> & Record<TK, T[TK] extends any[] ? U[] : U>>;
     /**
      * Group the documents using the given index and maps the result using a mapping function
      *
