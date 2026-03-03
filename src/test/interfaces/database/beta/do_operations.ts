@@ -29,6 +29,7 @@ describe('Do Operations', () => {
   it('Do with Conditional Logic', DoWithConditionalLogic);
   it('Do with Array Operations', DoWithArrayOperations);
   it('Do with Nested Object Operations', DoWithNestedObjectOperations);
+  it('Do with Sub-Query Get (ValueProxy key)', DoWithSubQueryGet);
   it('Cleanup', CleanupTest);
 });
 
@@ -231,6 +232,17 @@ async function DoWithNestedObjectOperations() {
     expect(result.profile.metadata.preferences.theme).to.equal('dark');
   }
   expect(result.profile.metadata.tags).to.include('experienced');
+}
+
+async function DoWithSubQueryGet() {
+  const result = await table
+    .get(insertedKeys[0])
+    .do((user) => table.get(user.key('_id') as any))
+    .run();
+
+  expect(result).to.be.an('object');
+  expect(result).to.have.property('_id', insertedKeys[0]);
+  expect(result).to.have.property('name', testData[0].name);
 }
 
 async function CleanupTest() {

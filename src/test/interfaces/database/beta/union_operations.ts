@@ -93,11 +93,13 @@ async function UnionWithRightMap() {
   const mappedProducts = productsTable.map((p) => ({ name: p.key('name'), price: p.key('price') }));
 
   const result = await usersTable.union(mappedProducts).run();
+
   expect(result).to.be.an('array');
   expect(result).to.have.lengthOf(usersData.length + productsData.length);
 
   const userResults = result.filter((r) => 'age' in r);
   const productResults = result.filter((r) => 'price' in r);
+
   expect(userResults).to.have.lengthOf(usersData.length);
   expect(productResults).to.have.lengthOf(productsData.length);
 
