@@ -87,27 +87,9 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: b
   }
 }
 
-export async function CreateTables(schemaId: string, schema: SchemaDefinition, rowLevel?: boolean): Promise<string[]> {
-  const databases = await ListDatabases();
-  const instances = [];
-  // database-level instances
-  for (const { name } of databases) {
-    if (name.startsWith(schemaId + '-')) {
-      instances.push(name.substring(schemaId.length + 1));
-      const db = await GetDatabase(name);
-      await InitializeDatabase(db, schema);
-    }
-  }
-  // global instance (no instanceId)
-  for (const { name } of databases) {
-    if (name === schemaId) {
-      instances.push('');
-      const db = await GetDatabase(name);
-      await InitializeDatabase(db, schema, rowLevel);
-      break;
-    }
-  }
-  return instances;
+export async function CreateRowLevelDatabase(schemaId: string, schema: SchemaDefinition) {
+  const db = await GetDatabase(schemaId);
+  await InitializeDatabase(db, schema, true);
 }
 
 export async function CreateSchemaInstance(schemaId: string, instanceId: string | undefined, schema: SchemaDefinition) {

@@ -3,7 +3,7 @@ import { AggregationPipeline } from './pipeline';
 import assert from 'assert';
 import { DecodingContext } from './utils';
 import { DecodeFunction } from './query';
-import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance, existingSchemas } from './schema';
+import { CreateInstance, DestroyInstance, IsRowLevel, IsValidInstance } from './schema';
 import { buildDatabaseName, GetCollection } from '../../../connection';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -138,11 +138,8 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async ensureInstance() {
-    if (IsValidInstance(this.schemaId, this.instanceId)) {
-      return;
-    }
-    if (this.schemaId in existingSchemas) {
-      await CreateInstance(this.schemaId, this.instanceId);
+    if (!IsValidInstance(this.schemaId, this.instanceId)) {
+      throw new Error(`Instance '${this.instanceId ?? '(global)'}' does not exist for schema '${this.schemaId}'`);
     }
   }
 

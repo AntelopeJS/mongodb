@@ -1,5 +1,5 @@
 import { SchemaDefinition, SchemaOptions } from '@ajs.local/database/beta/schema';
-import { CreateSchemaInstance, CreateTables, DestroySchemaInstance } from '../../../connection';
+import { CreateRowLevelDatabase, CreateSchemaInstance, DestroySchemaInstance } from '../../../connection';
 import assert from 'assert';
 
 export const existingSchemas: Record<string, { definition: SchemaDefinition; options: SchemaOptions }> = {};
@@ -11,10 +11,10 @@ export const Schemas = {
   async register(schemaId: string, schema: SchemaDefinition, options: SchemaOptions) {
     existingSchemas[schemaId] = { definition: schema, options };
     existingInstances[schemaId] = new Set<string>();
-    const instances = await CreateTables(schemaId, schema, options.rowLevel);
-    for (const instance of instances) {
-      existingInstances[schemaId].add(instance);
+    if (!options.rowLevel) {
+      return;
     }
+    await CreateRowLevelDatabase(schemaId, schema);
   },
   unregister(schemaId: string) {
     delete existingSchemas[schemaId];

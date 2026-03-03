@@ -70,11 +70,6 @@ export class Schema<T = any> extends StagedObject {
   }
 
   /**
-   * Default instance of this schema for convenience
-   */
-  public readonly default = this.instance('default');
-
-  /**
    * Define a new schema with the given ID
    *
    * @param id ID of this schema, changing this will leave previous data inaccessible
