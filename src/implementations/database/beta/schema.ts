@@ -10,7 +10,9 @@ export const existingInstances: Record<string, Set<string>> = {};
 export const Schemas = {
   async register(schemaId: string, schema: SchemaDefinition, options: SchemaOptions) {
     existingSchemas[schemaId] = { definition: schema, options };
-    existingInstances[schemaId] = new Set<string>();
+    if (!existingInstances[schemaId]) {
+      existingInstances[schemaId] = new Set<string>();
+    }
     if (!options.rowLevel) {
       return;
     }
