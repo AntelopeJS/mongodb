@@ -104,7 +104,9 @@ export class Expression {
   stage_date_hours = '$hour';
   stage_date_minutes = '$minute';
   stage_date_seconds = '$second';
-  stage_date_epoch = '$toLong';
+  stage_date_epoch() {
+    return { $divide: [{ $toLong: this.value }, 1000] };
+  }
 
   stage_mul = '$multiply';
   stage_div = '$divide';
