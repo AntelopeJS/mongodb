@@ -1,6 +1,6 @@
-import { StagedObject } from './common';
-import { Query } from './query';
-import { Table } from './selection';
+import { StagedObject } from "./common";
+import { Query } from "./query";
+import { Table } from "./selection";
 /**
  * Secondary table index definition
  */
@@ -58,10 +58,6 @@ export declare class Schema<T = any> extends StagedObject {
      * @returns The schema instance, or undefined if not found
      */
     static get(id: string): Schema | undefined;
-    /**
-     * Default instance of this schema for convenience
-     */
-    readonly default: SchemaInstance<T>;
     /**
      * Define a new schema with the given ID
      *

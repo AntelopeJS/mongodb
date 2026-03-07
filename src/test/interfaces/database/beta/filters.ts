@@ -1,63 +1,69 @@
-import { Schema } from '@ajs/database/beta';
-import { expect } from 'chai';
-import { getUniqueUsers, User } from '../../../datasets/users';
+import { Schema } from "@ajs/database/beta";
+import { expect } from "chai";
+import { getUniqueUsers, User } from "../../../datasets/users";
 
-const tableName = 'test-table';
-const schema = new Schema<{ [tableName]: User }>('test-filters', { [tableName]: User });
-const table = schema.instance('default').table(tableName);
+const tableName = "test-table";
+const schema = new Schema<{ [tableName]: User }>("test-filters", {
+  [tableName]: User,
+});
+const table = schema.instance("default").table(tableName);
 
 // Utiliser le dataset unifié
 const testData = getUniqueUsers();
 
 let insertedKeys: string[] = [];
 
-describe('Filter Operations', () => {
+describe("Filter Operations", () => {
   before(async () => {
-    await schema.createInstance('default').run();
+    await schema.createInstance("default").run();
   });
 
   after(async () => {
     await table.delete().run();
-    await schema.destroyInstance('default').run();
+    await schema.destroyInstance("default").run();
   });
 
-  it('Insert Test Data', InsertTestData);
-  it('Filter by String Equality', FilterByStringEquality);
-  it('Filter by Number Comparison', FilterByNumberComparison);
-  it('Filter by Boolean', FilterByBoolean);
-  it('Cleanup', CleanupTest);
+  it("Insert Test Data", InsertTestData);
+  it("Filter by String Equality", FilterByStringEquality);
+  it("Filter by Number Comparison", FilterByNumberComparison);
+  it("Filter by Boolean", FilterByBoolean);
+  it("Cleanup", CleanupTest);
 });
 
 async function InsertTestData() {
   const response = await table.insert(testData).run();
-  expect(response).to.be.an('array');
+  expect(response).to.be.an("array");
 
   expect(response).to.have.lengthOf(testData.length);
   response.forEach((val) => {
-    expect(val).to.be.a('string');
+    expect(val).to.be.a("string");
   });
   insertedKeys = response;
 }
 
 async function FilterByStringEquality() {
-  const result = await table.filter((doc) => doc.key('department').eq('Development')).run();
+  const result = await table
+    .filter((doc) => doc.key("department").eq("Development"))
+    .run();
 
-  expect(result).to.be.an('array');
-  const expectedCount = testData.filter((user) => user.department === 'Development').length;
+  expect(result).to.be.an("array");
+  const expectedCount = testData.filter(
+    (user) => user.department === "Development",
+  ).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
-    expect(doc.department).to.equal('Development');
+    expect(doc.department).to.equal("Development");
   });
 
   const names = result.map((doc) => doc.name).sort();
-  expect(names).to.deep.equal(['Antoine', 'Camille', 'Emilie']);
+  expect(names).to.deep.equal(["Antoine", "Camille", "Emilie"]);
 }
 
 async function FilterByNumberComparison() {
-  const result = await table.filter((doc) => doc.key('age').gt(25)).run();
+  const result = await table.filter((doc) => doc.key("age").gt(25)).run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   const expectedCount = testData.filter((user) => user.age > 25).length;
   expect(result).to.have.lengthOf(expectedCount);
 
@@ -70,10 +76,14 @@ async function FilterByNumberComparison() {
 }
 
 async function FilterByBoolean() {
-  const result = await table.filter((doc) => doc.key('isActive').eq(true)).run();
+  const result = await table
+    .filter((doc) => doc.key("isActive").eq(true))
+    .run();
 
-  expect(result).to.be.an('array');
-  const expectedCount = testData.filter((user) => user.isActive === true).length;
+  expect(result).to.be.an("array");
+  const expectedCount = testData.filter(
+    (user) => user.isActive === true,
+  ).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
@@ -81,7 +91,7 @@ async function FilterByBoolean() {
   });
 
   const names = result.map((doc) => doc.name).sort();
-  expect(names).to.deep.equal(['Antoine', 'Camille', 'Dominique', 'Emilie']);
+  expect(names).to.deep.equal(["Antoine", "Camille", "Dominique", "Emilie"]);
 }
 
 async function CleanupTest() {

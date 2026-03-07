@@ -1,8 +1,8 @@
-import { Changes, ExtractType, Value } from './common';
-import { Query } from './query';
-import { ValueProxy, ValueProxyOrValue } from './valueproxy';
-import { Datum } from './datum';
-import { Selection } from './selection';
+import type { Changes, ExtractType, Value } from "./common";
+import { Datum } from "./datum";
+import { Query } from "./query";
+import type { Selection } from "./selection";
+import { ValueProxy, type ValueProxyOrValue } from "./valueproxy";
 export declare class Stream<T> extends Query<T[]> {
     /**
      * Changes the type of the value in this stream.
@@ -111,7 +111,7 @@ export declare class Stream<T> extends Query<T[]> {
      * @param direction Sort direction
      * @returns New (sorted) stream
      */
-    orderBy(index: string, direction?: 'asc' | 'desc'): this;
+    orderBy(index: string, direction?: "asc" | "desc"): this;
     /**
      * Obtain a slice (subsection) of the stream
      *

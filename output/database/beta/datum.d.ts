@@ -1,7 +1,7 @@
-import { ExtractType, Value } from './common';
-import { Query } from './query';
-import { Selection } from './selection';
-import { ValueProxy } from './valueproxy';
+import type { ExtractType, Value } from "./common";
+import { Query } from "./query";
+import type { Selection } from "./selection";
+import { ValueProxy } from "./valueproxy";
 export declare class Datum<T> extends Query<T> {
     /**
      * Changes the type of this datum.

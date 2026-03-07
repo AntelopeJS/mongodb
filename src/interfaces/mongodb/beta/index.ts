@@ -6,7 +6,7 @@
  * to ensure only one client connection is active at a time.
  */
 
-import { MongoClient } from 'mongodb';
+import type { MongoClient } from "mongodb";
 
 /**
  * @internal
@@ -26,6 +26,7 @@ export namespace internal {
    * Connection state flag
    * Indicates whether the MongoDB client is currently connected
    */
+  // biome-ignore lint/style/useConst: reassigned in connection.ts
   export let connected = false;
 
   /**
@@ -42,10 +43,15 @@ export namespace internal {
    *
    * @returns A new unresolved client promise
    */
-  export const UnsetClient = () => (client = new Promise((resolve) => (SetClient = resolve)));
+  export const UnsetClient = () => {
+    client = new Promise((resolve) => {
+      SetClient = resolve;
+    });
+    return client;
+  };
 
   // Initialize the client promise on module load
-  UnsetClient();
+  void UnsetClient();
 }
 
 /**

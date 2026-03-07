@@ -1,6 +1,6 @@
-import { MongoClientOptions } from 'mongodb';
-import { ImplementInterface } from '@ajs/core/beta';
-import { Connect, Disconnect } from './connection';
+import { ImplementInterface } from "@ajs/core/beta";
+import type { MongoClientOptions } from "mongodb";
+import { Connect, Disconnect } from "./connection";
 
 export interface Options {
   url: string;
@@ -10,13 +10,13 @@ export interface Options {
 export async function construct(options: Options) {
   await Connect(options?.url, options?.options);
 
-  ImplementInterface(
-    await import('@ajs.local/database/beta/query'),
-    await import('./implementations/database/beta/query'),
+  await ImplementInterface(
+    await import("@ajs.local/database/beta/query"),
+    await import("./implementations/database/beta/query"),
   );
-  ImplementInterface(
-    await import('@ajs.local/database/beta/schema'),
-    await import('./implementations/database/beta/schema'),
+  await ImplementInterface(
+    await import("@ajs.local/database/beta/schema"),
+    await import("./implementations/database/beta/schema"),
   );
 }
 

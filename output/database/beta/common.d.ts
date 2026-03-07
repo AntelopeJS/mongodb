@@ -1,7 +1,7 @@
-import { Class } from '@ajs/core/beta/decorators';
-import { ValueProxy, ValueProxyOrValue } from './valueproxy';
-import { Datum } from './datum';
-import { Query } from './query';
+import type { Class } from "@ajs/core/beta/decorators";
+import type { Datum } from "./datum";
+import type { Query } from "./query";
+import type { ValueProxy, ValueProxyOrValue } from "./valueproxy";
 /**
  * Recursive Partial generic type
  */
@@ -17,7 +17,7 @@ export interface Changes<T> {
      *
      * Possible values: added, removed, modified
      */
-    changeType: 'added' | 'removed' | 'modified';
+    changeType: "added" | "removed" | "modified";
     /**
      * Value prior to the change
      */

@@ -5,7 +5,7 @@
  * It provides a centralized way to manage MongoDB connections using a singleton pattern
  * to ensure only one client connection is active at a time.
  */
-import { MongoClient } from 'mongodb';
+import type { MongoClient } from "mongodb";
 /**
  * Returns a promise that resolves to the MongoDB client
  *

@@ -1,7 +1,7 @@
-import { RegisteringProxy } from '@ajs/core/beta';
-import { QueryStage, StagedObject } from './common';
-import { Query } from './query';
-import { Table } from './selection';
+import { RegisteringProxy } from "@ajs/core/beta";
+import { QueryStage, StagedObject } from "./common";
+import { Query } from "./query";
+import { Table } from "./selection";
 
 /**
  * Secondary table index definition
@@ -18,7 +18,10 @@ export interface IndexDefinition {
   multi?: boolean;
 }
 
-export type FieldType = string | Array<FieldType> | { [subfield: string]: FieldType };
+export type FieldType =
+  | string
+  | Array<FieldType>
+  | { [subfield: string]: FieldType };
 
 /**
  * Schema table definition
@@ -47,7 +50,9 @@ export interface SchemaOptions {
 }
 
 //@internal
-export const Schemas = new RegisteringProxy<(name: string, def: SchemaDefinition, options: SchemaOptions) => void>();
+export const Schemas = new RegisteringProxy<
+  (name: string, def: SchemaDefinition, options: SchemaOptions) => void
+>();
 
 /**
  * A schema determines the structure of a database
@@ -80,7 +85,7 @@ export class Schema<T = any> extends StagedObject {
     public readonly definition: SchemaDefinition,
     public readonly options: SchemaOptions = {},
   ) {
-    super(QueryStage('schema', { id }));
+    super(QueryStage("schema", { id }));
     Schemas.register(id, definition, options);
     Schema.registry.set(id, this);
   }
@@ -92,7 +97,7 @@ export class Schema<T = any> extends StagedObject {
    * @returns Schema instance
    */
   public instance(id?: string) {
-    return this.stage(SchemaInstance<T>, 'instance', { id });
+    return this.stage(SchemaInstance<T>, "instance", { id });
   }
 
   /**
@@ -102,7 +107,7 @@ export class Schema<T = any> extends StagedObject {
    * @returns Created instance ID
    */
   public createInstance(id?: string) {
-    return this.stage(Query<string>, 'createInstance', { id });
+    return this.stage(Query<string>, "createInstance", { id });
   }
 
   /**
@@ -111,7 +116,7 @@ export class Schema<T = any> extends StagedObject {
    * @param id Instance ID
    */
   public destroyInstance(id?: string) {
-    return this.stage(Query<void>, 'destroyInstance', { id });
+    return this.stage(Query<void>, "destroyInstance", { id });
   }
 }
 
@@ -126,6 +131,6 @@ export class SchemaInstance<T> extends StagedObject {
    * @returns Table
    */
   public table<TK extends keyof T>(id: TK) {
-    return this.stage(Table<T[TK]>, 'table', { id });
+    return this.stage(Table<T[TK]>, "table", { id });
   }
 }

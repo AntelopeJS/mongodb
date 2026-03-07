@@ -1,4 +1,4 @@
-import { ExtractType, StagedObject } from './common';
+import { type ExtractType, StagedObject } from "./common";
 export type ValueProxyOrValue<T> = ValueProxy<T> | T;
 export type Is<Left, Right, R> = Left extends Right ? R : never;
 export type ArrayValue<T> = T extends (infer V)[] ? V : never;

@@ -1,12 +1,20 @@
-import { Collection, MongoClient, MongoClientOptions, Db } from 'mongodb';
-import { internal } from '@ajs.local/mongodb/beta';
+import { internal } from "@ajs.local/mongodb/beta";
+import {
+  type Collection,
+  type Db,
+  MongoClient,
+  type MongoClientOptions,
+} from "mongodb";
 
-export function buildDatabaseName(schemaId: string, instanceId: string | undefined): string {
+export function buildDatabaseName(
+  schemaId: string,
+  instanceId: string | undefined,
+): string {
   return instanceId !== undefined ? `${schemaId}-${instanceId}` : schemaId;
 }
 
 export async function Connect(url: string, options?: MongoClientOptions) {
-  Disconnect();
+  await Disconnect();
   const mongoClient = await MongoClient.connect(url, options);
   internal.connected = true;
   internal.SetClient(mongoClient);
@@ -15,12 +23,18 @@ export async function Connect(url: string, options?: MongoClientOptions) {
 export async function Disconnect() {
   if (internal.connected) {
     await internal.client.then((client) => client.close());
+    internal.connected = false;
     internal.UnsetClient();
   }
 }
 
-export async function GetCollection(database: string, collection: string): Promise<Collection> {
-  return internal.client.then((client) => client.db(database).collection(collection));
+export async function GetCollection(
+  database: string,
+  collection: string,
+): Promise<Collection> {
+  return internal.client.then((client) =>
+    client.db(database).collection(collection),
+  );
 }
 
 export async function GetDatabase(database: string): Promise<Db> {
@@ -29,7 +43,9 @@ export async function GetDatabase(database: string): Promise<Db> {
 
 export async function ListDatabases(): Promise<{ name: string }[]> {
   return internal.client
-    .then((client) => client.db('admin').command({ listDatabases: 1, nameOnly: true }))
+    .then((client) =>
+      client.db("admin").command({ listDatabases: 1, nameOnly: true }),
+    )
     .then((result) => result.databases);
 }
 
@@ -45,21 +61,29 @@ export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
-async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: boolean) {
-  const existingCollections = new Set((await db.listCollections().toArray()).map((collection) => collection.name));
+async function InitializeDatabase(
+  db: Db,
+  schema: SchemaDefinition,
+  rowLevel?: boolean,
+) {
+  const existingCollections = new Set(
+    (await db.listCollections().toArray()).map((collection) => collection.name),
+  );
   for (const [tableId, table] of Object.entries(schema)) {
     if (!existingCollections.has(tableId)) {
       await db.createCollection(tableId);
     }
     const collection = db.collection(tableId);
     const existingIndexes = await collection.indexes();
-    const indexesByName = Object.fromEntries(existingIndexes.map((index) => [index.name, index]));
+    const indexesByName = Object.fromEntries(
+      existingIndexes.map((index) => [index.name, index]),
+    );
     const indexesByFields = Object.fromEntries(
-      existingIndexes.map((index) => [Object.keys(index.key).join(','), index]),
+      existingIndexes.map((index) => [Object.keys(index.key).join(","), index]),
     );
     for (const [indexId, index] of Object.entries(table.indexes)) {
       const fields = index.fields ?? [indexId];
-      const fieldsKey = fields.join(',');
+      const fieldsKey = fields.join(",");
       const existingByName = indexesByName[indexId];
       const existingByFields = indexesByFields[fieldsKey];
 
@@ -78,27 +102,39 @@ async function InitializeDatabase(db: Db, schema: SchemaDefinition, rowLevel?: b
     }
     if (rowLevel) {
       const hasTenantIndex = existingIndexes.some(
-        (index) => index.name === 'tenant_id' || (Object.keys(index.key).length === 1 && index.key['tenant_id']),
+        (index) =>
+          index.name === "tenant_id" ||
+          (Object.keys(index.key).length === 1 && index.key.tenant_id),
       );
       if (!hasTenantIndex) {
-        await collection.createIndex(['tenant_id'], { name: 'tenant_id' });
+        await collection.createIndex(["tenant_id"], { name: "tenant_id" });
       }
     }
   }
 }
 
-export async function CreateRowLevelDatabase(schemaId: string, schema: SchemaDefinition) {
+export async function CreateRowLevelDatabase(
+  schemaId: string,
+  schema: SchemaDefinition,
+) {
   const db = await GetDatabase(schemaId);
   await InitializeDatabase(db, schema, true);
 }
 
-export async function CreateSchemaInstance(schemaId: string, instanceId: string | undefined, schema: SchemaDefinition) {
+export async function CreateSchemaInstance(
+  schemaId: string,
+  instanceId: string | undefined,
+  schema: SchemaDefinition,
+) {
   const dbName = buildDatabaseName(schemaId, instanceId);
   const db = await GetDatabase(dbName);
   await InitializeDatabase(db, schema);
 }
 
-export async function DestroySchemaInstance(schemaId: string, instanceId: string | undefined) {
+export async function DestroySchemaInstance(
+  schemaId: string,
+  instanceId: string | undefined,
+) {
   const dbName = buildDatabaseName(schemaId, instanceId);
   const db = await GetDatabase(dbName);
   await db.dropDatabase();

@@ -1,4 +1,4 @@
-import { ExtractType, QueryStage, StagedObject } from './common';
+import { type ExtractType, QueryStage, StagedObject } from "./common";
 
 export type ValueProxyOrValue<T> = ValueProxy<T> | T;
 
@@ -6,7 +6,9 @@ export type Is<Left, Right, R> = Left extends Right ? R : never;
 
 export type ArrayValue<T> = T extends (infer V)[] ? V : never;
 
-export type IsArray<Left, Right, R> = Right extends (infer A)[] ? Is<A, Left, R> : never;
+export type IsArray<Left, Right, R> = Right extends (infer A)[]
+  ? Is<A, Left, R>
+  : never;
 
 export type OnlyObject<T> = T extends Record<any, any> ? T : never;
 
@@ -18,7 +20,7 @@ export type OnlyObject<T> = T extends Record<any, any> ? T : never;
 export class ValueProxy<T> extends StagedObject {
   //@internal
   public static arg<T = unknown>(id: number) {
-    return new ValueProxy<T>(QueryStage('arg', undefined, id));
+    return new ValueProxy<T>(QueryStage("arg", undefined, id));
   }
 
   /**
@@ -28,7 +30,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Proxy
    */
   public static constant<T = unknown>(value: T) {
-    return new ValueProxy<T>(QueryStage('constant', undefined, value));
+    return new ValueProxy<T>(QueryStage("constant", undefined, value));
   }
 
   /**
@@ -50,7 +52,12 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Non-null value.
    */
   public default<U>(value: ValueProxyOrValue<U>) {
-    return this.stage(ValueProxy<Exclude<T, undefined | null> | U>, 'default', undefined, value);
+    return this.stage(
+      ValueProxy<Exclude<T, undefined | null> | U>,
+      "default",
+      undefined,
+      value,
+    );
   }
 
   /**
@@ -60,7 +67,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A && B
    */
   public and(value: unknown) {
-    return this.stage(ValueProxy<boolean>, 'and', undefined, value);
+    return this.stage(ValueProxy<boolean>, "and", undefined, value);
   }
 
   /**
@@ -70,7 +77,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A || B
    */
   public or(value: unknown) {
-    return this.stage(ValueProxy<boolean>, 'or', undefined, value);
+    return this.stage(ValueProxy<boolean>, "or", undefined, value);
   }
 
   /**
@@ -79,7 +86,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns !A
    */
   public not() {
-    return this.stage(ValueProxy<boolean>, 'not');
+    return this.stage(ValueProxy<boolean>, "not");
   }
 
   /**
@@ -89,7 +96,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A == B
    */
   public eq(value: unknown) {
-    return this.stage(ValueProxy<boolean>, 'eq', undefined, value);
+    return this.stage(ValueProxy<boolean>, "eq", undefined, value);
   }
 
   /**
@@ -99,7 +106,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A != B
    */
   public ne(value: unknown) {
-    return this.stage(ValueProxy<boolean>, 'ne', undefined, value);
+    return this.stage(ValueProxy<boolean>, "ne", undefined, value);
   }
 
   //#endregion
@@ -112,8 +119,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns New value
    */
-  public add(this: Is<Date | number, T, this>, value: ValueProxyOrValue<number>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<T>, 'add', undefined, value);
+  public add(
+    this: Is<Date | number, T, this>,
+    value: ValueProxyOrValue<number>,
+  ) {
+    return (<ValueProxy<unknown>>this).stage(
+      ValueProxy<T>,
+      "add",
+      undefined,
+      value,
+    );
   }
 
   /**
@@ -126,10 +141,12 @@ export class ValueProxy<T> extends StagedObject {
     return (<ValueProxy<unknown>>this).stage(
       ValueProxy<
         Date extends U
-          ? (Date extends T ? number : never) | (number extends U ? (T extends number ? number : Date) : never)
+          ?
+              | (Date extends T ? number : never)
+              | (number extends U ? (T extends number ? number : Date) : never)
           : Extract<Date | number, T>
       >,
-      'sub',
+      "sub",
       undefined,
       value,
     );
@@ -146,14 +163,29 @@ export class ValueProxy<T> extends StagedObject {
    * @param right Right bound (exclusive)
    * @returns True if the date is within the bounds
    */
-  public during(this: Is<Date, T, this>, left: ValueProxyOrValue<Date>, right: ValueProxyOrValue<Date>) {
-    return this.stage(ValueProxy<boolean>, 'date_during', undefined, left, right);
+  public during(
+    this: Is<Date, T, this>,
+    left: ValueProxyOrValue<Date>,
+    right: ValueProxyOrValue<Date>,
+  ) {
+    return this.stage(
+      ValueProxy<boolean>,
+      "date_during",
+      undefined,
+      left,
+      right,
+    );
   }
 
   //@internal
   private withTimezone(timezone?: ValueProxyOrValue<string>) {
     if (timezone) {
-      return this.stage(ValueProxy<Date>, 'date_with_timezone', undefined, timezone);
+      return this.stage(
+        ValueProxy<Date>,
+        "date_with_timezone",
+        undefined,
+        timezone,
+      );
     }
     return this.cast<Date>();
   }
@@ -163,8 +195,11 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Seconds
    */
-  public timeofday(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_tod');
+  public timeofday(
+    this: Is<Date, T, this>,
+    timezone?: ValueProxyOrValue<string>,
+  ) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_tod");
   }
 
   /**
@@ -173,7 +208,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Year
    */
   public year(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_year');
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_year");
   }
 
   /**
@@ -182,7 +217,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Month
    */
   public month(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_month');
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_month");
   }
 
   /**
@@ -191,7 +226,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Day of the month
    */
   public day(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_day');
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_day");
   }
 
   /**
@@ -199,8 +234,11 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Day of the week
    */
-  public dayofweek(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_dow');
+  public dayofweek(
+    this: Is<Date, T, this>,
+    timezone?: ValueProxyOrValue<string>,
+  ) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_dow");
   }
 
   /**
@@ -208,8 +246,11 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Day of the year
    */
-  public dayofyear(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_doy');
+  public dayofyear(
+    this: Is<Date, T, this>,
+    timezone?: ValueProxyOrValue<string>,
+  ) {
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_doy");
   }
 
   /**
@@ -218,7 +259,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Hours
    */
   public hours(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_hours');
+    return this.withTimezone(timezone).stage(ValueProxy<number>, "date_hours");
   }
 
   /**
@@ -226,8 +267,14 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Minutes
    */
-  public minutes(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_minutes');
+  public minutes(
+    this: Is<Date, T, this>,
+    timezone?: ValueProxyOrValue<string>,
+  ) {
+    return this.withTimezone(timezone).stage(
+      ValueProxy<number>,
+      "date_minutes",
+    );
   }
 
   /**
@@ -235,8 +282,14 @@ export class ValueProxy<T> extends StagedObject {
    *
    * @returns Seconds
    */
-  public seconds(this: Is<Date, T, this>, timezone?: ValueProxyOrValue<string>) {
-    return this.withTimezone(timezone).stage(ValueProxy<number>, 'date_seconds');
+  public seconds(
+    this: Is<Date, T, this>,
+    timezone?: ValueProxyOrValue<string>,
+  ) {
+    return this.withTimezone(timezone).stage(
+      ValueProxy<number>,
+      "date_seconds",
+    );
   }
 
   /**
@@ -245,7 +298,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Seconds
    */
   public epoch(this: Is<Date, T, this>) {
-    return this.stage(ValueProxy<number>, 'date_epoch');
+    return this.stage(ValueProxy<number>, "date_epoch");
   }
 
   //#endregion
@@ -259,7 +312,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A * B
    */
   public mul(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'mul', undefined, other);
+    return this.stage(ValueProxy<number>, "mul", undefined, other);
   }
 
   /**
@@ -269,7 +322,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A / B
    */
   public div(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'div', undefined, other);
+    return this.stage(ValueProxy<number>, "div", undefined, other);
   }
 
   /**
@@ -279,7 +332,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A % B
    */
   public mod(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'mod', undefined, other);
+    return this.stage(ValueProxy<number>, "mod", undefined, other);
   }
 
   /**
@@ -288,7 +341,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Integer
    */
   public round(this: Is<number, T, this>) {
-    return this.stage(ValueProxy<number>, 'round');
+    return this.stage(ValueProxy<number>, "round");
   }
 
   /**
@@ -297,7 +350,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Integer
    */
   public ceil(this: Is<number, T, this>) {
-    return this.stage(ValueProxy<number>, 'ceil');
+    return this.stage(ValueProxy<number>, "ceil");
   }
 
   /**
@@ -306,7 +359,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Integer
    */
   public floor(this: Is<number, T, this>) {
-    return this.stage(ValueProxy<number>, 'floor');
+    return this.stage(ValueProxy<number>, "floor");
   }
 
   /**
@@ -316,7 +369,7 @@ export class ValueProxy<T> extends StagedObject {
    * @return A & B
    */
   public band(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_and', undefined, other);
+    return this.stage(ValueProxy<number>, "bit_and", undefined, other);
   }
 
   /**
@@ -326,7 +379,7 @@ export class ValueProxy<T> extends StagedObject {
    * @return A | B
    */
   public bor(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_or', undefined, other);
+    return this.stage(ValueProxy<number>, "bit_or", undefined, other);
   }
 
   /**
@@ -336,7 +389,7 @@ export class ValueProxy<T> extends StagedObject {
    * @return A ^ B
    */
   public bxor(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_xor', undefined, other);
+    return this.stage(ValueProxy<number>, "bit_xor", undefined, other);
   }
 
   /**
@@ -345,7 +398,7 @@ export class ValueProxy<T> extends StagedObject {
    * @return ~A
    */
   public bnot(this: Is<number, T, this>) {
-    return this.stage(ValueProxy<number>, 'bit_not');
+    return this.stage(ValueProxy<number>, "bit_not");
   }
 
   /**
@@ -355,7 +408,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A << B
    */
   public blshift(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_lshift', undefined, other);
+    return this.stage(ValueProxy<number>, "bit_lshift", undefined, other);
   }
 
   /**
@@ -365,7 +418,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns A >> B
    */
   public brshift(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_rshift', undefined, other);
+    return this.stage(ValueProxy<number>, "bit_rshift", undefined, other);
   }
 
   /**
@@ -374,8 +427,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns A >> B (sign-preserving)
    */
-  public brshiftPreserveSign(this: Is<number, T, this>, other: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<number>, 'bit_rshift', { preserveSign: true }, other);
+  public brshiftPreserveSign(
+    this: Is<number, T, this>,
+    other: ValueProxyOrValue<number>,
+  ) {
+    return this.stage(
+      ValueProxy<number>,
+      "bit_rshift",
+      { preserveSign: true },
+      other,
+    );
   }
 
   //#endregion
@@ -388,8 +449,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns A > B
    */
-  public gt(this: Is<Date | number | string, T, this>, other: ValueProxyOrValue<T>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<boolean>, 'cmp_gt', undefined, other);
+  public gt(
+    this: Is<Date | number | string, T, this>,
+    other: ValueProxyOrValue<T>,
+  ) {
+    return (<ValueProxy<unknown>>this).stage(
+      ValueProxy<boolean>,
+      "cmp_gt",
+      undefined,
+      other,
+    );
   }
 
   /**
@@ -398,8 +467,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns A >= B
    */
-  public ge(this: Is<Date | number | string, T, this>, other: ValueProxyOrValue<T>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<boolean>, 'cmp_ge', undefined, other);
+  public ge(
+    this: Is<Date | number | string, T, this>,
+    other: ValueProxyOrValue<T>,
+  ) {
+    return (<ValueProxy<unknown>>this).stage(
+      ValueProxy<boolean>,
+      "cmp_ge",
+      undefined,
+      other,
+    );
   }
 
   /**
@@ -408,8 +485,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns A < B
    */
-  public lt(this: Is<Date | number | string, T, this>, other: ValueProxyOrValue<T>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<boolean>, 'cmp_lt', undefined, other);
+  public lt(
+    this: Is<Date | number | string, T, this>,
+    other: ValueProxyOrValue<T>,
+  ) {
+    return (<ValueProxy<unknown>>this).stage(
+      ValueProxy<boolean>,
+      "cmp_lt",
+      undefined,
+      other,
+    );
   }
 
   /**
@@ -418,8 +503,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param other Operand B
    * @returns A <= B
    */
-  public le(this: Is<Date | number | string, T, this>, other: ValueProxyOrValue<T>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<boolean>, 'cmp_le', undefined, other);
+  public le(
+    this: Is<Date | number | string, T, this>,
+    other: ValueProxyOrValue<T>,
+  ) {
+    return (<ValueProxy<unknown>>this).stage(
+      ValueProxy<boolean>,
+      "cmp_le",
+      undefined,
+      other,
+    );
   }
 
   //#endregion
@@ -433,8 +526,15 @@ export class ValueProxy<T> extends StagedObject {
    * @param maxSplits Maximum number of results
    * @returns Array of sub-strings
    */
-  public split(this: Is<string, T, this>, separator?: string, maxSplits?: number) {
-    return this.stage(ValueProxy<string[]>, 'str_split', { separator, maxSplits });
+  public split(
+    this: Is<string, T, this>,
+    separator?: string,
+    maxSplits?: number,
+  ) {
+    return this.stage(ValueProxy<string[]>, "str_split", {
+      separator,
+      maxSplits,
+    });
   }
 
   /**
@@ -444,7 +544,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Concatenated string
    */
   public concat(this: Is<string, T, this>, other: ValueProxyOrValue<string>) {
-    return this.stage(ValueProxy<string>, 'str_concat', undefined, other);
+    return this.stage(ValueProxy<string>, "str_concat", undefined, other);
   }
 
   /**
@@ -453,7 +553,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns New string
    */
   public upcase(this: Is<string, T, this>) {
-    return this.stage(ValueProxy<string>, 'str_upcase');
+    return this.stage(ValueProxy<string>, "str_upcase");
   }
 
   /**
@@ -462,7 +562,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns New string
    */
   public downcase(this: Is<string, T, this>) {
-    return this.stage(ValueProxy<string>, 'str_downcase');
+    return this.stage(ValueProxy<string>, "str_downcase");
   }
 
   /**
@@ -471,7 +571,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Number of codepoints
    */
   public strlen(this: Is<string, T, this>) {
-    return this.stage(ValueProxy<number>, 'str_len');
+    return this.stage(ValueProxy<number>, "str_len");
   }
 
   /**
@@ -481,7 +581,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns True if the string matched
    */
   public match(this: Is<string, T, this>, regex: ValueProxyOrValue<string>) {
-    return this.stage(ValueProxy<boolean>, 'str_match', undefined, regex);
+    return this.stage(ValueProxy<boolean>, "str_match", undefined, regex);
   }
 
   //#endregion
@@ -494,8 +594,11 @@ export class ValueProxy<T> extends StagedObject {
    * @param key Position in the array
    * @returns Element at the given position
    */
-  public index(this: IsArray<unknown, T, this>, key: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<ArrayValue<T>>, 'arr_index', undefined, key);
+  public index(
+    this: IsArray<unknown, T, this>,
+    key: ValueProxyOrValue<number>,
+  ) {
+    return this.stage(ValueProxy<ArrayValue<T>>, "arr_index", undefined, key);
   }
 
   /**
@@ -504,8 +607,11 @@ export class ValueProxy<T> extends StagedObject {
    * @param val Value to search for.
    * @returns True if the value was found.
    */
-  public includes(this: IsArray<unknown, T, this>, val: ValueProxyOrValue<ArrayValue<T>>) {
-    return this.stage(ValueProxy<boolean>, 'arr_includes', undefined, val);
+  public includes(
+    this: IsArray<unknown, T, this>,
+    val: ValueProxyOrValue<ArrayValue<T>>,
+  ) {
+    return this.stage(ValueProxy<boolean>, "arr_includes", undefined, val);
   }
 
   /**
@@ -515,8 +621,18 @@ export class ValueProxy<T> extends StagedObject {
    * @param end End index (exclusive)
    * @returns Sub-array
    */
-  public slice(this: IsArray<unknown, T, this>, start: ValueProxyOrValue<number>, end?: ValueProxyOrValue<number>) {
-    return this.stage(ValueProxy<Array<ArrayValue<T>>>, 'arr_slice', undefined, start, end);
+  public slice(
+    this: IsArray<unknown, T, this>,
+    start: ValueProxyOrValue<number>,
+    end?: ValueProxyOrValue<number>,
+  ) {
+    return this.stage(
+      ValueProxy<Array<ArrayValue<T>>>,
+      "arr_slice",
+      undefined,
+      start,
+      end,
+    );
   }
 
   /**
@@ -525,10 +641,13 @@ export class ValueProxy<T> extends StagedObject {
    * @param mapper Mapping function
    * @returns New array
    */
-  public map<U>(this: IsArray<unknown, T, this>, mapper: (val: ValueProxy<ArrayValue<T>>) => U) {
+  public map<U>(
+    this: IsArray<unknown, T, this>,
+    mapper: (val: ValueProxy<ArrayValue<T>>) => U,
+  ) {
     return this.stage(
       ValueProxy<ExtractType<U>[]>,
-      'arr_map',
+      "arr_map",
       undefined,
       this.callfunc(mapper, ValueProxy<ArrayValue<T>>),
     );
@@ -546,7 +665,7 @@ export class ValueProxy<T> extends StagedObject {
   ) {
     return this.stage(
       ValueProxy<Array<ArrayValue<T>>>,
-      'arr_filter',
+      "arr_filter",
       undefined,
       this.callfunc(predicate, ValueProxy<ArrayValue<T>>),
     );
@@ -558,7 +677,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns True if the array is empty
    */
   public isempty(this: IsArray<unknown, T, this>) {
-    return this.stage(ValueProxy<boolean>, 'arr_empty');
+    return this.stage(ValueProxy<boolean>, "arr_empty");
   }
 
   /**
@@ -567,7 +686,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Length
    */
   public count(this: IsArray<unknown, T, this>) {
-    return this.stage(ValueProxy<number>, 'arr_count');
+    return this.stage(ValueProxy<number>, "arr_count");
   }
 
   /**
@@ -576,7 +695,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Sum
    */
   public sum(this: IsArray<number, T, this>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, 'arr_sum');
+    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, "arr_sum");
   }
 
   /**
@@ -585,7 +704,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Average
    */
   public avg(this: IsArray<number, T, this>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, 'arr_avg');
+    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, "arr_avg");
   }
 
   /**
@@ -594,7 +713,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Minimum
    */
   public min(this: IsArray<number, T, this>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, 'arr_min');
+    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, "arr_min");
   }
 
   /**
@@ -603,7 +722,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Maximum
    */
   public max(this: IsArray<number, T, this>) {
-    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, 'arr_max');
+    return (<ValueProxy<unknown>>this).stage(ValueProxy<number>, "arr_max");
   }
 
   //#endregion
@@ -625,8 +744,10 @@ export class ValueProxy<T> extends StagedObject {
     def?: ValueProxyOrValue<U>,
   ) {
     return this.stage(
-      ValueProxy<U extends undefined ? TO[K] : Exclude<TO[K], undefined | null> | U>,
-      'obj_index',
+      ValueProxy<
+        U extends undefined ? TO[K] : Exclude<TO[K], undefined | null> | U
+      >,
+      "obj_index",
       undefined,
       key,
       def,
@@ -639,8 +760,16 @@ export class ValueProxy<T> extends StagedObject {
    * @param value Other object
    * @returns `{...A, ...B}`
    */
-  public merge<U, TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>, other: ValueProxyOrValue<U>) {
-    return this.stage(ValueProxy<Omit<TO, keyof U> & ExtractType<U>>, 'obj_merge', undefined, other);
+  public merge<U, TO = OnlyObject<T>>(
+    this: Is<T, Record<any, any>, this>,
+    other: ValueProxyOrValue<U>,
+  ) {
+    return this.stage(
+      ValueProxy<Omit<TO, keyof U> & ExtractType<U>>,
+      "obj_merge",
+      undefined,
+      other,
+    );
   }
 
   /**
@@ -649,7 +778,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Array of keys
    */
   public keys<TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>) {
-    return this.stage(ValueProxy<Array<keyof TO>>, 'obj_keys');
+    return this.stage(ValueProxy<Array<keyof TO>>, "obj_keys");
   }
 
   /**
@@ -658,7 +787,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns Array of values
    */
   public values<TO = OnlyObject<T>>(this: Is<T, Record<any, any>, this>) {
-    return this.stage(ValueProxy<Array<TO[keyof TO]>>, 'obj_values');
+    return this.stage(ValueProxy<Array<TO[keyof TO]>>, "obj_values");
   }
 
   /**
@@ -668,7 +797,7 @@ export class ValueProxy<T> extends StagedObject {
    * @returns True if the object matches
    */
   public hasfields(this: Is<T, Record<any, any>, this>, ...fields: string[]) {
-    return this.stage(ValueProxy<boolean>, 'obj_has', undefined, fields);
+    return this.stage(ValueProxy<boolean>, "obj_has", undefined, fields);
   }
 
   //#endregion

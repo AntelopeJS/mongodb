@@ -1,7 +1,7 @@
-import { Class } from '@ajs/core/beta/decorators';
-import { ValueProxy, ValueProxyOrValue } from './valueproxy';
-import { Datum } from './datum';
-import { Query } from './query';
+import type { Class } from "@ajs/core/beta/decorators";
+import type { Datum } from "./datum";
+import type { Query } from "./query";
+import type { ValueProxy, ValueProxyOrValue } from "./valueproxy";
 
 /**
  * Recursive Partial generic type
@@ -23,7 +23,7 @@ export interface Changes<T> {
    *
    * Possible values: added, removed, modified
    */
-  changeType: 'added' | 'removed' | 'modified';
+  changeType: "added" | "removed" | "modified";
 
   /**
    * Value prior to the change
@@ -62,9 +62,24 @@ export class StagedObject {
     return this.stages;
   }
 
-  protected stage(type: undefined, stage: string, options?: any, ...args: any[]): this;
-  protected stage<T extends StagedObject>(type: Class<T>, stage: string, options?: any, ...args: any[]): T;
-  protected stage<T extends StagedObject>(type: Class<T> | undefined, stage: string, options?: any, ...args: any[]) {
+  protected stage(
+    type: undefined,
+    stage: string,
+    options?: any,
+    ...args: any[]
+  ): this;
+  protected stage<T extends StagedObject>(
+    type: Class<T>,
+    stage: string,
+    options?: any,
+    ...args: any[]
+  ): T;
+  protected stage<T extends StagedObject>(
+    type: Class<T> | undefined,
+    stage: string,
+    options?: any,
+    ...args: any[]
+  ) {
     return new (type ?? (this.constructor as Class<StagedObject>))(
       {
         stage,
@@ -85,10 +100,10 @@ export class StagedObject {
     for (let i = 0; i < args.length; ++i) {
       const id = StagedObject.nextargid++;
       argNumbers[i] = id;
-      argValues[i] = new args[i](QueryStage('arg', undefined, id));
+      argValues[i] = new args[i](QueryStage("arg", undefined, id));
     }
     return {
-      stage: 'func', // TODO: using the query stage structure here doesnt make any sense
+      stage: "func", // TODO: using the query stage structure here doesnt make any sense
       args: [argNumbers, func(...(argValues as T))],
     };
   }
@@ -103,13 +118,12 @@ type ExtractTypeObject<T extends UnknownObject> = T extends infer O
       [K in keyof O]: ExtractType<O[K]>;
     }
   : never;
-export type ExtractType<T> =
-  T extends ValueProxy<infer A>
+export type ExtractType<T> = T extends ValueProxy<infer A>
+  ? A
+  : T extends Query<infer A>
     ? A
-    : T extends Query<infer A>
-      ? A
-      : T extends UnknownObject
-        ? ExtractTypeObject<T>
-        : T extends Array<infer A>
-          ? Array<ExtractType<A>>
-          : T;
+    : T extends UnknownObject
+      ? ExtractTypeObject<T>
+      : T extends Array<infer A>
+        ? Array<ExtractType<A>>
+        : T;

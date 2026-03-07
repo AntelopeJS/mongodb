@@ -1,4 +1,4 @@
-import { StagedObject } from './common';
+import { StagedObject } from "./common";
 export declare class Query<T> extends StagedObject implements PromiseLike<T> {
     /**
      * Execute the query

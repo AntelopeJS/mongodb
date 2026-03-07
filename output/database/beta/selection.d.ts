@@ -1,8 +1,8 @@
-import { Changes, DeepPartial, ExtractType } from './common';
-import { Datum } from './datum';
-import { Query } from './query';
-import { Stream } from './stream';
-import { ValueProxy } from './valueproxy';
+import type { Changes, DeepPartial, ExtractType } from "./common";
+import { Datum } from "./datum";
+import { Query } from "./query";
+import { Stream } from "./stream";
+import { ValueProxy } from "./valueproxy";
 /**
  * Selection containing a single element
  */
