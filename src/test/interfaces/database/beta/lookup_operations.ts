@@ -1,23 +1,26 @@
-import { Schema } from '@ajs/database/beta';
-import { expect } from 'chai';
-import { getUniqueUsers, User } from '../../../datasets/users';
-import { getUniqueOrders, Order } from '../../../datasets/orders';
+import { Schema } from "@ajs/database/beta";
+import { expect } from "chai";
+import { getUniqueOrders, Order } from "../../../datasets/orders";
+import { getUniqueUsers, User } from "../../../datasets/users";
 
-const ordersTableName = 'orders';
-const usersTableName = 'users';
+const ordersTableName = "orders";
+const usersTableName = "users";
 
-const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User }>('test-lookup-operations', {
-  [ordersTableName]: Order,
-  [usersTableName]: User,
-});
+const schema = new Schema<{ [ordersTableName]: Order; [usersTableName]: User }>(
+  "test-lookup-operations",
+  {
+    [ordersTableName]: Order,
+    [usersTableName]: User,
+  },
+);
 
-const ordersTable = schema.instance('default').table(ordersTableName);
-const usersTable = schema.instance('default').table(usersTableName);
+const ordersTable = schema.instance("default").table(ordersTableName);
+const usersTable = schema.instance("default").table(usersTableName);
 
 const usersData = getUniqueUsers();
 const ordersData = getUniqueOrders();
 
-let insertedKeys: {
+const insertedKeys: {
   users: string[];
   orders: string[];
 } = {
@@ -25,9 +28,9 @@ let insertedKeys: {
   orders: [],
 };
 
-describe('Lookup Operations', () => {
+describe("Lookup Operations", () => {
   before(async () => {
-    await schema.createInstance('default').run();
+    await schema.createInstance("default").run();
     await ordersTable.delete().run();
     await usersTable.delete().run();
   });
@@ -35,62 +38,64 @@ describe('Lookup Operations', () => {
   after(async () => {
     await ordersTable.delete().run();
     await usersTable.delete().run();
-    await schema.destroyInstance('default').run();
+    await schema.destroyInstance("default").run();
   });
 
-  it('Insert Test Data', InsertTestData);
-  it('Lookup Basic', LookupBasic);
-  it('Lookup With Filter', LookupWithFilter);
-  it('Cleanup', CleanupTest);
+  it("Insert Test Data", InsertTestData);
+  it("Lookup Basic", LookupBasic);
+  it("Lookup With Filter", LookupWithFilter);
+  it("Cleanup", CleanupTest);
 });
 
 async function InsertTestData() {
   const usersResponse = await usersTable.insert(usersData).run();
   const ordersResponse = await ordersTable.insert(ordersData).run();
 
-  expect(usersResponse).to.be.an('array');
-  expect(ordersResponse).to.be.an('array');
+  expect(usersResponse).to.be.an("array");
+  expect(ordersResponse).to.be.an("array");
 
   insertedKeys.users = usersResponse;
   insertedKeys.orders = ordersResponse;
 }
 
 async function LookupBasic() {
-  const result = await ordersTable.lookup(usersTable, 'customerName', 'name').run();
+  const result = await ordersTable
+    .lookup(usersTable, "customerName", "name")
+    .run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   expect(result).to.have.lengthOf(ordersData.length);
 
   result.forEach((doc) => {
-    expect(doc).to.have.property('customerName');
+    expect(doc).to.have.property("customerName");
     const customerName = doc.customerName;
-    expect(customerName).to.be.an('object');
-    expect(customerName).to.have.property('name');
-    expect(customerName).to.have.property('age');
-    expect(customerName).to.have.property('email');
-    expect(customerName).to.have.property('isActive');
+    expect(customerName).to.be.an("object");
+    expect(customerName).to.have.property("name");
+    expect(customerName).to.have.property("age");
+    expect(customerName).to.have.property("email");
+    expect(customerName).to.have.property("isActive");
   });
 
-  const antoineOrder = result.find((doc) => doc.orderId === 'ORD-001');
+  const antoineOrder = result.find((doc) => doc.orderId === "ORD-001");
   expect(antoineOrder).to.not.equal(undefined);
-  expect(antoineOrder!.customerName).to.have.property('name', 'Antoine');
-  expect(antoineOrder!.customerName).to.have.property('age', 25);
+  expect(antoineOrder?.customerName).to.have.property("name", "Antoine");
+  expect(antoineOrder?.customerName).to.have.property("age", 25);
 }
 
 async function LookupWithFilter() {
   const result = await ordersTable
-    .lookup(usersTable, 'customerName', 'name')
-    .filter((doc) => doc.key('isPaid').eq(true))
+    .lookup(usersTable, "customerName", "name")
+    .filter((doc) => doc.key("isPaid").eq(true))
     .run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   const expectedCount = ordersData.filter((o) => o.isPaid).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   result.forEach((doc) => {
     expect(doc.isPaid).to.equal(true);
-    expect(doc.customerName).to.be.an('object');
-    expect(doc.customerName).to.have.property('name');
+    expect(doc.customerName).to.be.an("object");
+    expect(doc.customerName).to.have.property("name");
   });
 }
 

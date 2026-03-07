@@ -1,6 +1,6 @@
-export * from './users';
-export * from './products';
-export * from './orders';
-export * from './vehicles';
+export * from "./orders";
+export * from "./products";
+export * from "./users";
+export * from "./vehicles";
 
 //TODO: Make a coherent dataset

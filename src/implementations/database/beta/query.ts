@@ -1,12 +1,15 @@
-import { Value } from '@ajs.local/database/beta/common';
-import assert from 'assert';
-import { SelectionQuery } from './selection';
-import { Query, ValueProxy } from '@ajs.local/database/beta';
-import { ArgumentProvider, DecodingContext, QueryStage } from './utils';
-import { Expression } from './expression';
-import { AggregationPipeline } from './pipeline';
+import assert from "node:assert";
+import { Query, ValueProxy } from "@ajs.local/database/beta";
+import type { Value } from "@ajs.local/database/beta/common";
+import { Expression } from "./expression";
+import type { AggregationPipeline } from "./pipeline";
+import { SelectionQuery } from "./selection";
+import type { ArgumentProvider, DecodingContext, QueryStage } from "./utils";
 
-export async function DecodeValue(value: Value<unknown>, context: DecodingContext): Promise<unknown> {
+export async function DecodeValue(
+  value: Value<unknown>,
+  context: DecodingContext,
+): Promise<unknown> {
   if (value instanceof ValueProxy) {
     return Expression.decode(value.build(), context);
   }
@@ -15,12 +18,17 @@ export async function DecodeValue(value: Value<unknown>, context: DecodingContex
     return context.decodeSubquery(value.build());
   }
 
-  if (value && typeof value === 'object') {
+  if (value && typeof value === "object") {
     if (Array.isArray(value)) {
       return Promise.all(value.map((val) => DecodeValue(val, context)));
     } else if (Object.getPrototypeOf(value) === Object.prototype) {
       return Object.fromEntries(
-        await Promise.all(Object.entries(value).map(async ([key, val]) => [key, await DecodeValue(val, context)])),
+        await Promise.all(
+          Object.entries(value).map(async ([key, val]) => [
+            key,
+            await DecodeValue(val, context),
+          ]),
+        ),
       );
     }
   }
@@ -29,13 +37,19 @@ export async function DecodeValue(value: Value<unknown>, context: DecodingContex
     return undefined;
   }
 
-  return typeof value === 'object' && !(value instanceof Date) ? { $literal: value } : value;
+  return typeof value === "object" && !(value instanceof Date)
+    ? { $literal: value }
+    : value;
 }
 
-export async function DecodeFunction(func: QueryStage, context: DecodingContext, args: (string | ArgumentProvider)[]) {
+export async function DecodeFunction(
+  func: QueryStage,
+  context: DecodingContext,
+  args: (string | ArgumentProvider)[],
+) {
   const argNumbers = func.args[0];
   for (let i = 0; i < argNumbers.length; ++i) {
-    assert(args[i], 'Unexpected argument');
+    assert(args[i], "Unexpected argument");
     context.args[argNumbers[i]] = args[i];
   }
   const val = await DecodeValue(func.args[1], context);

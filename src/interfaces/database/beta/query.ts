@@ -1,11 +1,14 @@
-import { InterfaceFunction } from '@ajs/core/beta';
-import { StagedObject } from './common';
+import { InterfaceFunction } from "@ajs/core/beta";
+import { StagedObject } from "./common";
 
 //@internal
-export const RunQuery = InterfaceFunction<(query: StagedObject['stages']) => any>();
+export const RunQuery =
+  InterfaceFunction<(query: StagedObject["stages"]) => any>();
 //@internal
 export const ReadCursor =
-  InterfaceFunction<(reqId: number, stages: StagedObject['stages']) => IteratorResult<any, void>>();
+  InterfaceFunction<
+    (reqId: number, stages: StagedObject["stages"]) => IteratorResult<any, void>
+  >();
 //@internal
 export const CloseCursor = InterfaceFunction<(reqId: number) => void>();
 
@@ -15,7 +18,7 @@ class IterableCursor implements AsyncGenerator<any, void, unknown> {
   private resolve?: (val: IteratorResult<any, void>) => void;
   private reject?: (err: any) => void;
 
-  public constructor(private stages: StagedObject['stages']) {
+  public constructor(private stages: StagedObject["stages"]) {
     this.reqId = nextReqId++;
   }
 
@@ -23,10 +26,9 @@ class IterableCursor implements AsyncGenerator<any, void, unknown> {
     return new Promise((resolve, reject) => {
       this.resolve = resolve;
       this.reject = reject;
-      ReadCursor(this.reqId, this.stages)
-        .then(resolve)
-        .catch(reject)
-        .then(() => {
+      void ReadCursor(this.reqId, this.stages)
+        .then(resolve, reject)
+        .finally(() => {
           this.resolve = undefined;
           this.reject = undefined;
         });
@@ -69,6 +71,7 @@ export class Query<T> extends StagedObject implements PromiseLike<T> {
     return RunQuery(this.stages);
   }
 
+  // biome-ignore lint/suspicious/noThenProperty: PromiseLike requires a then method.
   public then<TResult1 = T, TResult2 = never>(
     onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
@@ -78,7 +81,11 @@ export class Query<T> extends StagedObject implements PromiseLike<T> {
 
   //TODO: core interface function for async generators
 
-  public cursor(): AsyncGenerator<T extends Array<infer T1> ? T1 : T, void, unknown> {
+  public cursor(): AsyncGenerator<
+    T extends Array<infer T1> ? T1 : T,
+    void,
+    unknown
+  > {
     return new IterableCursor(this.stages);
   }
 
