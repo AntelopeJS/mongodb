@@ -1,41 +1,43 @@
-import { Schema } from '@ajs/database/beta';
-import { expect } from 'chai';
-import { vehicles, Vehicle } from '../../../datasets/vehicles';
+import { Schema } from "@ajs/database/beta";
+import { expect } from "chai";
+import { Vehicle, vehicles } from "../../../datasets/vehicles";
 
-const tableName = 'test-table';
-const schema = new Schema<{ [tableName]: Vehicle }>('test-basic-operations', { [tableName]: Vehicle });
-const table = schema.instance('default').table(tableName);
+const tableName = "test-table";
+const schema = new Schema<{ [tableName]: Vehicle }>("test-basic-operations", {
+  [tableName]: Vehicle,
+});
+const table = schema.instance("default").table(tableName);
 
 let insertedKeys: string[] = [];
 
-describe('Basic Operations', () => {
-  it('Insert', InsertTest);
-  it('Get', GetTest);
-  it('Get All', GetAllTest);
-  it('Get By Index', GetAllMultiKeyByIndex);
-  it('Get All by primary keys', GetAllMultiKeyByPrimaryKey);
-  it('Get All With OrderBy', GetAllWithOrderBy);
-  it('Update', UpdateTest);
-  it('Replace', ReplaceTest);
-  it('Delete', DeleteTest);
+describe("Basic Operations", () => {
+  it("Insert", InsertTest);
+  it("Get", GetTest);
+  it("Get All", GetAllTest);
+  it("Get By Index", GetAllMultiKeyByIndex);
+  it("Get All by primary keys", GetAllMultiKeyByPrimaryKey);
+  it("Get All With OrderBy", GetAllWithOrderBy);
+  it("Update", UpdateTest);
+  it("Replace", ReplaceTest);
+  it("Delete", DeleteTest);
 
   before(async () => {
-    await schema.createInstance('default').run();
+    await schema.createInstance("default").run();
   });
 
   after(async () => {
     await table.delete().run();
-    await schema.destroyInstance('default').run();
+    await schema.destroyInstance("default").run();
   });
 });
 
 async function InsertTest() {
   const response = await table.insert(vehicles).run();
-  expect(response).to.be.an('array');
+  expect(response).to.be.an("array");
 
   expect(response).to.have.lengthOf(vehicles.length);
   response.forEach((val) => {
-    expect(val).to.be.a('string');
+    expect(val).to.be.a("string");
   });
   insertedKeys = response;
 }
@@ -61,36 +63,38 @@ function findOriginalTestData(doc: Vehicle): Vehicle | undefined {
 }
 
 function validateDocumentStructure(result: Vehicle, expectedId: string) {
-  expect(result).to.be.an('object');
-  expect(result).to.have.property('_id', expectedId).and.to.be.a('string');
-  expect(result).to.have.property('car').and.to.be.a('string');
-  expect(result).to.have.property('manufactured').and.to.be.a('Date');
-  expect(result).to.have.property('price').and.to.be.a('number');
-  expect(result).to.have.property('isElectric').and.to.be.a('boolean');
-  expect(result).to.have.property('kilometers').and.to.be.a('number');
+  expect(result).to.be.an("object");
+  expect(result).to.have.property("_id", expectedId).and.to.be.a("string");
+  expect(result).to.have.property("car").and.to.be.a("string");
+  expect(result).to.have.property("manufactured").and.to.be.a("Date");
+  expect(result).to.have.property("price").and.to.be.a("number");
+  expect(result).to.have.property("isElectric").and.to.be.a("boolean");
+  expect(result).to.have.property("kilometers").and.to.be.a("number");
 }
 
 function validateDocumentContent(result: Vehicle) {
   const originalData = findOriginalTestData(result);
   expect(originalData).to.not.equal(undefined);
   expect(result).to.deep.include({
-    car: originalData!.car,
-    price: originalData!.price,
-    isElectric: originalData!.isElectric,
-    kilometers: Number(originalData!.kilometers),
+    car: originalData?.car,
+    price: originalData?.price,
+    isElectric: originalData?.isElectric,
+    kilometers: Number(originalData?.kilometers),
   });
-  expect(result.manufactured.getTime()).to.equal(originalData!.manufactured.getTime());
+  expect(result.manufactured.getTime()).to.equal(
+    originalData?.manufactured.getTime(),
+  );
 }
 
 async function GetAllTest() {
-  const result = await table.getAll(false, 'isElectric').run();
+  const result = await table.getAll(false, "isElectric").run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   for (const doc of result) {
-    validateDocumentStructure(doc, doc._id!);
+    validateDocumentStructure(doc, doc._id as string);
     expect(doc.isElectric).to.equal(false);
 
     const originalData = findOriginalTestData(doc);
@@ -101,14 +105,16 @@ async function GetAllTest() {
 const TARGET_PRICES = [3000, 0];
 
 async function GetAllMultiKeyByIndex() {
-  const result = await table.getAll(TARGET_PRICES, 'price').run();
+  const result = await table.getAll(TARGET_PRICES, "price").run();
 
-  expect(result).to.be.an('array');
-  const expectedCount = vehicles.filter((v) => TARGET_PRICES.includes(v.price)).length;
+  expect(result).to.be.an("array");
+  const expectedCount = vehicles.filter((v) =>
+    TARGET_PRICES.includes(v.price),
+  ).length;
   expect(result).to.have.lengthOf(expectedCount);
 
   for (const doc of result) {
-    validateDocumentStructure(doc, doc._id!);
+    validateDocumentStructure(doc, doc._id as string);
     expect(TARGET_PRICES).to.include(doc.price);
   }
 }
@@ -117,7 +123,7 @@ async function GetAllMultiKeyByPrimaryKey() {
   const targetKeys = [insertedKeys[0], insertedKeys[2]];
   const result = await table.getAll(targetKeys).run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   expect(result).to.have.lengthOf(targetKeys.length);
 
   for (const doc of result) {
@@ -126,13 +132,16 @@ async function GetAllMultiKeyByPrimaryKey() {
 }
 
 async function GetAllWithOrderBy() {
-  const result = await table.getAll(false, 'isElectric').orderBy('price', 'asc').run();
+  const result = await table
+    .getAll(false, "isElectric")
+    .orderBy("price", "asc")
+    .run();
 
-  expect(result).to.be.an('array');
+  expect(result).to.be.an("array");
   const expectedCount = vehicles.filter((v) => !v.isElectric).length;
   expect(result).to.have.lengthOf(expectedCount);
 
-  const expectedOrder = ['Renault', 'Peugeot'];
+  const expectedOrder = ["Renault", "Peugeot"];
   result.forEach((doc, index) => {
     expect(doc.car).to.equal(expectedOrder[index]);
     expect(doc.isElectric).to.equal(false);
@@ -154,14 +163,17 @@ async function UpdateTest() {
 
 async function ReplaceTest() {
   const replacementData = {
-    car: 'Tesla',
-    manufactured: new Date('2023-01-01'),
+    car: "Tesla",
+    manufactured: new Date("2023-01-01"),
     price: 50000,
     isElectric: true,
     kilometers: 100000,
   };
 
-  const result = await table.get(insertedKeys[1]).replace(replacementData).run();
+  const result = await table
+    .get(insertedKeys[1])
+    .replace(replacementData)
+    .run();
 
   expect(result).to.equal(1);
 
