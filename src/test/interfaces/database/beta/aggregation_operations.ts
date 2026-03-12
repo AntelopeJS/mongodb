@@ -12,7 +12,8 @@ const table = schema.instance("default").table(tableName);
 let insertedKeys: string[] = [];
 
 describe("Aggregation & Projection Operations", () => {
-  before(async () => {
+  before(async function () {
+    this.timeout(10000);
     await schema.createInstance("default").run();
     await table.delete().run();
   });

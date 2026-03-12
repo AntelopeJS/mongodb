@@ -27,6 +27,9 @@ export interface Changes<T> {
      */
     newValue?: T;
 }
+export interface InsertOptions {
+    conflict?: "update" | "replace";
+}
 export interface QueryStage {
     stage: string;
     options?: any;

@@ -14,6 +14,7 @@ import { DecodingContext } from "./utils";
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
+  private _conflictMode?: "update" | "replace";
   private readonly rowLevel: boolean;
   public readonly instanceId: string | undefined;
   public readonly tableName: string;
@@ -141,6 +142,15 @@ export class SelectionQuery extends AggregationPipeline {
 
   private async insert() {
     const collection = await GetCollection(this.database, this.collection);
+    const documents = this.prepareInsertDocuments();
+    if (!this._conflictMode) {
+      const res = await collection.insertMany(documents);
+      return Object.values(res.insertedIds);
+    }
+    return this.insertWithConflict(collection, documents);
+  }
+
+  private prepareInsertDocuments() {
     const documents = Array.isArray(this._newValue)
       ? this._newValue
       : [this._newValue];
@@ -150,8 +160,29 @@ export class SelectionQuery extends AggregationPipeline {
         document.tenant_id = this.instanceId;
       }
     }
-    const res = await collection.insertMany(documents);
-    return Object.values(res.insertedIds);
+    return documents;
+  }
+
+  private async insertWithConflict(collection: any, documents: any[]) {
+    const CONFLICT_OPERATIONS: Record<string, (doc: any) => any> = {
+      update: (doc) => ({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: doc },
+          upsert: true,
+        },
+      }),
+      replace: (doc) => ({
+        replaceOne: {
+          filter: { _id: doc._id },
+          replacement: doc,
+          upsert: true,
+        },
+      }),
+    };
+    const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
+    await collection.bulkWrite(documents.map(buildOp));
+    return documents.map((doc) => doc._id);
   }
 
   private async update() {
@@ -251,6 +282,7 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "insert";
     this._newValue = stage.args[0];
+    this._conflictMode = stage.options?.conflict;
   }
 
   protected async stage_update(stage: QueryStage) {

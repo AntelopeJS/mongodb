@@ -1,4 +1,4 @@
-import type { Changes, DeepPartial, ExtractType } from "./common";
+import type { Changes, DeepPartial, ExtractType, InsertOptions } from "./common";
 import { Datum } from "./datum";
 import { Query } from "./query";
 import { Stream } from "./stream";
@@ -71,7 +71,7 @@ export declare class Table<T> extends Selection<T> {
      * @param obj Document(s) to insert
      * @returns Inserted IDs
      */
-    insert(obj: DeepPartial<T> | DeepPartial<T>[]): Query<string[]>;
+    insert(obj: DeepPartial<T> | DeepPartial<T>[], options?: InsertOptions): Query<string[]>;
     /**
      * Gets a document using its primary key
      *
