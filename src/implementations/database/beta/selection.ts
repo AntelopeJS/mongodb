@@ -187,9 +187,15 @@ export class SelectionQuery extends AggregationPipeline {
 
   private async update() {
     const collection = await GetCollection(this.database, this.collection);
-    const res = await collection.updateMany(this.getFilter(), [
-      { $set: this._newValue },
-    ]);
+    const isExpression =
+      typeof this._newValue === "string" ||
+      (typeof this._newValue === "object" &&
+        this._newValue !== null &&
+        Object.keys(this._newValue).some((k) => k.startsWith("$")));
+    const updatePipeline = isExpression
+      ? [{ $replaceWith: this._newValue }]
+      : [{ $set: this._newValue }];
+    const res = await collection.updateMany(this.getFilter(), updatePipeline);
     return res.modifiedCount;
   }
 
