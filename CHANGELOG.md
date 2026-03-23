@@ -1,5 +1,73 @@
 # Changelog
 
+## v1.0.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v0.1.1...v1.0.0)
+
+### 🚀 Enhancements
+
+- Aql2 implementation and tests ([#12](https://github.com/AntelopeJS/mongodb/pull/12))
+- AQL2 implementation with row-level operations and schema improvements ([#13](https://github.com/AntelopeJS/mongodb/pull/13))
+- Better group typing ([bfed8f1](https://github.com/AntelopeJS/mongodb/commit/bfed8f1))
+- Support function-based .update() for expression-based field updates ([8dad4ff](https://github.com/AntelopeJS/mongodb/commit/8dad4ff))
+- Add multi-key .getAll() tests and fix $in query ([9451e43](https://github.com/AntelopeJS/mongodb/commit/9451e43))
+- Add boolean to .getAll() key types ([40bcc90](https://github.com/AntelopeJS/mongodb/commit/40bcc90))
+- Add union operation for streams ([e1ec7f2](https://github.com/AntelopeJS/mongodb/commit/e1ec7f2))
+- Use Selection in lookup instead of Table ([3000cc4](https://github.com/AntelopeJS/mongodb/commit/3000cc4))
+- **database:** Add conflict resolution options to insert ([bf22440](https://github.com/AntelopeJS/mongodb/commit/bf22440))
+
+### 🩹 Fixes
+
+- Handles literal values in aggregation expressions ([7de7e95](https://github.com/AntelopeJS/mongodb/commit/7de7e95))
+- Datum.lookup ([65dcd5e](https://github.com/AntelopeJS/mongodb/commit/65dcd5e))
+- ValueProxy.constant ([3e94913](https://github.com/AntelopeJS/mongodb/commit/3e94913))
+- Relax update typing ([df38464](https://github.com/AntelopeJS/mongodb/commit/df38464))
+- SingleSelection.update ([386a3ef](https://github.com/AntelopeJS/mongodb/commit/386a3ef))
+- Union with different wrappedObjects ([c35873e](https://github.com/AntelopeJS/mongodb/commit/c35873e))
+- **database:** Preserve existing instances on schema re-registration ([acea183](https://github.com/AntelopeJS/mongodb/commit/acea183))
+- Remove incorrect timezone parameter ([3e660e9](https://github.com/AntelopeJS/mongodb/commit/3e660e9))
+- **database:** Return epoch in seconds and add date operation tests ([1aee99b](https://github.com/AntelopeJS/mongodb/commit/1aee99b))
+- Resolve biome lint warnings ([#14](https://github.com/AntelopeJS/mongodb/pull/14))
+- **database:** Use $replaceWith for aggregation expressions in update ([c195d87](https://github.com/AntelopeJS/mongodb/commit/c195d87))
+
+### 💅 Refactors
+
+- Split boolean-option methods into dedicated variants ([afc5af9](https://github.com/AntelopeJS/mongodb/commit/afc5af9))
+- **database:** Require explicit instance creation ([e07e46b](https://github.com/AntelopeJS/mongodb/commit/e07e46b))
+
+### 📖 Documentation
+
+- Improved shields ([#5](https://github.com/AntelopeJS/mongodb/pull/5))
+
+### 📦 Build
+
+- Replace rm -rf with rimraf ([#10](https://github.com/AntelopeJS/mongodb/pull/10))
+
+### 🏡 Chore
+
+- Remove ci publish adopt guidelines strict ts interface tests ([#11](https://github.com/AntelopeJS/mongodb/pull/11))
+- Simplify CI workflow triggers, update AGENTS.md, and add @internal tag ([c1d0dfc](https://github.com/AntelopeJS/mongodb/commit/c1d0dfc))
+- Update exports ([74f258e](https://github.com/AntelopeJS/mongodb/commit/74f258e))
+- Lint & update exports ([494c6bc](https://github.com/AntelopeJS/mongodb/commit/494c6bc))
+- Migrate from local beta interfaces to published @antelopejs packages ([d626a5c](https://github.com/AntelopeJS/mongodb/commit/d626a5c))
+
+### ✅ Tests
+
+- Add getAll().orderBy() chaining test ([82de8b1](https://github.com/AntelopeJS/mongodb/commit/82de8b1))
+- **database:** Update tests for explicit instance lifecycle ([164df84](https://github.com/AntelopeJS/mongodb/commit/164df84))
+- **database:** Add do operation sub-query get test ([e4e02c7](https://github.com/AntelopeJS/mongodb/commit/e4e02c7))
+- **database:** Add do operation sub-query get test" ([7700f8c](https://github.com/AntelopeJS/mongodb/commit/7700f8c))
+
+### 🤖 CI
+
+- Remove test:coverage step from CI workflow ([cda2ba9](https://github.com/AntelopeJS/mongodb/commit/cda2ba9))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+- Thomasims <thomas@antelopejs.com>
+- Glastis ([@Glastis](http://github.com/Glastis))
+
 ## v0.1.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v0.1.0...v0.1.1)
