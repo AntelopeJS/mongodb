@@ -1,6 +1,6 @@
 import assert from "node:assert";
-import { Query, ValueProxy } from "@ajs.local/database/beta";
-import type { Value } from "@ajs.local/database/beta/common";
+import { Query, ValueProxy } from "@antelopejs/interface-database";
+import type { Value } from "@antelopejs/interface-database/common";
 import { Expression } from "./expression";
 import type { AggregationPipeline } from "./pipeline";
 import { SelectionQuery } from "./selection";

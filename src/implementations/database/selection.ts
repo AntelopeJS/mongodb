@@ -1,7 +1,7 @@
 import assert from "node:assert";
-import type { QueryStage } from "@ajs.local/database/beta/common";
+import type { QueryStage } from "@antelopejs/interface-database/common";
 import { v4 as uuidv4 } from "uuid";
-import { buildDatabaseName, GetCollection } from "../../../connection";
+import { buildDatabaseName, GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction } from "./query";
 import {

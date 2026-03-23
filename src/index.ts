@@ -1,4 +1,4 @@
-import { ImplementInterface } from "@ajs/core/beta";
+import { ImplementInterface } from "@antelopejs/interface-core";
 import type { MongoClientOptions } from "mongodb";
 import { Connect, Disconnect } from "./connection";
 
@@ -10,13 +10,13 @@ export interface Options {
 export async function construct(options: Options) {
   await Connect(options?.url, options?.options);
 
-  await ImplementInterface(
-    await import("@ajs.local/database/beta/query"),
-    await import("./implementations/database/beta/query"),
+  void ImplementInterface(
+    await import("@antelopejs/interface-database/query"),
+    await import("./implementations/database/query"),
   );
-  await ImplementInterface(
-    await import("@ajs.local/database/beta/schema"),
-    await import("./implementations/database/beta/schema"),
+  void ImplementInterface(
+    await import("@antelopejs/interface-database/schema"),
+    await import("./implementations/database/schema"),
   );
 }
 

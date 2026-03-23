@@ -25,35 +25,31 @@
   "scripts": {
     "build": "rimraf dist && tsc",
     "format": "biome format --write .",
-    "generate": "ajs module exports generate",
     "lint:fix": "biome check --write .",
     "lint": "biome check .",
     "prepack": "pnpm run build",
-    "prepare": "ajs module imports install",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
     "test": "npx tsc && ajs module test"
   },
   "antelopeJs": {
-    "exportsPath": "dist/interfaces",
-    "imports": [
-      "core@beta",
-      "database@beta"
+    "implements": [
+      "@antelopejs/interface-database",
+      "@antelopejs/interface-mongodb"
     ],
-    "importsOptional": [],
     "defaultConfig": {
       "url": "mongodb://localhost:27017"
     },
-    "test": {
-      "project": "src/test/testproject.js",
-      "folder": "dist/test"
-    }
+    "test": "src/test/antelope.test.ts"
   },
   "dependencies": {
+    "@antelopejs/interface-core": "^0.0.2",
+    "@antelopejs/interface-database": "^0.0.2",
+    "@antelopejs/interface-mongodb": "^0.0.2",
+    "chai": "^4.5.0",
     "mongodb": "^6.15.0",
     "randomstring": "^1.3.1",
     "reflect-metadata": "^0.2.2",
-    "uuid": "^11.1.0",
-    "chai": "^4.5.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.2",
@@ -63,10 +59,11 @@
     "@types/chai": "^4.3.3",
     "@types/mocha": "^10.0.10",
     "@types/sinon": "^17.0.4",
-    "release-it": "^19.0.2",
+    "release-it": "^19.2.4",
     "release-it-changelogen": "^0.1.0",
     "typescript": "^5.8.3",
     "mongodb-memory-server-core": "^10.1.4",
-    "sinon": "^20.0.0"
+    "sinon": "^20.0.0",
+    "@types/semver": "^7.7.0"
   }
 }

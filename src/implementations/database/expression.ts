@@ -1,4 +1,4 @@
-import type { QueryStage } from "@ajs.local/database/beta/common";
+import type { QueryStage } from "@antelopejs/interface-database/common";
 import { DecodeFunction, DecodeValue } from "./query";
 import { type DecodingContext, Temporary } from "./utils";
 
@@ -30,6 +30,7 @@ function CondenseValue(
 
 export class Expression {
   protected options?: Record<string, any>;
+  protected currentStage?: QueryStage;
 
   public constructor(
     public readonly context: DecodingContext,
@@ -67,6 +68,7 @@ export class Expression {
         };
       } else if (callback instanceof Function) {
         this.options = stage.options;
+        this.currentStage = stage;
         this.value = await callback.apply(
           this,
           await Promise.all(
@@ -178,23 +180,25 @@ export class Expression {
       return { $slice: [this.value, start, { $size: this.value }] };
     }
   }
-  stage_arr_map(func: QueryStage) {
+  async stage_arr_map() {
+    const func = this.currentStage!.args[0];
     const tmp = Temporary();
     return {
       $map: {
         input: this.value,
         as: tmp,
-        in: DecodeFunction(func, this.context, [`$$${tmp}`]),
+        in: await DecodeFunction(func, this.context, [`$$${tmp}`]),
       },
     };
   }
-  stage_arr_filter(func: QueryStage) {
+  async stage_arr_filter() {
+    const func = this.currentStage!.args[0];
     const tmp = Temporary();
     return {
       $filter: {
         input: this.value,
         as: tmp,
-        cond: DecodeFunction(func, this.context, [`$$${tmp}`]),
+        cond: await DecodeFunction(func, this.context, [`$$${tmp}`]),
       },
     };
   }

@@ -2,12 +2,12 @@ import assert from "node:assert";
 import type {
   SchemaDefinition,
   SchemaOptions,
-} from "@ajs.local/database/beta/schema";
+} from "@antelopejs/interface-database/schema";
 import {
   CreateRowLevelDatabase,
   CreateSchemaInstance,
   DestroySchemaInstance,
-} from "../../../connection";
+} from "../../connection";
 
 export const existingSchemas: Record<
   string,

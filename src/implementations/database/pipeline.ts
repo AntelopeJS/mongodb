@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import type { Stream } from "@ajs.local/database/beta";
-import type { QueryStage } from "@ajs.local/database/beta/common";
+import type { Stream } from "@antelopejs/interface-database";
+import type { QueryStage } from "@antelopejs/interface-database/common";
 import type { AggregationCursor } from "mongodb";
-import { GetCollection } from "../../../connection";
+import { GetCollection } from "../../connection";
 import { DecodeFunction, DecodeValue } from "./query";
 import { GetIndex } from "./schema";
 import { SelectionQuery } from "./selection";

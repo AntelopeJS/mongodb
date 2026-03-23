@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { StagedObject } from "@ajs.local/database/beta/common";
+import type { StagedObject } from "@antelopejs/interface-database/common";
 import { generate as randomstring } from "randomstring";
 
 export function Temporary(name?: string) {

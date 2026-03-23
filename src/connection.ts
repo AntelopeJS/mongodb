@@ -1,4 +1,4 @@
-import { internal } from "@ajs.local/mongodb/beta";
+import { internal } from "@antelopejs/interface-mongodb";
 import {
   type Collection,
   type Db,
