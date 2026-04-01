@@ -107,28 +107,6 @@ export class AggregationPipeline {
         return this.crossDatabaseSubquery(subQuery, rightStream);
       }
 
-      // Check if FK value references a $map variable ($$temporary_*).
-      // $lookup pipeline can't access $map variables — they only exist
-      // during expression evaluation, not at pipeline stage level.
-      // In that case, use a batch $lookup with the full array, then
-      // return a $filter expression to pick the matching element.
-      const getStage = subQuery.find(
-        (s) => s.stage === "get" || s.stage === "getAll",
-      );
-      const fkExpr = getStage?.args?.[0]
-        ? await DecodeValue(getStage.args[0], this.context)
-        : null;
-
-      if (
-        typeof fkExpr === "string" &&
-        fkExpr.startsWith("$$") &&
-        !fkExpr.startsWith("$$ROOT") &&
-        !fkExpr.startsWith("$$CURRENT")
-      ) {
-        // We're inside a $map expression. Do a batch lookup instead.
-        return this.batchArraySubquery(rightStream, root, fkExpr, getStage!);
-      }
-
       this.pipeline.push({
         $lookup: {
           from: rightStream.collection,
@@ -390,70 +368,6 @@ export class AggregationPipeline {
         }
       }
     }
-  }
-
-  /**
-   * Handle sub-queries inside $map expressions by doing a single batch $lookup
-   * for the entire array, then filtering per-element in the expression.
-   *
-   * Instead of a per-element $lookup (impossible since $map vars aren't
-   * accessible in $lookup pipeline), we:
-   * 1. Add a $lookup that fetches ALL docs matching ANY element of the array
-   * 2. Return a $filter expression that picks the matching doc for each element
-   */
-  private batchArraySubquery(
-    rightStream: AggregationPipeline,
-    root: string,
-    fkExpr: string,
-    getStage: QueryStage,
-  ) {
-    const tmp = Temporary("batch");
-    const matchField =
-      getStage.stage === "get" ? "_id" : (getStage.options?.index ?? "_id");
-
-    // Find the array field path from the $map variable.
-    // fkExpr is "$$map_var" — we need the array field that $map iterates over.
-    // The array expression is stored in the $map's "input", but we don't have
-    // direct access. Instead, we use the field from the original sub-query:
-    // the get stage's arg is the element variable, but we need the array.
-    // We can reconstruct it: the subquery was table.get(val) where val comes
-    // from array.map(val => ...). The array is the field being mapped over.
-    // Since we can't easily get it, we do a $lookup with no filter (get all
-    // docs from the foreign collection that could match), then filter per-element.
-
-    // Use $lookup without a restrictive match — just pass along all foreign docs
-    const tmpRoot = Temporary("parentRoot");
-    this.pipeline.push({
-      $lookup: {
-        from: rightStream.collection,
-        let: { [tmpRoot]: root },
-        pipeline: [], // No filter — fetch all, let $filter pick per-element
-        as: tmp,
-      },
-    });
-    this.pendingUnset.push(tmp);
-
-    const tmpRef = `$${tmp}`;
-    // Return a $filter that finds the matching doc for this $map element
-    const filterExpr = {
-      $first: {
-        $filter: {
-          input: tmpRef,
-          as: "bdoc",
-          cond: { $eq: [`$$bdoc.${matchField}`, fkExpr] },
-        },
-      },
-    };
-
-    return rightStream.singleElement
-      ? { $ifNull: [filterExpr, null] }
-      : {
-          $filter: {
-            input: tmpRef,
-            as: "bdoc",
-            cond: { $eq: [`$$bdoc.${matchField}`, fkExpr] },
-          },
-        };
   }
 
   private isCrossDatabase(rightStream: AggregationPipeline): boolean {
