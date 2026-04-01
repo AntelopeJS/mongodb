@@ -653,16 +653,16 @@ export class AggregationPipeline {
   protected stage_distinct(stage: QueryStage) {
     const field = this.getField(stage.options.field);
     const wrapped = this.makeWrapped();
-    this.pipeline.push(
-      {
-        $group: {
-          _id: null,
-          [wrapped]: { $addToSet: `$${field}` },
-        },
+    this.pipeline.push({
+      $group: {
+        _id: null,
+        [wrapped]: { $addToSet: `$${field}` },
       },
-      {
+    });
+    if (!this.inCompoundObject) {
+      this.pipeline.push({
         $unwind: { path: `$${wrapped}` },
-      },
-    );
+      });
+    }
   }
 }
