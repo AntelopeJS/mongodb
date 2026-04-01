@@ -273,7 +273,9 @@ export class AggregationPipeline {
     return this;
   }
 
-  private lookupFrom(rightStream: AggregationPipeline): string | { db: string; coll: string } {
+  private lookupFrom(
+    rightStream: AggregationPipeline,
+  ): string | { db: string; coll: string } {
     if (this.database !== "$ARG" && rightStream.database !== this.database) {
       return { db: rightStream.database, coll: rightStream.collection };
     }
