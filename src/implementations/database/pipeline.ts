@@ -90,6 +90,8 @@ export class AggregationPipeline {
     throw new Error("Invalid query");
   }
 
+  private pendingUnset: string[] = [];
+
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
     this.context.subquery = async (subQuery) => {
@@ -108,6 +110,7 @@ export class AggregationPipeline {
           as: tmp,
         },
       });
+      this.pendingUnset.push(tmp);
       const resultField = `$${tmp}${rightStream.wrappedObject ? `.${rightStream.wrappedObject}` : ""}`;
       return rightStream.singleElement ? { $first: resultField } : resultField;
     };
@@ -266,6 +269,16 @@ export class AggregationPipeline {
     return this;
   }
 
+  private flushPendingUnset() {
+    if (this.pendingUnset.length > 0) {
+      const fields = this.wrappedObject
+        ? this.pendingUnset.map((f) => `${this.wrappedObject}.${f}`)
+        : this.pendingUnset;
+      this.pipeline.push({ $unset: fields });
+      this.pendingUnset = [];
+    }
+  }
+
   protected async stage_map(stage: QueryStage) {
     const runmap = (root: string) =>
       DecodeFunction(stage.args[0], this.context, [root]);
@@ -280,6 +293,7 @@ export class AggregationPipeline {
     } else {
       const root = this.getRoot();
       this.setRoot(await runmap(root));
+      this.flushPendingUnset();
     }
     return this;
   }
