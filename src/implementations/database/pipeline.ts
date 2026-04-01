@@ -363,7 +363,10 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
-    assert(rightStream.database === this.database);
+    assert(
+      this.database === "$ARG" || rightStream.database === this.database,
+      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
+    );
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -394,7 +397,10 @@ export class AggregationPipeline {
     const predicate = stage.args[1];
     const mapper = stage.args[2];
     assert(rightStream instanceof AggregationPipeline);
-    assert(rightStream.database === this.database);
+    assert(
+      this.database === "$ARG" || rightStream.database === this.database,
+      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
+    );
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -438,7 +444,10 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);
-    assert(rightStream.database === this.database);
+    assert(
+      this.database === "$ARG" || rightStream.database === this.database,
+      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
+    );
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;
