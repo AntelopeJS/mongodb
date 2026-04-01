@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.0.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.0...v1.0.1)
+
+### 🩹 Fixes
+
+- **database:** Decode args in stage_get/stage_getAll for subquery context ([d18b3a4](https://github.com/AntelopeJS/mongodb/commit/d18b3a4))
+- **database:** Clean up temporary $lookup fields from subquery results ([b82f0fb](https://github.com/AntelopeJS/mongodb/commit/b82f0fb))
+
+### 🏡 Chore
+
+- Update package.json and remove unused test file ([46424f7](https://github.com/AntelopeJS/mongodb/commit/46424f7))
+- Update dependencies ([816127a](https://github.com/AntelopeJS/mongodb/commit/816127a))
+
+### 🎨 Styles
+
+- Apply linter formatting ([6a38b42](https://github.com/AntelopeJS/mongodb/commit/6a38b42))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v0.1.1...v1.0.0)
