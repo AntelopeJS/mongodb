@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.5
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.4...v1.0.5)
+
+### 🩹 Fixes
+
+- **database:** Handle subqueries inside $map expressions ([5712c55](https://github.com/AntelopeJS/mongodb/commit/5712c55))
+- **database:** Handle subqueries inside $map expressions" ([c292236](https://github.com/AntelopeJS/mongodb/commit/c292236))
+- **database:** Handle subqueries inside $map expressions with optimized $in lookup ([adfafb0](https://github.com/AntelopeJS/mongodb/commit/adfafb0))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.4
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.3...v1.0.4)
