@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.4
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.3...v1.0.4)
+
+### 🩹 Fixes
+
+- **database:** Support cross-database lookups via post-processing ([f7e3120](https://github.com/AntelopeJS/mongodb/commit/f7e3120))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.3
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.2...v1.0.3)
