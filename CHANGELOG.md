@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.3
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.2...v1.0.3)
+
+### 🩹 Fixes
+
+- **database:** Support cross-database $lookup for join and lookup stages ([695363f](https://github.com/AntelopeJS/mongodb/commit/695363f))
+- **database:** Prevent $unwind after distinct in group callback context ([76f54c1](https://github.com/AntelopeJS/mongodb/commit/76f54c1))
+
+### 🎨 Styles
+
+- Apply linter formatting ([bb3af9b](https://github.com/AntelopeJS/mongodb/commit/bb3af9b))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.2
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.1...v1.0.2)
