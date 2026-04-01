@@ -104,7 +104,7 @@ export class AggregationPipeline {
       );
       this.pipeline.push({
         $lookup: {
-          from: rightStream.collection,
+          from: this.lookupFrom(rightStream),
           let: { [tmpRoot]: root },
           pipeline: rightStream.pipeline,
           as: tmp,
@@ -273,6 +273,13 @@ export class AggregationPipeline {
     return this;
   }
 
+  private lookupFrom(rightStream: AggregationPipeline): string | { db: string; coll: string } {
+    if (this.database !== "$ARG" && rightStream.database !== this.database) {
+      return { db: rightStream.database, coll: rightStream.collection };
+    }
+    return rightStream.collection;
+  }
+
   private flushPendingUnset() {
     if (this.pendingUnset.length > 0) {
       const fields = this.wrappedObject
@@ -363,10 +370,6 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
-    assert(
-      this.database === "$ARG" || rightStream.database === this.database,
-      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
-    );
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -397,16 +400,12 @@ export class AggregationPipeline {
     const predicate = stage.args[1];
     const mapper = stage.args[2];
     assert(rightStream instanceof AggregationPipeline);
-    assert(
-      this.database === "$ARG" || rightStream.database === this.database,
-      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
-    );
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
       {
         $lookup: {
-          from: rightStream.collection,
+          from: this.lookupFrom(rightStream),
           let: { [tmp]: root },
           pipeline: [
             {
@@ -444,10 +443,6 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);
-    assert(
-      this.database === "$ARG" || rightStream.database === this.database,
-      `Database mismatch in pipeline: ${this.database} !== ${rightStream.database}`,
-    );
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;
@@ -456,7 +451,7 @@ export class AggregationPipeline {
     this.pipeline.push(
       {
         $lookup: {
-          from: rightStream.collection,
+          from: this.lookupFrom(rightStream),
           localField,
           foreignField,
           as: tmp,
