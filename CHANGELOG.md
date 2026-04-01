@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.2
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.1...v1.0.2)
+
+### 🩹 Fixes
+
+- **database:** Return null for unresolved single-element subqueries ([881de10](https://github.com/AntelopeJS/mongodb/commit/881de10))
+- **database:** Allow join/lookup/union in arg-based pipeline contexts ([1ffb969](https://github.com/AntelopeJS/mongodb/commit/1ffb969))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.0...v1.0.1)
