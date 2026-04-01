@@ -112,7 +112,11 @@ export class AggregationPipeline {
       });
       this.pendingUnset.push(tmp);
       const resultField = `$${tmp}${rightStream.wrappedObject ? `.${rightStream.wrappedObject}` : ""}`;
-      return rightStream.singleElement ? { $first: resultField } : resultField;
+      if (rightStream.singleElement) {
+        const first = { $first: resultField };
+        return { $ifNull: [first, null] };
+      }
+      return resultField;
     };
     try {
       for (const stage of stages) {
