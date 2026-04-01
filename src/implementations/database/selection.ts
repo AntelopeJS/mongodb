@@ -3,7 +3,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 import { v4 as uuidv4 } from "uuid";
 import { buildDatabaseName, GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
-import { DecodeFunction } from "./query";
+import { DecodeFunction, DecodeValue } from "./query";
 import {
   CreateInstance,
   DestroyInstance,
@@ -247,27 +247,58 @@ export class SelectionQuery extends AggregationPipeline {
     return super.run();
   }
 
-  protected stage_get(stage: QueryStage) {
+  private needsExpr(value: unknown): boolean {
+    if (typeof value === "string" && value.startsWith("$")) return true;
+    if (value && typeof value === "object" && !Array.isArray(value)) return true;
+    return false;
+  }
+
+  protected async stage_get(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
-    this.pipeline.push({
-      $match: { _id: stage.args[0] },
-    });
-  }
-
-  protected stage_getAll(stage: QueryStage) {
-    assert(this.resultType === "table");
-    this.resultType = "selection";
-    const index = stage.options?.index ?? "_id";
-    if (Array.isArray(stage.args[0])) {
+    const value = await DecodeValue(stage.args[0], this.context);
+    if (this.needsExpr(value)) {
       this.pipeline.push({
-        $match: { [index]: { $in: stage.args[0] } },
+        $match: { $expr: { $eq: ["$_id", value] } },
       });
     } else {
       this.pipeline.push({
-        $match: { [index]: stage.args[0] },
+        $match: { _id: value },
       });
+    }
+  }
+
+  protected async stage_getAll(stage: QueryStage) {
+    assert(this.resultType === "table");
+    this.resultType = "selection";
+    const index = stage.options?.index ?? "_id";
+    const rawValue = stage.args[0];
+    if (Array.isArray(rawValue)) {
+      const values = await Promise.all(
+        rawValue.map((v) => DecodeValue(v, this.context)),
+      );
+      const hasExpr = values.some((v) => this.needsExpr(v));
+      if (hasExpr) {
+        this.pipeline.push({
+          $match: { $expr: { $in: [`$${index}`, values] } },
+        });
+      } else {
+        this.pipeline.push({
+          $match: { [index]: { $in: values } },
+        });
+      }
+    } else {
+      const value = await DecodeValue(rawValue, this.context);
+      if (this.needsExpr(value)) {
+        this.pipeline.push({
+          $match: { $expr: { $eq: [`$${index}`, value] } },
+        });
+      } else {
+        this.pipeline.push({
+          $match: { [index]: value },
+        });
+      }
     }
   }
 
