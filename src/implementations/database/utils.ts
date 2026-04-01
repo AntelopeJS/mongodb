@@ -15,6 +15,7 @@ export type ArgumentProvider = (
 export class DecodingContext {
   public args: Record<string, ArgumentProvider | string> = {};
   public subquery?: ArgumentProvider; // TODO: implement in relevant pipeline stages
+  public mapVarSources: Record<string, unknown> = {}; // maps $$var → array source expression
 
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {
@@ -45,6 +46,7 @@ export class DecodingContext {
         // TODO: functions, { $first } objects, anything that is passed to an arg
       }
     }
+    newContext.mapVarSources = { ...this.mapVarSources };
     return newContext;
   }
 }

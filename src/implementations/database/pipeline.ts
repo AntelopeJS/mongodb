@@ -107,6 +107,52 @@ export class AggregationPipeline {
         return this.crossDatabaseSubquery(subQuery, rightStream);
       }
 
+      // Check if the FK value is a $map variable ($$temporary_*).
+      // $lookup pipeline can't access $map variables — they only exist
+      // during expression evaluation, not at pipeline stage level.
+      const getStage = subQuery.find(
+        (s) => s.stage === "get" || s.stage === "getAll",
+      );
+      const fkExpr = getStage?.args?.[0]
+        ? await DecodeValue(getStage.args[0], this.context)
+        : null;
+      const arraySource =
+        typeof fkExpr === "string"
+          ? this.context.mapVarSources[fkExpr]
+          : undefined;
+
+      if (arraySource) {
+        // Inside a $map: do a $lookup with $in on the full array, then
+        // $filter per-element in the expression.
+        const matchField =
+          getStage!.stage === "get"
+            ? "_id"
+            : (getStage!.options?.index ?? "_id");
+        const arrVar = Temporary("arr");
+        this.pipeline.push({
+          $lookup: {
+            from: rightStream.collection,
+            let: { [arrVar]: arraySource },
+            pipeline: [
+              { $match: { $expr: { $in: [`$${matchField}`, `$$${arrVar}`] } } },
+            ],
+            as: tmp,
+          },
+        });
+        this.pendingUnset.push(tmp);
+        // Return a $filter that picks the matching doc for this $map element
+        const filterExpr = {
+          $filter: {
+            input: `$${tmp}`,
+            as: "bdoc",
+            cond: { $eq: [`$$bdoc.${matchField}`, fkExpr] },
+          },
+        };
+        return rightStream.singleElement
+          ? { $ifNull: [{ $first: filterExpr }, null] }
+          : filterExpr;
+      }
+
       this.pipeline.push({
         $lookup: {
           from: rightStream.collection,

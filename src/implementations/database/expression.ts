@@ -183,13 +183,16 @@ export class Expression {
   async stage_arr_map() {
     const func = this.currentStage!.args[0];
     const tmp = Temporary();
-    return {
+    this.context.mapVarSources[`$$${tmp}`] = this.value;
+    const result = {
       $map: {
         input: this.value,
         as: tmp,
         in: await DecodeFunction(func, this.context, [`$$${tmp}`]),
       },
     };
+    delete this.context.mapVarSources[`$$${tmp}`];
+    return result;
   }
   async stage_arr_filter() {
     const func = this.currentStage!.args[0];
