@@ -249,7 +249,8 @@ export class SelectionQuery extends AggregationPipeline {
 
   private needsExpr(value: unknown): boolean {
     if (typeof value === "string" && value.startsWith("$")) return true;
-    if (value && typeof value === "object" && !Array.isArray(value)) return true;
+    if (value && typeof value === "object" && !Array.isArray(value))
+      return true;
     return false;
   }
 
