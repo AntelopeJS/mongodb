@@ -112,8 +112,8 @@ export class Expression {
   stage_date_tod() {
     return {
       $add: [
-        { $mul: [{ $hour: this.value }, 3600] },
-        { $mul: [{ $minute: this.value }, 60] },
+        { $multiply: [{ $hour: this.value }, 3600] },
+        { $multiply: [{ $minute: this.value }, 60] },
         { $second: this.value },
       ],
     };
@@ -140,8 +140,18 @@ export class Expression {
   stage_bit_or = "$bitOr";
   stage_bit_xor = "$bitXor";
   stage_bit_not = "$bitNot";
-  stage_bit_lshift = "$bit_lshift"; // TODO: should we keep bitshifts? { $multiply: [value, { $pow: [2, arg] }], }
-  stage_bit_rshift = "$bit_rshift";
+  stage_bit_lshift() {
+    return {
+      $multiply: [this.value, { $pow: [2, this.currentStage!.args[0]] }],
+    };
+  }
+  stage_bit_rshift() {
+    return {
+      $floor: {
+        $divide: [this.value, { $pow: [2, this.currentStage!.args[0]] }],
+      },
+    };
+  }
 
   stage_cmp_gt = "$gt";
   stage_cmp_ge = "$gte";
@@ -155,7 +165,7 @@ export class Expression {
     }
     return split;
   }
-  stage_str_concat = "$add";
+  stage_str_concat = "$concat";
   stage_str_upcase = "$toUpper";
   stage_str_downcase = "$toLower";
   stage_str_len = "$strLenCP";
@@ -218,7 +228,8 @@ export class Expression {
     const index =
       typeof this.value === "string" &&
       typeof key === "string" &&
-      this.value.startsWith("$")
+      this.value.startsWith("$") &&
+      !key.startsWith("$")
         ? `${this.value}.${key}`
         : { $getField: { field: key, input: this.value } };
     if (def) {
@@ -245,5 +256,15 @@ export class Expression {
       },
     };
   }
-  //stage_obj_has = '$obj_has'; // TODO: generate big condition?
+  stage_obj_has() {
+    const fields = this.currentStage!.args[0] as string[];
+    const keys = {
+      $map: {
+        input: { $objectToArray: this.value },
+        as: "temporary_entry",
+        in: "$$temporary_entry.k",
+      },
+    };
+    return { $setIsSubset: [fields, keys] };
+  }
 }
