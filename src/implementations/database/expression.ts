@@ -140,15 +140,15 @@ export class Expression {
   stage_bit_or = "$bitOr";
   stage_bit_xor = "$bitXor";
   stage_bit_not = "$bitNot";
-  stage_bit_lshift() {
+  stage_bit_lshift(shift: unknown) {
     return {
-      $multiply: [this.value, { $pow: [2, this.currentStage!.args[0]] }],
+      $multiply: [this.value, { $pow: [2, shift] }],
     };
   }
-  stage_bit_rshift() {
+  stage_bit_rshift(shift: unknown) {
     return {
       $floor: {
-        $divide: [this.value, { $pow: [2, this.currentStage!.args[0]] }],
+        $divide: [this.value, { $pow: [2, shift] }],
       },
     };
   }
@@ -256,8 +256,7 @@ export class Expression {
       },
     };
   }
-  stage_obj_has() {
-    const fields = this.currentStage!.args[0] as string[];
+  stage_obj_has(fields: unknown) {
     const keys = {
       $map: {
         input: { $objectToArray: this.value },
