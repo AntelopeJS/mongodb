@@ -14,7 +14,7 @@ export type ArgumentProvider = (
 
 export class DecodingContext {
   public args: Record<string, ArgumentProvider | string> = {};
-  public subquery?: ArgumentProvider; // TODO: implement in relevant pipeline stages
+  public subquery?: ArgumentProvider;
   public mapVarSources: Record<string, unknown> = {}; // maps $$var → array source expression
 
   public decodeSubquery(stages: QueryStage[]) {
