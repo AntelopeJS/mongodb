@@ -632,14 +632,34 @@ export class AggregationPipeline {
   protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
     const group = Temporary("group");
+    const index = GetIndex(this.schemaId, this.collection, stage.options.index);
+    const indexFields = index.fields ?? [stage.options.index];
+
+    let groupKey: unknown;
+    if (indexFields.length === 1) {
+      groupKey = `$${group}`;
+    } else {
+      const groupKeyObj: Record<string, unknown> = {};
+      for (const field of indexFields) {
+        groupKeyObj[field] = `$${group}.${field}`;
+      }
+      groupKey = groupKeyObj;
+    }
+
+    const groupSetup =
+      indexFields.length === 1
+        ? `$${this.getField(indexFields[0])}`
+        : Object.fromEntries(
+            indexFields.map((field) => [field, `$${this.getField(field)}`]),
+          );
     const setupStage: Record<string, unknown> = {
-      [group]: `$${this.getField(stage.options.index)}`,
+      [group]: groupSetup,
     };
     this.pipeline.push({
       [this.wrappedObject ? "$addFields" : "$project"]: setupStage,
     });
     const groupStage: Record<string, any> = {
-      _id: `$${group}`,
+      _id: groupKey,
       [group]: { $first: `$${group}` },
     };
     const beforeGroup: any[] = [];
@@ -682,7 +702,7 @@ export class AggregationPipeline {
     const result = await DecodeFunction(stage.args[0], this.context, [
       pipelineInserter,
       `$${group}`,
-    ]); // TODO: support named indexes by referencing schema
+    ]);
     this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
     this.setRoot(result);
     return this;
