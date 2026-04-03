@@ -204,14 +204,11 @@ export class SelectionQuery extends AggregationPipeline {
     if (this.rowLevel) {
       this._newValue.tenant_id = this.instanceId;
     }
-    const filter = this.getFilter();
-    const count = await collection.countDocuments(filter, { limit: 2 });
-    assert(
-      count <= 1,
-      `replace() matched ${count} documents, but only supports replacing a single document`,
+    const res = await collection.findOneAndReplace(
+      this.getFilter(),
+      this._newValue,
     );
-    const res = await collection.replaceOne(filter, this._newValue);
-    return res.modifiedCount;
+    return res ? 1 : 0;
   }
 
   private async delete() {
