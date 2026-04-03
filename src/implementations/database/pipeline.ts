@@ -574,7 +574,6 @@ export class AggregationPipeline {
     );
     this.setRoot(await DecodeFunction(mapper, this.context, [root, `$${tmp}`]));
     this.pipeline.push({
-      // TODO?: collect obsolete fields and remove them all at the end
       $unset: [tmp],
     });
     return this;
@@ -665,7 +664,6 @@ export class AggregationPipeline {
         // no group stage found, make stream into an array
         groupStage[tmp] = { $push: `$${tmp}` };
       }
-      //TODO: interleave stages?
       setupStage[tmp] = root;
       return `$${tmp}`;
     };
