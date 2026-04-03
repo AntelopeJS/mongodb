@@ -469,7 +469,6 @@ export class AggregationPipeline {
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
     }
-    // TODO: inCompoundObject (group with multiple branches): $replaceRoot $mergeObjects $$ROOT
     if (this.isChangeStream) {
       this.pipeline.push({
         $project: {
@@ -477,6 +476,18 @@ export class AggregationPipeline {
           operationType: 1,
           fullDocument: pluckObject,
           fullDocumentBeforeChange: pluckObject,
+        },
+      });
+    } else if (this.inCompoundObject && this.wrappedObject) {
+      const projectedFields: Record<string, unknown> = {};
+      for (const field of stage.args[0]) {
+        projectedFields[field] = `$${this.wrappedObject}.${field}`;
+      }
+      this.pipeline.push({
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: ["$$ROOT", { [this.wrappedObject]: projectedFields }],
+          },
         },
       });
     } else {
