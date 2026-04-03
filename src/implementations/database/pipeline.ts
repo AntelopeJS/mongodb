@@ -647,8 +647,9 @@ export class AggregationPipeline {
       for (const stage of subquery.pipeline) {
         if ("$group" in stage) {
           if (stage.$group._id) {
-            stage.$group._id = `$${tmp}.${stage.$group._id}`;
-            // TODO: sub groups are way more complicated than anticipated
+            throw new Error(
+              "Nested sub-groups with non-null _id are not supported",
+            );
           } else {
             delete stage.$group._id;
             Object.assign(groupStage, stage.$group);
