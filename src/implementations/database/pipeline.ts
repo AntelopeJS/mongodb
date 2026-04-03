@@ -233,8 +233,8 @@ export class AggregationPipeline {
       const op = change.operationType;
       return {
         changeType: operations[op] ?? op,
-        oldValue: op === "insert" ? null : (change.fullDocumentBeforeChange ?? null),
-        newValue: op === "delete" ? null : (change.fullDocument ?? null),
+        oldValue: op === "insert" ? undefined : change.fullDocumentBeforeChange,
+        newValue: op === "delete" ? undefined : change.fullDocument,
         _mongo: change,
       };
     } else {
