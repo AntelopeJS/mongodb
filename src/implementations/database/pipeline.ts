@@ -486,7 +486,10 @@ export class AggregationPipeline {
       this.pipeline.push({
         $replaceRoot: {
           newRoot: {
-            $mergeObjects: ["$$ROOT", { [this.wrappedObject]: projectedFields }],
+            $mergeObjects: [
+              "$$ROOT",
+              { [this.wrappedObject]: projectedFields },
+            ],
           },
         },
       });
