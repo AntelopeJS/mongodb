@@ -14,7 +14,10 @@ export default defineConfig({
   test: {
     folder: "dist/test",
     async setup() {
-      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: "8.0.8" } });
+      mongod = await MongoMemoryReplSet.create({
+        replSet: { count: 1 },
+        binary: { version: "8.0.8" },
+      });
       return {
         modules: {
           local: {
