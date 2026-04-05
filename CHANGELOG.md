@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.0.6
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.5...v1.0.6)
+
+### 🩹 Fixes
+
+- **database:** Implement missing expression operators ([#15](https://github.com/AntelopeJS/mongodb/pull/15))
+- **database:** Resolve TODOs across query pipeline ([#16](https://github.com/AntelopeJS/mongodb/pull/16))
+- **database:** Wrap constant objects in $literal for dynamic $getField support ([20de761](https://github.com/AntelopeJS/mongodb/commit/20de761))
+
+### 🏡 Chore
+
+- Format package.json and bump interface-database to ^0.0.3 ([f8e937b](https://github.com/AntelopeJS/mongodb/commit/f8e937b))
+
+### 🎨 Styles
+
+- Format package.json and test config ([d6b18fe](https://github.com/AntelopeJS/mongodb/commit/d6b18fe))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+
 ## v1.0.5
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.4...v1.0.5)
