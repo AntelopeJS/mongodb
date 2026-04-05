@@ -14,7 +14,7 @@ export type ArgumentProvider = (
 
 export class DecodingContext {
   public args: Record<string, ArgumentProvider | string> = {};
-  public subquery?: ArgumentProvider; // TODO: implement in relevant pipeline stages
+  public subquery?: ArgumentProvider;
   public mapVarSources: Record<string, unknown> = {}; // maps $$var → array source expression
 
   public decodeSubquery(stages: QueryStage[]) {
@@ -32,18 +32,36 @@ export class DecodingContext {
   }
 
   public withRoot(parentRoot: string) {
+    const remapString = (value: string): string => {
+      if (value === "$$ROOT") {
+        return parentRoot;
+      } else if (value.match(/^\$[^$]/)) {
+        return `${parentRoot}.${value.substring(1)}`;
+      }
+      return value;
+    };
+
+    const remapValue = (
+      value: Record<string, any> | string,
+    ): Record<string, any> | string => {
+      if (typeof value === "string") {
+        return remapString(value);
+      }
+      if (typeof value === "object" && value !== null && "$first" in value) {
+        return { $first: remapValue(value.$first) };
+      }
+      return value;
+    };
+
     const newContext = new DecodingContext();
     for (const [id, arg] of Object.entries(this.args)) {
-      if (typeof arg === "string") {
-        if (arg === "$$ROOT") {
-          newContext.args[id] = parentRoot;
-        } else if (arg.match(/^\$[^$]/)) {
-          newContext.args[id] = `${parentRoot}.${arg.substring(1)}`;
-        } else {
-          newContext.args[id] = arg; // variables? this will definitely break.
-        }
+      if (typeof arg === "function") {
+        newContext.args[id] = async (subQuery: QueryStage[]) => {
+          const result = await arg(subQuery);
+          return remapValue(result);
+        };
       } else {
-        // TODO: functions, { $first } objects, anything that is passed to an arg
+        newContext.args[id] = remapValue(arg) as string;
       }
     }
     newContext.mapVarSources = { ...this.mapVarSources };

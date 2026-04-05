@@ -136,7 +136,7 @@ export class Expression {
   stage_round = "$round";
   stage_ceil = "$ceil";
   stage_floor = "$floor";
-  stage_bit_and = "$bitAnd"; // TODO: bitwise operations only work on Int32() and Long(), integrate with schema?
+  stage_bit_and = "$bitAnd";
   stage_bit_or = "$bitOr";
   stage_bit_xor = "$bitXor";
   stage_bit_not = "$bitNot";

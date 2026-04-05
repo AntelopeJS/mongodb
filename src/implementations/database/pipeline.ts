@@ -230,11 +230,11 @@ export class AggregationPipeline {
         update: "modified",
         delete: "removed",
       };
+      const op = change.operationType;
       return {
-        changeType: operations[change.operationType] ?? change.operationType,
-        // TODO: Handle undefined fullDocumentBeforeChange better
-        oldValue: change.fullDocumentBeforeChange,
-        newValue: change.fullDocument,
+        changeType: operations[op] ?? op,
+        oldValue: op === "insert" ? undefined : change.fullDocumentBeforeChange,
+        newValue: op === "delete" ? undefined : change.fullDocument,
         _mongo: change,
       };
     } else {
@@ -469,7 +469,6 @@ export class AggregationPipeline {
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
     }
-    // TODO: inCompoundObject (group with multiple branches): $replaceRoot $mergeObjects $$ROOT
     if (this.isChangeStream) {
       this.pipeline.push({
         $project: {
@@ -477,6 +476,21 @@ export class AggregationPipeline {
           operationType: 1,
           fullDocument: pluckObject,
           fullDocumentBeforeChange: pluckObject,
+        },
+      });
+    } else if (this.inCompoundObject && this.wrappedObject) {
+      const projectedFields: Record<string, unknown> = {};
+      for (const field of stage.args[0]) {
+        projectedFields[field] = `$${this.wrappedObject}.${field}`;
+      }
+      this.pipeline.push({
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              "$$ROOT",
+              { [this.wrappedObject]: projectedFields },
+            ],
+          },
         },
       });
     } else {
@@ -574,7 +588,6 @@ export class AggregationPipeline {
     );
     this.setRoot(await DecodeFunction(mapper, this.context, [root, `$${tmp}`]));
     this.pipeline.push({
-      // TODO?: collect obsolete fields and remove them all at the end
       $unset: [tmp],
     });
     return this;
@@ -622,14 +635,34 @@ export class AggregationPipeline {
   protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
     const group = Temporary("group");
+    const index = GetIndex(this.schemaId, this.collection, stage.options.index);
+    const indexFields = index.fields ?? [stage.options.index];
+
+    let groupKey: unknown;
+    if (indexFields.length === 1) {
+      groupKey = `$${group}`;
+    } else {
+      const groupKeyObj: Record<string, unknown> = {};
+      for (const field of indexFields) {
+        groupKeyObj[field] = `$${group}.${field}`;
+      }
+      groupKey = groupKeyObj;
+    }
+
+    const groupSetup =
+      indexFields.length === 1
+        ? `$${this.getField(indexFields[0])}`
+        : Object.fromEntries(
+            indexFields.map((field) => [field, `$${this.getField(field)}`]),
+          );
     const setupStage: Record<string, unknown> = {
-      [group]: `$${this.getField(stage.options.index)}`,
+      [group]: groupSetup,
     };
     this.pipeline.push({
       [this.wrappedObject ? "$addFields" : "$project"]: setupStage,
     });
     const groupStage: Record<string, any> = {
-      _id: `$${group}`,
+      _id: groupKey,
       [group]: { $first: `$${group}` },
     };
     const beforeGroup: any[] = [];
@@ -648,8 +681,9 @@ export class AggregationPipeline {
       for (const stage of subquery.pipeline) {
         if ("$group" in stage) {
           if (stage.$group._id) {
-            stage.$group._id = `$${tmp}.${stage.$group._id}`;
-            // TODO: sub groups are way more complicated than anticipated
+            throw new Error(
+              "Nested sub-groups with non-null _id are not supported",
+            );
           } else {
             delete stage.$group._id;
             Object.assign(groupStage, stage.$group);
@@ -665,14 +699,13 @@ export class AggregationPipeline {
         // no group stage found, make stream into an array
         groupStage[tmp] = { $push: `$${tmp}` };
       }
-      //TODO: interleave stages?
       setupStage[tmp] = root;
       return `$${tmp}`;
     };
     const result = await DecodeFunction(stage.args[0], this.context, [
       pipelineInserter,
       `$${group}`,
-    ]); // TODO: support named indexes by referencing schema
+    ]);
     this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
     this.setRoot(result);
     return this;

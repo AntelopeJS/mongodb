@@ -204,9 +204,11 @@ export class SelectionQuery extends AggregationPipeline {
     if (this.rowLevel) {
       this._newValue.tenant_id = this.instanceId;
     }
-    // TODO: what should we do when there's more than one?
-    const res = await collection.replaceOne(this.getFilter(), this._newValue);
-    return res.modifiedCount;
+    const res = await collection.findOneAndReplace(
+      this.getFilter(),
+      this._newValue,
+    );
+    return res ? 1 : 0;
   }
 
   private async delete() {
