@@ -84,6 +84,15 @@ export class Expression {
     return this.context.args[num];
   }
   stage_constant(constant: unknown) {
+    if (
+      constant &&
+      typeof constant === "object" &&
+      !Array.isArray(constant) &&
+      !(constant instanceof Date) &&
+      Object.getPrototypeOf(constant) === Object.prototype
+    ) {
+      return { $literal: constant };
+    }
     return DecodeValue(constant, this.context);
   }
 
