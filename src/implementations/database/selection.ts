@@ -281,16 +281,9 @@ export class SelectionQuery extends AggregationPipeline {
       const values = await Promise.all(
         rawValue.map((v) => DecodeValue(v, this.context)),
       );
-      const hasExpr = values.some((v) => this.needsExpr(v));
-      if (hasExpr) {
-        this.pipeline.push({
-          $match: { $expr: { $in: [`$${index}`, values] } },
-        });
-      } else {
-        this.pipeline.push({
-          $match: { [index]: { $in: values } },
-        });
-      }
+      this.pipeline.push({
+        $match: { $expr: { $in: [`$${index}`, values] } },
+      });
     } else {
       const value = await DecodeValue(rawValue, this.context);
       if (this.needsExpr(value)) {
