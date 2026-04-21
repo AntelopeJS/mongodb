@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.7
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.6...v1.0.7)
+
+### 🩹 Fixes
+
+- Incorrect use of $in in getAll ([cfca4ed](https://github.com/AntelopeJS/mongodb/commit/cfca4ed))
+- **database:** Detect compound index field order changes on init ([#17](https://github.com/AntelopeJS/mongodb/pull/17))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+- Thomasims <thomas@antelopejs.com>
+
 ## v1.0.6
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.5...v1.0.6)
