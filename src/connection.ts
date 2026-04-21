@@ -88,9 +88,10 @@ async function InitializeDatabase(
       const existingByFields = indexesByFields[fieldsKey];
 
       if (existingByName) {
+        const existingKeys = Object.keys(existingByName.key);
         const nameFieldsMatch =
-          Object.keys(existingByName.key).length === fields.length &&
-          fields.every((field) => existingByName.key[field]);
+          existingKeys.length === fields.length &&
+          fields.every((field, i) => existingKeys[i] === field);
         if (nameFieldsMatch) {
           continue;
         }
