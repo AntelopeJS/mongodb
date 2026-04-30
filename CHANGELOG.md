@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.8
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.7...v1.0.8)
+
+### 🩹 Fixes
+
+- **database:** Preserve literal dotted keys in update() ([#18](https://github.com/AntelopeJS/mongodb/pull/18))
+
+### ❤️ Contributors
+
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+
 ## v1.0.7
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.6...v1.0.7)
