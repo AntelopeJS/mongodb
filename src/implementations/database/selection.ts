@@ -168,7 +168,13 @@ export class SelectionQuery extends AggregationPipeline {
       update: (doc) => ({
         updateOne: {
           filter: { _id: doc._id },
-          update: { $set: doc },
+          update: [
+            {
+              $replaceWith: {
+                $mergeObjects: ["$$ROOT", { $literal: doc }],
+              },
+            },
+          ],
           upsert: true,
         },
       }),
@@ -185,17 +191,53 @@ export class SelectionQuery extends AggregationPipeline {
     return documents.map((doc) => doc._id);
   }
 
+  private isAggregationOperator(
+    value: unknown,
+  ): value is Record<string, unknown> {
+    return (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.getPrototypeOf(value) === Object.prototype &&
+      Object.keys(value as object).some((k) => k.startsWith("$"))
+    );
+  }
+
+  private hasExpression(value: unknown): boolean {
+    if (typeof value === "string") return value.startsWith("$");
+    if (value === null || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some((v) => this.hasExpression(v));
+    if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+    if (this.isAggregationOperator(value)) return true;
+    return Object.values(value as object).some((v) => this.hasExpression(v));
+  }
+
+  private literalizeUpdateValue(value: unknown): unknown {
+    if (!this.hasExpression(value)) return { $literal: value };
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map((v) => this.literalizeUpdateValue(v));
+    }
+    if (this.isAggregationOperator(value)) return value;
+    return {
+      $arrayToObject: [
+        Object.entries(value as object).map(([k, v]) => [
+          k,
+          this.literalizeUpdateValue(v),
+        ]),
+      ],
+    };
+  }
+
   private async update() {
     const collection = await GetCollection(this.database, this.collection);
-    const isExpression =
-      typeof this._newValue === "string" ||
-      (typeof this._newValue === "object" &&
-        this._newValue !== null &&
-        Object.keys(this._newValue).some((k) => k.startsWith("$")));
-    const updatePipeline = isExpression
-      ? [{ $replaceWith: this._newValue }]
-      : [{ $set: this._newValue }];
-    const res = await collection.updateMany(this.getFilter(), updatePipeline);
+    const res = await collection.updateMany(this.getFilter(), [
+      {
+        $replaceWith: {
+          $mergeObjects: ["$$ROOT", this.literalizeUpdateValue(this._newValue)],
+        },
+      },
+    ]);
     return res.modifiedCount;
   }
 
