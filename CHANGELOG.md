@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.1.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.8...v1.1.0)
+
+### 🚀 Enhancements
+
+- **database:** Adopt interface-database 0.1.0 with physical store and tenant scoping ([#19](https://github.com/AntelopeJS/mongodb/pull/19))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.0.8
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.7...v1.0.8)
