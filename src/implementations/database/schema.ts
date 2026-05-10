@@ -31,18 +31,33 @@ function claimOwnership(
   collectionOwnership.set(key, schemaId);
 }
 
-function rollbackRegistration(
-  schemaId: string,
+function releaseOwnership(
   physicalStore: string,
-  claimedTables: string[],
+  tableNames: Iterable<string>,
+  schemaId: string,
 ) {
-  for (const tableName of claimedTables) {
+  for (const tableName of tableNames) {
     const key = ownershipKey(physicalStore, tableName);
     if (collectionOwnership.get(key) === schemaId) {
       collectionOwnership.delete(key);
     }
   }
+}
+
+function rollbackRegistration(
+  schemaId: string,
+  physicalStore: string,
+  claimedTables: string[],
+) {
+  releaseOwnership(physicalStore, claimedTables, schemaId);
   delete existingSchemas[schemaId];
+}
+
+function releasePreviousClaims(schemaId: string) {
+  const previous = existingSchemas[schemaId];
+  if (!previous) return;
+  const previousStore = previous.options.physicalStore ?? schemaId;
+  releaseOwnership(previousStore, Object.keys(previous.definition), schemaId);
 }
 
 export const Schemas = {
@@ -52,6 +67,7 @@ export const Schemas = {
     options: SchemaOptions,
   ) {
     const physicalStore = options.physicalStore ?? schemaId;
+    releasePreviousClaims(schemaId);
     existingSchemas[schemaId] = { definition: schema, options };
     const claimed: string[] = [];
     try {
@@ -69,12 +85,7 @@ export const Schemas = {
     const entry = existingSchemas[schemaId];
     if (entry) {
       const physicalStore = entry.options.physicalStore ?? schemaId;
-      for (const tableName of Object.keys(entry.definition)) {
-        const key = ownershipKey(physicalStore, tableName);
-        if (collectionOwnership.get(key) === schemaId) {
-          collectionOwnership.delete(key);
-        }
-      }
+      releaseOwnership(physicalStore, Object.keys(entry.definition), schemaId);
     }
     delete existingSchemas[schemaId];
   },
