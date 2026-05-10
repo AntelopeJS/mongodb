@@ -6,7 +6,7 @@ import { GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction, DecodeValue } from "./query";
 import { GetPhysicalStore, IsTenantScoped } from "./schema";
-import { DecodingContext } from "./utils";
+import { DecodingContext, TENANT_ID_FIELD } from "./utils";
 
 type TenantContext =
   | { kind: "none" }
@@ -39,7 +39,7 @@ function resolveTenantContext(
 
 function buildInitialPipeline(tenant: TenantContext): any[] {
   if (tenant.kind === "scoped") {
-    return [{ $match: { tenant_id: tenant.tenantId } }];
+    return [{ $match: { [TENANT_ID_FIELD]: tenant.tenantId } }];
   }
   return [];
 }
@@ -144,7 +144,7 @@ export class SelectionQuery extends AggregationPipeline {
     for (const document of documents) {
       document._id = document._id ?? uuidv4();
       if (this.tenant.kind === "scoped") {
-        document.tenant_id = this.tenant.tenantId;
+        document[TENANT_ID_FIELD] = this.tenant.tenantId;
       }
     }
     return documents;
@@ -236,7 +236,7 @@ export class SelectionQuery extends AggregationPipeline {
     }
     const collection = await GetCollection(this.database, this.collection);
     if (this.tenant.kind === "scoped") {
-      this._newValue.tenant_id = this.tenant.tenantId;
+      this._newValue[TENANT_ID_FIELD] = this.tenant.tenantId;
     }
     const res = await collection.findOneAndReplace(
       this.getFilter(),

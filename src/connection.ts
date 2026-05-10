@@ -5,8 +5,8 @@ import {
   MongoClient,
   type MongoClientOptions,
 } from "mongodb";
+import { TENANT_ID_FIELD } from "./implementations/database/utils";
 
-const TENANT_ID_FIELD = "tenant_id";
 const TENANT_ID_INDEX = "tenant_id";
 
 export async function Connect(url: string, options?: MongoClientOptions) {
