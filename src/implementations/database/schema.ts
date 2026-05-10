@@ -3,19 +3,33 @@ import type {
   SchemaDefinition,
   SchemaOptions,
 } from "@antelopejs/interface-database/schema";
-import {
-  CreateRowLevelDatabase,
-  CreateSchemaInstance,
-  DestroySchemaInstance,
-} from "../../connection";
+import { InitializeSchemaInPhysicalStore } from "../../connection";
 
-export const existingSchemas: Record<
+const existingSchemas: Record<
   string,
   { definition: SchemaDefinition; options: SchemaOptions }
 > = {};
-export const existingInstances: Record<string, Set<string>> = {};
 
-// TODO: watch changes to db to update existingInstances
+const collectionOwnership = new Map<string, string>();
+
+function ownershipKey(physicalStore: string, tableName: string): string {
+  return `${physicalStore}\0${tableName}`;
+}
+
+function assertOwnership(
+  physicalStore: string,
+  tableName: string,
+  schemaId: string,
+) {
+  const key = ownershipKey(physicalStore, tableName);
+  const owner = collectionOwnership.get(key);
+  if (owner && owner !== schemaId) {
+    throw new Error(
+      `Collection '${tableName}' in physical store '${physicalStore}' is already declared by schema '${owner}', cannot redeclare in '${schemaId}'`,
+    );
+  }
+  collectionOwnership.set(key, schemaId);
+}
 
 export const Schemas = {
   async register(
@@ -24,22 +38,30 @@ export const Schemas = {
     options: SchemaOptions,
   ) {
     existingSchemas[schemaId] = { definition: schema, options };
-    if (!existingInstances[schemaId]) {
-      existingInstances[schemaId] = new Set<string>();
+    const physicalStore = options.physicalStore ?? schemaId;
+    for (const tableName of Object.keys(schema)) {
+      assertOwnership(physicalStore, tableName, schemaId);
     }
-    if (!options.rowLevel) {
-      return;
-    }
-    await CreateRowLevelDatabase(schemaId, schema);
+    await InitializeSchemaInPhysicalStore(physicalStore, schema);
   },
   unregister(schemaId: string) {
+    const entry = existingSchemas[schemaId];
+    if (entry) {
+      const physicalStore = entry.options.physicalStore ?? schemaId;
+      for (const tableName of Object.keys(entry.definition)) {
+        const key = ownershipKey(physicalStore, tableName);
+        if (collectionOwnership.get(key) === schemaId) {
+          collectionOwnership.delete(key);
+        }
+      }
+    }
     delete existingSchemas[schemaId];
-    delete existingInstances[schemaId];
   },
 };
 
-export function IsRowLevel(schemaId: string): boolean {
-  return existingSchemas[schemaId]?.options?.rowLevel === true;
+export function GetPhysicalStore(schemaId: string): string {
+  assert(schemaId in existingSchemas, `Unknown schema '${schemaId}'`);
+  return existingSchemas[schemaId].options.physicalStore ?? schemaId;
 }
 
 export function GetSchema(schemaId: string) {
@@ -51,6 +73,10 @@ export function GetTable(schemaId: string, tableId: string) {
   const schema = GetSchema(schemaId);
   assert(tableId in schema);
   return schema[tableId];
+}
+
+export function IsTenantScoped(schemaId: string, tableId: string): boolean {
+  return GetTable(schemaId, tableId).tenantScoped === true;
 }
 
 export function GetIndex(
@@ -66,48 +92,4 @@ export function GetIndex(
     assert(!onlyIndex);
     return { fields: [indexId] };
   }
-}
-
-export function IsValidInstance(
-  schemaId: string,
-  instanceId: string | undefined,
-) {
-  assert(schemaId in existingInstances);
-  if (IsRowLevel(schemaId)) {
-    if (instanceId === undefined) {
-      throw new Error(`Row-level schema '${schemaId}' requires a tenant ID`);
-    }
-    return true;
-  }
-  const instances = existingInstances[schemaId];
-  return instances.has(instanceId ?? "");
-}
-
-export async function CreateInstance(
-  schemaId: string,
-  instanceId: string | undefined,
-) {
-  if (IsRowLevel(schemaId)) {
-    return;
-  }
-  const schema = GetSchema(schemaId);
-  const instances = existingInstances[schemaId];
-  instances.add(instanceId ?? "");
-  await CreateSchemaInstance(schemaId, instanceId, schema);
-}
-
-export async function DestroyInstance(
-  schemaId: string,
-  instanceId: string | undefined,
-) {
-  if (IsRowLevel(schemaId)) {
-    return;
-  }
-  assert(schemaId in existingInstances);
-  const instances = existingInstances[schemaId];
-  const key = instanceId ?? "";
-  if (instances.has(key)) {
-    instances.delete(key);
-  }
-  await DestroySchemaInstance(schemaId, instanceId);
 }

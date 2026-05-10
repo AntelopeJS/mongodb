@@ -6,12 +6,8 @@ import {
   type MongoClientOptions,
 } from "mongodb";
 
-export function buildDatabaseName(
-  schemaId: string,
-  instanceId: string | undefined,
-): string {
-  return instanceId !== undefined ? `${schemaId}-${instanceId}` : schemaId;
-}
+const TENANT_ID_FIELD = "tenant_id";
+const TENANT_ID_INDEX = "tenant_id";
 
 export async function Connect(url: string, options?: MongoClientOptions) {
   await Disconnect();
@@ -55,88 +51,82 @@ export interface IndexDefinition {
 
 export interface TableDefinition {
   indexes: Record<string, IndexDefinition>;
+  tenantScoped?: boolean;
 }
 
 export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
-async function InitializeDatabase(
+async function ensureCollection(
   db: Db,
-  schema: SchemaDefinition,
-  rowLevel?: boolean,
+  tableId: string,
+  existingCollections: Set<string>,
 ) {
+  if (!existingCollections.has(tableId)) {
+    await db.createCollection(tableId);
+  }
+}
+
+async function syncSecondaryIndexes(
+  collection: Collection,
+  table: TableDefinition,
+) {
+  const existingIndexes = await collection.indexes();
+  const indexesByName = Object.fromEntries(
+    existingIndexes.map((index) => [index.name, index]),
+  );
+  const indexesByFields = Object.fromEntries(
+    existingIndexes.map((index) => [Object.keys(index.key).join(","), index]),
+  );
+  for (const [indexId, index] of Object.entries(table.indexes)) {
+    const fields = index.fields ?? [indexId];
+    const fieldsKey = fields.join(",");
+    const existingByName = indexesByName[indexId];
+    const existingByFields = indexesByFields[fieldsKey];
+
+    if (existingByName) {
+      const existingKeys = Object.keys(existingByName.key);
+      const nameFieldsMatch =
+        existingKeys.length === fields.length &&
+        fields.every((field, i) => existingKeys[i] === field);
+      if (nameFieldsMatch) {
+        continue;
+      }
+      await collection.dropIndex(indexId);
+    } else if (existingByFields) {
+      continue;
+    }
+    await collection.createIndex(fields, { name: indexId });
+  }
+}
+
+async function ensureTenantIndex(collection: Collection) {
+  const existingIndexes = await collection.indexes();
+  const hasTenantIndex = existingIndexes.some(
+    (index) =>
+      index.name === TENANT_ID_INDEX ||
+      (Object.keys(index.key).length === 1 && index.key[TENANT_ID_FIELD]),
+  );
+  if (!hasTenantIndex) {
+    await collection.createIndex([TENANT_ID_FIELD], { name: TENANT_ID_INDEX });
+  }
+}
+
+export async function InitializeSchemaInPhysicalStore(
+  physicalStore: string,
+  schema: SchemaDefinition,
+) {
+  const db = await GetDatabase(physicalStore);
   const existingCollections = new Set(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
   for (const [tableId, table] of Object.entries(schema)) {
-    if (!existingCollections.has(tableId)) {
-      await db.createCollection(tableId);
-    }
+    await ensureCollection(db, tableId, existingCollections);
     const collection = db.collection(tableId);
-    const existingIndexes = await collection.indexes();
-    const indexesByName = Object.fromEntries(
-      existingIndexes.map((index) => [index.name, index]),
-    );
-    const indexesByFields = Object.fromEntries(
-      existingIndexes.map((index) => [Object.keys(index.key).join(","), index]),
-    );
-    for (const [indexId, index] of Object.entries(table.indexes)) {
-      const fields = index.fields ?? [indexId];
-      const fieldsKey = fields.join(",");
-      const existingByName = indexesByName[indexId];
-      const existingByFields = indexesByFields[fieldsKey];
-
-      if (existingByName) {
-        const existingKeys = Object.keys(existingByName.key);
-        const nameFieldsMatch =
-          existingKeys.length === fields.length &&
-          fields.every((field, i) => existingKeys[i] === field);
-        if (nameFieldsMatch) {
-          continue;
-        }
-        await collection.dropIndex(indexId);
-      } else if (existingByFields) {
-        continue;
-      }
-      await collection.createIndex(fields, { name: indexId });
-    }
-    if (rowLevel) {
-      const hasTenantIndex = existingIndexes.some(
-        (index) =>
-          index.name === "tenant_id" ||
-          (Object.keys(index.key).length === 1 && index.key.tenant_id),
-      );
-      if (!hasTenantIndex) {
-        await collection.createIndex(["tenant_id"], { name: "tenant_id" });
-      }
+    await syncSecondaryIndexes(collection, table);
+    if (table.tenantScoped) {
+      await ensureTenantIndex(collection);
     }
   }
-}
-
-export async function CreateRowLevelDatabase(
-  schemaId: string,
-  schema: SchemaDefinition,
-) {
-  const db = await GetDatabase(schemaId);
-  await InitializeDatabase(db, schema, true);
-}
-
-export async function CreateSchemaInstance(
-  schemaId: string,
-  instanceId: string | undefined,
-  schema: SchemaDefinition,
-) {
-  const dbName = buildDatabaseName(schemaId, instanceId);
-  const db = await GetDatabase(dbName);
-  await InitializeDatabase(db, schema);
-}
-
-export async function DestroySchemaInstance(
-  schemaId: string,
-  instanceId: string | undefined,
-) {
-  const dbName = buildDatabaseName(schemaId, instanceId);
-  const db = await GetDatabase(dbName);
-  await db.dropDatabase();
 }

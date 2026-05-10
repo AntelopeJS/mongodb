@@ -103,10 +103,6 @@ export class AggregationPipeline {
         this.context.withRoot(`$$${tmpRoot}`),
       );
 
-      if (this.isCrossDatabase(rightStream)) {
-        return this.crossDatabaseSubquery(subQuery, rightStream);
-      }
-
       // Check if the FK value is a $map variable ($$temporary_*).
       // $lookup pipeline can't access $map variables — they only exist
       // during expression evaluation, not at pipeline stage level.
@@ -192,9 +188,6 @@ export class AggregationPipeline {
     if (this.wrappedObject) {
       const wrappedObject = this.wrappedObject;
       result = result.map((element: any) => element[wrappedObject]);
-    }
-    if (this.crossDatabaseLookups.length > 0) {
-      await this.resolveCrossDatabaseLookups(result);
     }
     if (this.singleElement) {
       return result.length > 0 ? result[0] : this.reductionDefault;
@@ -325,103 +318,6 @@ export class AggregationPipeline {
       this.setRoot(DefaultConstant(`$${this.wrappedObject}`, defaultValue));
     }
     return this;
-  }
-
-  private crossDatabaseLookups: Array<{
-    fkField: string;
-    matchField: string;
-    database: string;
-    collection: string;
-    singleElement: boolean;
-  }> = [];
-
-  /**
-   * Handle cross-database sub-queries via post-processing in run().
-   * MongoDB Community Edition does not support {db, coll} in $lookup.
-   * We record the FK field info, keep the original value in the document,
-   * then after run() batch-query the foreign DB and replace FK values.
-   */
-  private async crossDatabaseSubquery(
-    subQuery: QueryStage[],
-    rightStream: AggregationPipeline,
-  ) {
-    const getStage = subQuery.find(
-      (s) => s.stage === "get" || s.stage === "getAll",
-    );
-    const matchField =
-      getStage?.stage === "get" ? "_id" : (getStage?.options?.index ?? "_id");
-
-    // Decode the FK expression to find the field path (e.g. "$$ROOT.user_id" or "$_wrapped.user_id")
-    const fkExpr = getStage?.args?.[0]
-      ? await DecodeValue(getStage.args[0], this.context)
-      : null;
-
-    if (!fkExpr || typeof fkExpr !== "string") {
-      return null;
-    }
-
-    // Extract the field name from the expression (e.g. "$$ROOT.user_id" -> "user_id")
-    const fkField = fkExpr.includes(".")
-      ? fkExpr.split(".").pop()!
-      : fkExpr.replace(/^\$+/, "");
-
-    this.crossDatabaseLookups.push({
-      fkField,
-      matchField,
-      database: rightStream.database,
-      collection: rightStream.collection,
-      singleElement: rightStream.singleElement,
-    });
-
-    // Return the original FK value expression so the merge is a no-op for this field
-    return fkExpr;
-  }
-
-  private async resolveCrossDatabaseLookups(results: any[]) {
-    for (const lookup of this.crossDatabaseLookups) {
-      // Collect unique FK values from all results
-      const fkValues = [
-        ...new Set(
-          results
-            .map((r) => r[lookup.fkField])
-            .filter((v) => v != null && typeof v !== "object"),
-        ),
-      ];
-      if (fkValues.length === 0) continue;
-
-      // Batch query the foreign collection
-      const foreignCollection = await GetCollection(
-        lookup.database,
-        lookup.collection,
-      );
-      const foreignDocs = await foreignCollection
-        .find({ [lookup.matchField]: { $in: fkValues } })
-        .toArray();
-      const foreignMap = new Map(
-        foreignDocs.map((doc) => [String(doc[lookup.matchField]), doc]),
-      );
-
-      // Replace FK values with resolved documents
-      for (const row of results) {
-        const fkValue = row[lookup.fkField];
-        if (fkValue != null && typeof fkValue !== "object") {
-          const resolved = foreignMap.get(String(fkValue));
-          row[lookup.fkField] = lookup.singleElement
-            ? (resolved ?? null)
-            : resolved
-              ? [resolved]
-              : [];
-        }
-      }
-    }
-  }
-
-  private isCrossDatabase(rightStream: AggregationPipeline): boolean {
-    return (
-      this.database !== "$ARG" &&
-      rightStream.database !== "$ARG" &&
-      rightStream.database !== this.database
-    );
   }
 
   private flushPendingUnset() {
