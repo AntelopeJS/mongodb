@@ -92,6 +92,18 @@ export class AggregationPipeline {
 
   private pendingUnset: string[] = [];
 
+  private assertSamePhysicalStore(rightStream: AggregationPipeline) {
+    if (
+      this.database !== "$ARG" &&
+      rightStream.database !== "$ARG" &&
+      rightStream.database !== this.database
+    ) {
+      throw new Error(
+        `Cross-physical-store subquery not supported: '${this.database}' → '${rightStream.database}'. Co-locate the schemas via SchemaOptions.physicalStore or perform the lookup in application code.`,
+      );
+    }
+  }
+
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
     this.context.subquery = async (subQuery) => {
@@ -102,10 +114,7 @@ export class AggregationPipeline {
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
       );
-
-      if (this.isCrossDatabase(rightStream)) {
-        return this.crossDatabaseSubquery(subQuery, rightStream);
-      }
+      this.assertSamePhysicalStore(rightStream);
 
       // Check if the FK value is a $map variable ($$temporary_*).
       // $lookup pipeline can't access $map variables — they only exist
@@ -192,9 +201,6 @@ export class AggregationPipeline {
     if (this.wrappedObject) {
       const wrappedObject = this.wrappedObject;
       result = result.map((element: any) => element[wrappedObject]);
-    }
-    if (this.crossDatabaseLookups.length > 0) {
-      await this.resolveCrossDatabaseLookups(result);
     }
     if (this.singleElement) {
       return result.length > 0 ? result[0] : this.reductionDefault;
@@ -327,103 +333,6 @@ export class AggregationPipeline {
     return this;
   }
 
-  private crossDatabaseLookups: Array<{
-    fkField: string;
-    matchField: string;
-    database: string;
-    collection: string;
-    singleElement: boolean;
-  }> = [];
-
-  /**
-   * Handle cross-database sub-queries via post-processing in run().
-   * MongoDB Community Edition does not support {db, coll} in $lookup.
-   * We record the FK field info, keep the original value in the document,
-   * then after run() batch-query the foreign DB and replace FK values.
-   */
-  private async crossDatabaseSubquery(
-    subQuery: QueryStage[],
-    rightStream: AggregationPipeline,
-  ) {
-    const getStage = subQuery.find(
-      (s) => s.stage === "get" || s.stage === "getAll",
-    );
-    const matchField =
-      getStage?.stage === "get" ? "_id" : (getStage?.options?.index ?? "_id");
-
-    // Decode the FK expression to find the field path (e.g. "$$ROOT.user_id" or "$_wrapped.user_id")
-    const fkExpr = getStage?.args?.[0]
-      ? await DecodeValue(getStage.args[0], this.context)
-      : null;
-
-    if (!fkExpr || typeof fkExpr !== "string") {
-      return null;
-    }
-
-    // Extract the field name from the expression (e.g. "$$ROOT.user_id" -> "user_id")
-    const fkField = fkExpr.includes(".")
-      ? fkExpr.split(".").pop()!
-      : fkExpr.replace(/^\$+/, "");
-
-    this.crossDatabaseLookups.push({
-      fkField,
-      matchField,
-      database: rightStream.database,
-      collection: rightStream.collection,
-      singleElement: rightStream.singleElement,
-    });
-
-    // Return the original FK value expression so the merge is a no-op for this field
-    return fkExpr;
-  }
-
-  private async resolveCrossDatabaseLookups(results: any[]) {
-    for (const lookup of this.crossDatabaseLookups) {
-      // Collect unique FK values from all results
-      const fkValues = [
-        ...new Set(
-          results
-            .map((r) => r[lookup.fkField])
-            .filter((v) => v != null && typeof v !== "object"),
-        ),
-      ];
-      if (fkValues.length === 0) continue;
-
-      // Batch query the foreign collection
-      const foreignCollection = await GetCollection(
-        lookup.database,
-        lookup.collection,
-      );
-      const foreignDocs = await foreignCollection
-        .find({ [lookup.matchField]: { $in: fkValues } })
-        .toArray();
-      const foreignMap = new Map(
-        foreignDocs.map((doc) => [String(doc[lookup.matchField]), doc]),
-      );
-
-      // Replace FK values with resolved documents
-      for (const row of results) {
-        const fkValue = row[lookup.fkField];
-        if (fkValue != null && typeof fkValue !== "object") {
-          const resolved = foreignMap.get(String(fkValue));
-          row[lookup.fkField] = lookup.singleElement
-            ? (resolved ?? null)
-            : resolved
-              ? [resolved]
-              : [];
-        }
-      }
-    }
-  }
-
-  private isCrossDatabase(rightStream: AggregationPipeline): boolean {
-    return (
-      this.database !== "$ARG" &&
-      rightStream.database !== "$ARG" &&
-      rightStream.database !== this.database
-    );
-  }
-
   private flushPendingUnset() {
     if (this.pendingUnset.length > 0) {
       const fields = this.wrappedObject
@@ -528,6 +437,7 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
+    this.assertSamePhysicalStore(rightStream);
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -558,6 +468,7 @@ export class AggregationPipeline {
     const predicate = stage.args[1];
     const mapper = stage.args[2];
     assert(rightStream instanceof AggregationPipeline);
+    this.assertSamePhysicalStore(rightStream);
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -600,6 +511,7 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);
+    this.assertSamePhysicalStore(rightStream);
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;

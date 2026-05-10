@@ -2,6 +2,8 @@ import assert from "node:assert";
 import type { StagedObject } from "@antelopejs/interface-database/common";
 import { generate as randomstring } from "randomstring";
 
+export const TENANT_ID_FIELD = "tenant_id";
+
 export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
 }

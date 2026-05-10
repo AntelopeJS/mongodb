@@ -1,57 +1,76 @@
 import assert from "node:assert";
 import type { QueryStage } from "@antelopejs/interface-database/common";
+import { CROSS_TENANT } from "@antelopejs/interface-database/schema";
 import { v4 as uuidv4 } from "uuid";
-import { buildDatabaseName, GetCollection } from "../../connection";
+import { GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction, DecodeValue } from "./query";
-import {
-  CreateInstance,
-  DestroyInstance,
-  IsRowLevel,
-  IsValidInstance,
-} from "./schema";
-import { DecodingContext } from "./utils";
+import { GetPhysicalStore, IsTenantScoped } from "./schema";
+import { DecodingContext, TENANT_ID_FIELD } from "./utils";
+
+type TenantContext =
+  | { kind: "none" }
+  | { kind: "scoped"; tenantId: string }
+  | { kind: "cross" };
+
+function resolveTenantContext(
+  schemaId: string,
+  tableName: string,
+  instanceId: unknown,
+): TenantContext {
+  if (!IsTenantScoped(schemaId, tableName)) {
+    return { kind: "none" };
+  }
+  if (instanceId === undefined) {
+    throw new Error(
+      `Table '${tableName}' is tenant-scoped: a tenant id must be provided via Schema.instance(...)`,
+    );
+  }
+  if (instanceId === CROSS_TENANT) {
+    return { kind: "cross" };
+  }
+  if (typeof instanceId !== "string") {
+    throw new Error(
+      `Invalid tenant id for table '${tableName}': expected string or CROSS_TENANT, got ${typeof instanceId}`,
+    );
+  }
+  return { kind: "scoped", tenantId: instanceId };
+}
+
+function buildInitialPipeline(tenant: TenantContext): any[] {
+  if (tenant.kind === "scoped") {
+    return [{ $match: { [TENANT_ID_FIELD]: tenant.tenantId } }];
+  }
+  return [];
+}
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
   private _conflictMode?: "update" | "replace";
-  private readonly rowLevel: boolean;
-  public readonly instanceId: string | undefined;
+  private readonly tenant: TenantContext;
+  public readonly instanceId: string | typeof CROSS_TENANT | undefined;
   public readonly tableName: string;
 
   public constructor(
     schemaId: string,
-    instanceId: string | undefined,
+    instanceId: string | typeof CROSS_TENANT | undefined,
     tableName: string,
     isChangeStream: boolean,
     context: DecodingContext,
   ) {
-    const rowLevel = IsRowLevel(schemaId);
-    if (rowLevel) {
-      if (instanceId === undefined) {
-        throw new Error(`Row-level schema '${schemaId}' requires a tenant ID`);
-      }
-      super(
-        schemaId,
-        schemaId,
-        tableName,
-        [{ $match: { tenant_id: instanceId } }],
-        isChangeStream,
-        context,
-      );
-    } else {
-      super(
-        schemaId,
-        buildDatabaseName(schemaId, instanceId),
-        tableName,
-        [],
-        isChangeStream,
-        context,
-      );
-    }
+    const tenant = resolveTenantContext(schemaId, tableName, instanceId);
+    const physicalStore = GetPhysicalStore(schemaId);
+    super(
+      schemaId,
+      physicalStore,
+      tableName,
+      buildInitialPipeline(tenant),
+      isChangeStream,
+      context,
+    );
     this.instanceId = instanceId;
     this.tableName = tableName;
-    this.rowLevel = rowLevel;
+    this.tenant = tenant;
     this.resultType = "table";
   }
 
@@ -63,28 +82,6 @@ export class SelectionQuery extends AggregationPipeline {
       const schemaId = stages[0]?.options?.id;
       const instanceId = stages[1]?.options?.id;
       assert(stages[0]?.stage === "schema" && schemaId, "Unknown schema");
-      if (stages[1].stage === "createInstance") {
-        const selection = new SelectionQuery(
-          schemaId,
-          instanceId,
-          "",
-          false,
-          new DecodingContext(),
-        );
-        selection.resultType = "createInstance";
-        return selection;
-      }
-      if (stages[1].stage === "destroyInstance") {
-        const selection = new SelectionQuery(
-          schemaId,
-          instanceId,
-          "",
-          false,
-          new DecodingContext(),
-        );
-        selection.resultType = "destroyInstance";
-        return selection;
-      }
       assert(
         stages[1].stage === "instance" && stages[2]?.stage === "table",
         "Invalid request",
@@ -125,22 +122,12 @@ export class SelectionQuery extends AggregationPipeline {
     }
   }
 
-  private async createInstance() {
-    if (this.rowLevel) {
-      return this.instanceId;
-    }
-    await CreateInstance(this.schemaId, this.instanceId);
-    return this.instanceId;
-  }
-
-  private async destroyInstance() {
-    if (this.rowLevel) {
-      return;
-    }
-    await DestroyInstance(this.schemaId, this.instanceId);
-  }
-
   private async insert() {
+    if (this.tenant.kind === "cross") {
+      throw new Error(
+        `Insert into tenant-scoped table '${this.tableName}' requires a specific tenant id (CROSS_TENANT is read-only)`,
+      );
+    }
     const collection = await GetCollection(this.database, this.collection);
     const documents = this.prepareInsertDocuments();
     if (!this._conflictMode) {
@@ -156,8 +143,8 @@ export class SelectionQuery extends AggregationPipeline {
       : [this._newValue];
     for (const document of documents) {
       document._id = document._id ?? uuidv4();
-      if (this.rowLevel) {
-        document.tenant_id = this.instanceId;
+      if (this.tenant.kind === "scoped") {
+        document[TENANT_ID_FIELD] = this.tenant.tenantId;
       }
     }
     return documents;
@@ -242,9 +229,14 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async replace() {
+    if (this.tenant.kind === "cross") {
+      throw new Error(
+        `Replace on tenant-scoped table '${this.tableName}' requires a specific tenant id (CROSS_TENANT would silently strip the tenant_id from the replaced document; use update for cross-tenant mutations)`,
+      );
+    }
     const collection = await GetCollection(this.database, this.collection);
-    if (this.rowLevel) {
-      this._newValue.tenant_id = this.instanceId;
+    if (this.tenant.kind === "scoped") {
+      this._newValue[TENANT_ID_FIELD] = this.tenant.tenantId;
     }
     const res = await collection.findOneAndReplace(
       this.getFilter(),
@@ -259,26 +251,8 @@ export class SelectionQuery extends AggregationPipeline {
     return res.deletedCount;
   }
 
-  private async ensureInstance() {
-    if (!IsValidInstance(this.schemaId, this.instanceId)) {
-      throw new Error(
-        `Instance '${this.instanceId ?? "(global)"}' does not exist for schema '${this.schemaId}'`,
-      );
-    }
-  }
-
   public async run(): Promise<any> {
-    if (
-      this.resultType !== "createInstance" &&
-      this.resultType !== "destroyInstance"
-    ) {
-      await this.ensureInstance();
-    }
     switch (this.resultType) {
-      case "createInstance":
-        return this.createInstance();
-      case "destroyInstance":
-        return this.destroyInstance();
       case "insert":
         return this.insert();
       case "update":
