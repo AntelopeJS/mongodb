@@ -92,6 +92,18 @@ export class AggregationPipeline {
 
   private pendingUnset: string[] = [];
 
+  private assertSamePhysicalStore(rightStream: AggregationPipeline) {
+    if (
+      this.database !== "$ARG" &&
+      rightStream.database !== "$ARG" &&
+      rightStream.database !== this.database
+    ) {
+      throw new Error(
+        `Cross-physical-store subquery not supported: '${this.database}' → '${rightStream.database}'. Co-locate the schemas via SchemaOptions.physicalStore or perform the lookup in application code.`,
+      );
+    }
+  }
+
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
     this.context.subquery = async (subQuery) => {
@@ -102,6 +114,7 @@ export class AggregationPipeline {
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
       );
+      this.assertSamePhysicalStore(rightStream);
 
       // Check if the FK value is a $map variable ($$temporary_*).
       // $lookup pipeline can't access $map variables — they only exist
@@ -424,6 +437,7 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
+    this.assertSamePhysicalStore(rightStream);
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -454,6 +468,7 @@ export class AggregationPipeline {
     const predicate = stage.args[1];
     const mapper = stage.args[2];
     assert(rightStream instanceof AggregationPipeline);
+    this.assertSamePhysicalStore(rightStream);
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -496,6 +511,7 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);
+    this.assertSamePhysicalStore(rightStream);
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;

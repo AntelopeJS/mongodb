@@ -16,7 +16,7 @@ function ownershipKey(physicalStore: string, tableName: string): string {
   return `${physicalStore}\0${tableName}`;
 }
 
-function assertOwnership(
+function claimOwnership(
   physicalStore: string,
   tableName: string,
   schemaId: string,
@@ -31,18 +31,39 @@ function assertOwnership(
   collectionOwnership.set(key, schemaId);
 }
 
+function rollbackRegistration(
+  schemaId: string,
+  physicalStore: string,
+  claimedTables: string[],
+) {
+  for (const tableName of claimedTables) {
+    const key = ownershipKey(physicalStore, tableName);
+    if (collectionOwnership.get(key) === schemaId) {
+      collectionOwnership.delete(key);
+    }
+  }
+  delete existingSchemas[schemaId];
+}
+
 export const Schemas = {
   async register(
     schemaId: string,
     schema: SchemaDefinition,
     options: SchemaOptions,
   ) {
-    existingSchemas[schemaId] = { definition: schema, options };
     const physicalStore = options.physicalStore ?? schemaId;
-    for (const tableName of Object.keys(schema)) {
-      assertOwnership(physicalStore, tableName, schemaId);
+    existingSchemas[schemaId] = { definition: schema, options };
+    const claimed: string[] = [];
+    try {
+      for (const tableName of Object.keys(schema)) {
+        claimOwnership(physicalStore, tableName, schemaId);
+        claimed.push(tableName);
+      }
+      await InitializeSchemaInPhysicalStore(physicalStore, schema);
+    } catch (err) {
+      rollbackRegistration(schemaId, physicalStore, claimed);
+      throw err;
     }
-    await InitializeSchemaInPhysicalStore(physicalStore, schema);
   },
   unregister(schemaId: string) {
     const entry = existingSchemas[schemaId];

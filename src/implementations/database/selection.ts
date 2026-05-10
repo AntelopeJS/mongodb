@@ -229,6 +229,11 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async replace() {
+    if (this.tenant.kind === "cross") {
+      throw new Error(
+        `Replace on tenant-scoped table '${this.tableName}' requires a specific tenant id (CROSS_TENANT would silently strip the tenant_id from the replaced document; use update for cross-tenant mutations)`,
+      );
+    }
     const collection = await GetCollection(this.database, this.collection);
     if (this.tenant.kind === "scoped") {
       this._newValue.tenant_id = this.tenant.tenantId;
