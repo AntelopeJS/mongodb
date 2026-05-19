@@ -34,13 +34,17 @@ function buildInitialPipeline(
     return [
       {
         $match: {
-          $or: [
-            { [`fullDocument.${INSTANCE_FIELD}`]: instance.instanceId },
-            {
-              [`fullDocumentBeforeChange.${INSTANCE_FIELD}`]:
-                instance.instanceId,
-            },
-          ],
+          $expr: {
+            $eq: [
+              {
+                $ifNull: [
+                  `$fullDocument.${INSTANCE_FIELD}`,
+                  `$fullDocumentBeforeChange.${INSTANCE_FIELD}`,
+                ],
+              },
+              instance.instanceId,
+            ],
+          },
         },
       },
     ];
