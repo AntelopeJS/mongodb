@@ -131,6 +131,7 @@ export class AggregationPipeline {
             from: rightStream.collection,
             let: { [arrVar]: arraySource },
             pipeline: [
+              ...rightStream.pipeline.slice(0, 1),
               { $match: { $expr: { $in: [`$${matchField}`, `$$${arrVar}`] } } },
             ],
             as: tmp,

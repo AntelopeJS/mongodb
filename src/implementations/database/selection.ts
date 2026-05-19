@@ -159,7 +159,7 @@ export class SelectionQuery extends AggregationPipeline {
     const CONFLICT_OPERATIONS: Record<string, (doc: any) => any> = {
       update: (doc) => ({
         updateOne: {
-          filter: { _id: doc._id },
+          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           update: [
             {
               $replaceWith: {
@@ -172,7 +172,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
       replace: (doc) => ({
         replaceOne: {
-          filter: { _id: doc._id },
+          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           replacement: doc,
           upsert: true,
         },
