@@ -41,7 +41,7 @@ export class AggregationPipeline {
 
   public constructor(
     public readonly schemaId: string,
-    public readonly database: string,
+    public readonly tableName: string,
     public readonly collection: string,
     public readonly pipeline: any[],
     public readonly isChangeStream: boolean,
@@ -73,10 +73,11 @@ export class AggregationPipeline {
   ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === "arg") {
       assert(context, "Arg query without context?");
+      const argRef = stages[0].args[0];
       const query = new AggregationPipeline(
         "",
-        "$ARG",
-        stages[0].args[0],
+        argRef,
+        argRef,
         [],
         false,
         context,
@@ -92,18 +93,6 @@ export class AggregationPipeline {
 
   private pendingUnset: string[] = [];
 
-  private assertSamePhysicalStore(rightStream: AggregationPipeline) {
-    if (
-      this.database !== "$ARG" &&
-      rightStream.database !== "$ARG" &&
-      rightStream.database !== this.database
-    ) {
-      throw new Error(
-        `Cross-physical-store subquery not supported: '${this.database}' → '${rightStream.database}'. Co-locate the schemas via SchemaOptions.physicalStore or perform the lookup in application code.`,
-      );
-    }
-  }
-
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
     this.context.subquery = async (subQuery) => {
@@ -114,7 +103,6 @@ export class AggregationPipeline {
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
       );
-      this.assertSamePhysicalStore(rightStream);
 
       // Check if the FK value is a $map variable ($$temporary_*).
       // $lookup pipeline can't access $map variables — they only exist
@@ -196,7 +184,7 @@ export class AggregationPipeline {
   }
 
   public async run(): Promise<any> {
-    const collection = await GetCollection(this.database, this.collection);
+    const collection = await GetCollection(this.collection);
     let result = await collection.aggregate(this.pipeline, {}).toArray();
     if (this.wrappedObject) {
       const wrappedObject = this.wrappedObject;
@@ -209,7 +197,7 @@ export class AggregationPipeline {
   }
 
   public async runDebug(limit = 10): Promise<any[]> {
-    const collection = await GetCollection(this.database, this.collection);
+    const collection = await GetCollection(this.collection);
     const results = [];
     try {
       for (let i = 0; i <= this.pipeline.length; ++i) {
@@ -225,7 +213,7 @@ export class AggregationPipeline {
 
   public async readCursor() {
     if (!this.cursor) {
-      const collection = await GetCollection(this.database, this.collection);
+      const collection = await GetCollection(this.collection);
       this.cursor = collection.aggregate(this.pipeline, {});
     }
     const change = await this.cursor.next();
@@ -437,7 +425,6 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
-    this.assertSamePhysicalStore(rightStream);
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -468,7 +455,6 @@ export class AggregationPipeline {
     const predicate = stage.args[1];
     const mapper = stage.args[2];
     assert(rightStream instanceof AggregationPipeline);
-    this.assertSamePhysicalStore(rightStream);
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -511,7 +497,6 @@ export class AggregationPipeline {
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);
-    this.assertSamePhysicalStore(rightStream);
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;
@@ -547,7 +532,7 @@ export class AggregationPipeline {
   protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
     const group = Temporary("group");
-    const index = GetIndex(this.schemaId, this.collection, stage.options.index);
+    const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
     const indexFields = index.fields ?? [stage.options.index];
 
     let groupKey: unknown;
@@ -625,7 +610,7 @@ export class AggregationPipeline {
 
   protected stage_orderBy(stage: QueryStage) {
     assert(!this.isChangeStream, "OrderBy not supported in change streams");
-    const index = GetIndex(this.schemaId, this.collection, stage.options.index);
+    const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
     const direction = stage.options.direction === "desc" ? -1 : 1;
     const indexFields = index.fields ?? [stage.options.index];
     const fields = indexFields.map((field) => [

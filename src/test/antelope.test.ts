@@ -21,7 +21,7 @@ export default defineConfig({
       return {
         modules: {
           local: {
-            config: { url: mongod.getUri() },
+            config: { url: mongod.getUri(), database: "antelopejs_test" },
           },
         },
       };

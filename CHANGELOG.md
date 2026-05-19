@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.0
+
+### ⚠ Breaking Changes (pre-adoption — minor bump)
+
+- **database:** Single physical MongoDB database for all schemas — configured via the new required `database` option in module config. Collections are now named `<schemaId>__<tableName>`. Cross-schema `$lookup` and `$unionWith` are now native (no more `Cross-physical-store subquery not supported` error).
+- **database:** Removed `SchemaOptions.physicalStore` and `TableDefinition.tenantScoped` (interface-side revert). Removed `assertSamePhysicalStore` guard.
+- **database:** Per-document instance marker renamed from `tenant_id` to `_instance`. Default (unnamed) instance stores `_instance: null`; named instances store the string id.
+- **database:** `CROSS_TENANT` symbol renamed to `CROSS_INSTANCE` (interface-side); `TenantId` → `InstanceId`.
+- **database:** Re-introduced explicit instance lifecycle. `createInstance` / `destroyInstance` / `listInstances` are now backed by an adapter-owned `__antelope_instances` collection.
+
+### Migration
+
+Existing on-disk data is not readable post-upgrade: the database name, collection names, and per-document instance field have all changed. Operators must run a one-off migration with `mongodump` / `mongorestore` (or a shell script) to:
+
+1. Move collections from `<schemaId>` DBs into the new single configured database.
+2. Rename collections from `<tableName>` to `<schemaId>__<tableName>`.
+3. Rename the `tenant_id` field on every document to `_instance` (or, if no tenant existed, stamp `_instance: null`).
+4. Optionally seed `__antelope_instances` from the distinct `_instance` values per schema.
+
 ## v1.1.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.0.8...v1.1.0)

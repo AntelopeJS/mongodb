@@ -5,15 +5,27 @@ import {
   MongoClient,
   type MongoClientOptions,
 } from "mongodb";
-import { TENANT_ID_FIELD } from "./implementations/database/utils";
+import {
+  BOOKKEEPING_COLLECTION,
+  INSTANCE_FIELD,
+  collectionName,
+} from "./implementations/database/utils";
 
-const TENANT_ID_INDEX = "tenant_id";
+const INSTANCE_INDEX = "_instance";
+const BOOKKEEPING_INDEX = "schemaId_instanceId";
 
-export async function Connect(url: string, options?: MongoClientOptions) {
+let configuredDatabase: string | undefined;
+
+export async function Connect(
+  url: string,
+  database: string,
+  options?: MongoClientOptions,
+) {
   await Disconnect();
   const mongoClient = await MongoClient.connect(url, options);
   internal.connected = true;
   internal.SetClient(mongoClient);
+  configuredDatabase = database;
 }
 
 export async function Disconnect() {
@@ -22,19 +34,28 @@ export async function Disconnect() {
     internal.connected = false;
     internal.UnsetClient();
   }
+  configuredDatabase = undefined;
 }
 
-export async function GetCollection(
-  database: string,
-  collection: string,
-): Promise<Collection> {
+export function GetConfiguredDatabaseName(): string {
+  if (!configuredDatabase) {
+    throw new Error(
+      "MongoDB adapter is not connected: call construct({ url, database }) first",
+    );
+  }
+  return configuredDatabase;
+}
+
+export async function GetCollection(collection: string): Promise<Collection> {
+  const dbName = GetConfiguredDatabaseName();
   return internal.client.then((client) =>
-    client.db(database).collection(collection),
+    client.db(dbName).collection(collection),
   );
 }
 
-export async function GetDatabase(database: string): Promise<Db> {
-  return internal.client.then((client) => client.db(database));
+export async function GetDatabase(): Promise<Db> {
+  const dbName = GetConfiguredDatabaseName();
+  return internal.client.then((client) => client.db(dbName));
 }
 
 export async function ListDatabases(): Promise<{ name: string }[]> {
@@ -51,7 +72,6 @@ export interface IndexDefinition {
 
 export interface TableDefinition {
   indexes: Record<string, IndexDefinition>;
-  tenantScoped?: boolean;
 }
 
 export interface SchemaDefinition {
@@ -60,12 +80,19 @@ export interface SchemaDefinition {
 
 async function ensureCollection(
   db: Db,
-  tableId: string,
+  collectionId: string,
   existingCollections: Set<string>,
 ) {
-  if (!existingCollections.has(tableId)) {
-    await db.createCollection(tableId);
+  if (!existingCollections.has(collectionId)) {
+    await db.createCollection(collectionId, {
+      changeStreamPreAndPostImages: { enabled: true },
+    });
+    return;
   }
+  await db.command({
+    collMod: collectionId,
+    changeStreamPreAndPostImages: { enabled: true },
+  });
 }
 
 async function syncSecondaryIndexes(
@@ -101,32 +128,50 @@ async function syncSecondaryIndexes(
   }
 }
 
-async function ensureTenantIndex(collection: Collection) {
+async function ensureInstanceIndex(collection: Collection) {
   const existingIndexes = await collection.indexes();
-  const hasTenantIndex = existingIndexes.some(
+  const hasInstanceIndex = existingIndexes.some(
     (index) =>
-      index.name === TENANT_ID_INDEX ||
-      (Object.keys(index.key).length === 1 && index.key[TENANT_ID_FIELD]),
+      index.name === INSTANCE_INDEX ||
+      (Object.keys(index.key).length === 1 && index.key[INSTANCE_FIELD]),
   );
-  if (!hasTenantIndex) {
-    await collection.createIndex([TENANT_ID_FIELD], { name: TENANT_ID_INDEX });
+  if (!hasInstanceIndex) {
+    await collection.createIndex([INSTANCE_FIELD], { name: INSTANCE_INDEX });
   }
 }
 
-export async function InitializeSchemaInPhysicalStore(
-  physicalStore: string,
+export async function InitializeSchema(
+  schemaId: string,
   schema: SchemaDefinition,
 ) {
-  const db = await GetDatabase(physicalStore);
+  const db = await GetDatabase();
   const existingCollections = new Set(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
   for (const [tableId, table] of Object.entries(schema)) {
-    await ensureCollection(db, tableId, existingCollections);
-    const collection = db.collection(tableId);
+    const mongoCollection = collectionName(schemaId, tableId);
+    await ensureCollection(db, mongoCollection, existingCollections);
+    const collection = db.collection(mongoCollection);
     await syncSecondaryIndexes(collection, table);
-    if (table.tenantScoped) {
-      await ensureTenantIndex(collection);
-    }
+    await ensureInstanceIndex(collection);
+  }
+}
+
+export async function EnsureBookkeepingCollection() {
+  const db = await GetDatabase();
+  const existing = new Set(
+    (await db.listCollections().toArray()).map((c) => c.name),
+  );
+  if (!existing.has(BOOKKEEPING_COLLECTION)) {
+    await db.createCollection(BOOKKEEPING_COLLECTION);
+  }
+  const collection = db.collection(BOOKKEEPING_COLLECTION);
+  const indexes = await collection.indexes();
+  const hasIndex = indexes.some((idx) => idx.name === BOOKKEEPING_INDEX);
+  if (!hasIndex) {
+    await collection.createIndex(
+      { schemaId: 1, instanceId: 1 },
+      { name: BOOKKEEPING_INDEX, unique: true },
+    );
   }
 }
