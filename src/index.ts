@@ -1,14 +1,16 @@
 import { ImplementInterface } from "@antelopejs/interface-core";
 import type { MongoClientOptions } from "mongodb";
-import { Connect, Disconnect } from "./connection";
+import { Connect, Disconnect, EnsureBookkeepingCollection } from "./connection";
 
 export interface Options {
   url: string;
+  database: string;
   options?: MongoClientOptions;
 }
 
 export async function construct(options: Options) {
-  await Connect(options?.url, options?.options);
+  await Connect(options.url, options.database, options.options);
+  await EnsureBookkeepingCollection();
 
   void ImplementInterface(
     await import("@antelopejs/interface-database/query"),

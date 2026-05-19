@@ -2,9 +2,38 @@ import assert from "node:assert";
 import { Query, ValueProxy } from "@antelopejs/interface-database";
 import type { Value } from "@antelopejs/interface-database/common";
 import { Expression } from "./expression";
+import {
+  CreateInstance,
+  DestroyInstance,
+  ListInstances,
+} from "./instances";
 import type { AggregationPipeline } from "./pipeline";
 import { SelectionQuery } from "./selection";
 import type { ArgumentProvider, DecodingContext, QueryStage } from "./utils";
+
+const LIFECYCLE_HANDLERS: Record<
+  string,
+  (schemaId: string, stage: QueryStage) => Promise<unknown>
+> = {
+  createInstance: (schemaId, stage) =>
+    CreateInstance(schemaId, stage.options?.id),
+  destroyInstance: (schemaId, stage) =>
+    DestroyInstance(schemaId, stage.options?.id),
+  listInstances: (schemaId) => ListInstances(schemaId),
+};
+
+function tryHandleLifecycle(stages: QueryStage[]): Promise<unknown> | undefined {
+  if (stages.length !== 2 || stages[0]?.stage !== "schema") {
+    return undefined;
+  }
+  const handler = LIFECYCLE_HANDLERS[stages[1].stage];
+  if (!handler) {
+    return undefined;
+  }
+  const schemaId = stages[0].options?.id;
+  assert(typeof schemaId === "string", "Lifecycle query missing schema id");
+  return handler(schemaId, stages[1]);
+}
 
 export async function DecodeValue(
   value: Value<unknown>,
@@ -60,6 +89,10 @@ export async function DecodeFunction(
 }
 
 export async function RunQuery(stages: QueryStage[]) {
+  const lifecycle = tryHandleLifecycle(stages);
+  if (lifecycle) {
+    return await lifecycle;
+  }
   const query = await SelectionQuery.decode(stages);
   return await query.run();
 }

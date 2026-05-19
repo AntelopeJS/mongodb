@@ -1,76 +1,81 @@
 import assert from "node:assert";
 import type { QueryStage } from "@antelopejs/interface-database/common";
-import { CROSS_TENANT } from "@antelopejs/interface-database/schema";
+import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import { v4 as uuidv4 } from "uuid";
 import { GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction, DecodeValue } from "./query";
-import { GetPhysicalStore, IsTenantScoped } from "./schema";
-import { DecodingContext, TENANT_ID_FIELD } from "./utils";
+import {
+  DecodingContext,
+  INSTANCE_FIELD,
+  collectionName,
+  normalizeInstanceId,
+} from "./utils";
 
-type TenantContext =
-  | { kind: "none" }
-  | { kind: "scoped"; tenantId: string }
+type InstanceContext =
+  | { kind: "scoped"; instanceId: string | null }
   | { kind: "cross" };
 
-function resolveTenantContext(
-  schemaId: string,
-  tableName: string,
-  instanceId: unknown,
-): TenantContext {
-  if (!IsTenantScoped(schemaId, tableName)) {
-    return { kind: "none" };
-  }
-  if (instanceId === undefined) {
-    throw new Error(
-      `Table '${tableName}' is tenant-scoped: a tenant id must be provided via Schema.instance(...)`,
-    );
-  }
-  if (instanceId === CROSS_TENANT) {
+function resolveInstanceContext(instanceId: unknown): InstanceContext {
+  if (instanceId === CROSS_INSTANCE) {
     return { kind: "cross" };
   }
-  if (typeof instanceId !== "string") {
-    throw new Error(
-      `Invalid tenant id for table '${tableName}': expected string or CROSS_TENANT, got ${typeof instanceId}`,
-    );
-  }
-  return { kind: "scoped", tenantId: instanceId };
+  return { kind: "scoped", instanceId: normalizeInstanceId(instanceId) };
 }
 
-function buildInitialPipeline(tenant: TenantContext): any[] {
-  if (tenant.kind === "scoped") {
-    return [{ $match: { [TENANT_ID_FIELD]: tenant.tenantId } }];
+function buildInitialPipeline(
+  instance: InstanceContext,
+  isChangeStream: boolean,
+): any[] {
+  if (instance.kind !== "scoped") {
+    return [];
   }
-  return [];
+  if (isChangeStream) {
+    return [
+      {
+        $match: {
+          $expr: {
+            $eq: [
+              {
+                $ifNull: [
+                  `$fullDocument.${INSTANCE_FIELD}`,
+                  `$fullDocumentBeforeChange.${INSTANCE_FIELD}`,
+                ],
+              },
+              instance.instanceId,
+            ],
+          },
+        },
+      },
+    ];
+  }
+  return [{ $match: { [INSTANCE_FIELD]: instance.instanceId } }];
 }
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
   private _conflictMode?: "update" | "replace";
-  private readonly tenant: TenantContext;
-  public readonly instanceId: string | typeof CROSS_TENANT | undefined;
-  public readonly tableName: string;
+  private readonly instance: InstanceContext;
+  public readonly instanceId: string | typeof CROSS_INSTANCE | undefined;
 
   public constructor(
     schemaId: string,
-    instanceId: string | typeof CROSS_TENANT | undefined,
+    instanceId: string | typeof CROSS_INSTANCE | undefined,
     tableName: string,
     isChangeStream: boolean,
     context: DecodingContext,
   ) {
-    const tenant = resolveTenantContext(schemaId, tableName, instanceId);
-    const physicalStore = GetPhysicalStore(schemaId);
+    const instance = resolveInstanceContext(instanceId);
     super(
       schemaId,
-      physicalStore,
       tableName,
-      buildInitialPipeline(tenant),
+      collectionName(schemaId, tableName),
+      buildInitialPipeline(instance, isChangeStream),
       isChangeStream,
       context,
     );
     this.instanceId = instanceId;
-    this.tableName = tableName;
-    this.tenant = tenant;
+    this.instance = instance;
     this.resultType = "table";
   }
 
@@ -123,12 +128,12 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async insert() {
-    if (this.tenant.kind === "cross") {
+    if (this.instance.kind === "cross") {
       throw new Error(
-        `Insert into tenant-scoped table '${this.tableName}' requires a specific tenant id (CROSS_TENANT is read-only)`,
+        `Insert into '${this.tableName}' requires a specific instance id (CROSS_INSTANCE is read-only)`,
       );
     }
-    const collection = await GetCollection(this.database, this.collection);
+    const collection = await GetCollection(this.collection);
     const documents = this.prepareInsertDocuments();
     if (!this._conflictMode) {
       const res = await collection.insertMany(documents);
@@ -141,11 +146,11 @@ export class SelectionQuery extends AggregationPipeline {
     const documents = Array.isArray(this._newValue)
       ? this._newValue
       : [this._newValue];
+    assert(this.instance.kind === "scoped");
+    const instanceId = this.instance.instanceId;
     for (const document of documents) {
       document._id = document._id ?? uuidv4();
-      if (this.tenant.kind === "scoped") {
-        document[TENANT_ID_FIELD] = this.tenant.tenantId;
-      }
+      document[INSTANCE_FIELD] = instanceId;
     }
     return documents;
   }
@@ -154,7 +159,7 @@ export class SelectionQuery extends AggregationPipeline {
     const CONFLICT_OPERATIONS: Record<string, (doc: any) => any> = {
       update: (doc) => ({
         updateOne: {
-          filter: { _id: doc._id },
+          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           update: [
             {
               $replaceWith: {
@@ -167,7 +172,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
       replace: (doc) => ({
         replaceOne: {
-          filter: { _id: doc._id },
+          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           replacement: doc,
           upsert: true,
         },
@@ -217,11 +222,15 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async update() {
-    const collection = await GetCollection(this.database, this.collection);
+    const collection = await GetCollection(this.collection);
     const res = await collection.updateMany(this.getFilter(), [
       {
         $replaceWith: {
-          $mergeObjects: ["$$ROOT", this.literalizeUpdateValue(this._newValue)],
+          $mergeObjects: [
+            "$$ROOT",
+            this.literalizeUpdateValue(this._newValue),
+            { [INSTANCE_FIELD]: `$${INSTANCE_FIELD}` },
+          ],
         },
       },
     ]);
@@ -229,15 +238,13 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async replace() {
-    if (this.tenant.kind === "cross") {
+    if (this.instance.kind === "cross") {
       throw new Error(
-        `Replace on tenant-scoped table '${this.tableName}' requires a specific tenant id (CROSS_TENANT would silently strip the tenant_id from the replaced document; use update for cross-tenant mutations)`,
+        `Replace on '${this.tableName}' requires a specific instance id (CROSS_INSTANCE would strip the _instance field; use update for cross-instance mutations)`,
       );
     }
-    const collection = await GetCollection(this.database, this.collection);
-    if (this.tenant.kind === "scoped") {
-      this._newValue[TENANT_ID_FIELD] = this.tenant.tenantId;
-    }
+    const collection = await GetCollection(this.collection);
+    this._newValue[INSTANCE_FIELD] = this.instance.instanceId;
     const res = await collection.findOneAndReplace(
       this.getFilter(),
       this._newValue,
@@ -246,21 +253,21 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async delete() {
-    const collection = await GetCollection(this.database, this.collection);
+    const collection = await GetCollection(this.collection);
     const res = await collection.deleteMany(this.getFilter());
     return res.deletedCount;
   }
 
   public async run(): Promise<any> {
-    switch (this.resultType) {
-      case "insert":
-        return this.insert();
-      case "update":
-        return this.update();
-      case "replace":
-        return this.replace();
-      case "delete":
-        return this.delete();
+    const RUNNERS: Record<string, () => Promise<any>> = {
+      insert: () => this.insert(),
+      update: () => this.update(),
+      replace: () => this.replace(),
+      delete: () => this.delete(),
+    };
+    const runner = RUNNERS[this.resultType];
+    if (runner) {
+      return runner();
     }
     return super.run();
   }

@@ -2,7 +2,33 @@ import assert from "node:assert";
 import type { StagedObject } from "@antelopejs/interface-database/common";
 import { generate as randomstring } from "randomstring";
 
-export const TENANT_ID_FIELD = "tenant_id";
+export const INSTANCE_FIELD = "_instance";
+export const BOOKKEEPING_COLLECTION = "__antelope_instances";
+export const COLLECTION_NAME_SEPARATOR = "__";
+
+export function collectionName(schemaId: string, tableName: string): string {
+  if (
+    schemaId.includes(COLLECTION_NAME_SEPARATOR) ||
+    tableName.includes(COLLECTION_NAME_SEPARATOR)
+  ) {
+    throw new Error(
+      `schemaId and tableName may not contain "${COLLECTION_NAME_SEPARATOR}" (got schemaId="${schemaId}", tableName="${tableName}")`,
+    );
+  }
+  return `${schemaId}${COLLECTION_NAME_SEPARATOR}${tableName}`;
+}
+
+export function normalizeInstanceId(id: unknown): string | null {
+  if (id === undefined || id === null || id === "") {
+    return null;
+  }
+  if (typeof id !== "string") {
+    throw new Error(
+      `Invalid instance id: expected string, got ${typeof id}`,
+    );
+  }
+  return id;
+}
 
 export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
