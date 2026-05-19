@@ -39,16 +39,21 @@ export class AggregationPipeline {
    */
   public inCompoundObject = false;
 
+  public readonly initialFilter: any[];
+  public readonly pipeline: any[];
+
   public constructor(
     public readonly schemaId: string,
     public readonly tableName: string,
     public readonly collection: string,
-    public readonly pipeline: any[],
+    initialFilter: any[],
     public readonly isChangeStream: boolean,
     public readonly context: DecodingContext,
   ) {
+    this.initialFilter = initialFilter;
+    this.pipeline = [...initialFilter];
     if (isChangeStream) {
-      pipeline.unshift(
+      this.pipeline.unshift(
         {
           $changeStream: {
             fullDocument: "updateLookup",
@@ -131,7 +136,7 @@ export class AggregationPipeline {
             from: rightStream.collection,
             let: { [arrVar]: arraySource },
             pipeline: [
-              ...rightStream.pipeline.slice(0, 1),
+              ...rightStream.initialFilter,
               { $match: { $expr: { $in: [`$${matchField}`, `$$${arrVar}`] } } },
             ],
             as: tmp,

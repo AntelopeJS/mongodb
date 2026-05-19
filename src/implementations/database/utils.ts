@@ -7,6 +7,14 @@ export const BOOKKEEPING_COLLECTION = "__antelope_instances";
 export const COLLECTION_NAME_SEPARATOR = "__";
 
 export function collectionName(schemaId: string, tableName: string): string {
+  if (
+    schemaId.includes(COLLECTION_NAME_SEPARATOR) ||
+    tableName.includes(COLLECTION_NAME_SEPARATOR)
+  ) {
+    throw new Error(
+      `schemaId and tableName may not contain "${COLLECTION_NAME_SEPARATOR}" (got schemaId="${schemaId}", tableName="${tableName}")`,
+    );
+  }
   return `${schemaId}${COLLECTION_NAME_SEPARATOR}${tableName}`;
 }
 
