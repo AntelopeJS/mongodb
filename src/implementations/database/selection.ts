@@ -226,7 +226,11 @@ export class SelectionQuery extends AggregationPipeline {
     const res = await collection.updateMany(this.getFilter(), [
       {
         $replaceWith: {
-          $mergeObjects: ["$$ROOT", this.literalizeUpdateValue(this._newValue)],
+          $mergeObjects: [
+            "$$ROOT",
+            this.literalizeUpdateValue(this._newValue),
+            { [INSTANCE_FIELD]: `$${INSTANCE_FIELD}` },
+          ],
         },
       },
     ]);

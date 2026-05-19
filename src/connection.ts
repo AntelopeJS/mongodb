@@ -83,14 +83,10 @@ async function ensureCollection(
   collectionId: string,
   existingCollections: Set<string>,
 ) {
-  if (!existingCollections.has(collectionId)) {
-    await db.createCollection(collectionId, {
-      changeStreamPreAndPostImages: { enabled: true },
-    });
+  if (existingCollections.has(collectionId)) {
     return;
   }
-  await db.command({
-    collMod: collectionId,
+  await db.createCollection(collectionId, {
     changeStreamPreAndPostImages: { enabled: true },
   });
 }
