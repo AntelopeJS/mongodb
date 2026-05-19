@@ -9,6 +9,7 @@ import {
   DecodingContext,
   INSTANCE_FIELD,
   collectionName,
+  normalizeInstanceId,
 } from "./utils";
 
 type InstanceContext =
@@ -19,15 +20,7 @@ function resolveInstanceContext(instanceId: unknown): InstanceContext {
   if (instanceId === CROSS_INSTANCE) {
     return { kind: "cross" };
   }
-  if (instanceId === undefined || instanceId === null) {
-    return { kind: "scoped", instanceId: null };
-  }
-  if (typeof instanceId !== "string") {
-    throw new Error(
-      `Invalid instance id: expected string or CROSS_INSTANCE, got ${typeof instanceId}`,
-    );
-  }
-  return { kind: "scoped", instanceId };
+  return { kind: "scoped", instanceId: normalizeInstanceId(instanceId) };
 }
 
 function buildInitialPipeline(

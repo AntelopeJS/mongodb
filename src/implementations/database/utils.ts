@@ -10,6 +10,18 @@ export function collectionName(schemaId: string, tableName: string): string {
   return `${schemaId}${COLLECTION_NAME_SEPARATOR}${tableName}`;
 }
 
+export function normalizeInstanceId(id: unknown): string | null {
+  if (id === undefined || id === null || id === "") {
+    return null;
+  }
+  if (typeof id !== "string") {
+    throw new Error(
+      `Invalid instance id: expected string, got ${typeof id}`,
+    );
+  }
+  return id;
+}
+
 export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
 }

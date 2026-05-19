@@ -7,7 +7,12 @@ const existingSchemas: Record<string, SchemaDefinition> = {};
 export const Schemas = {
   async register(schemaId: string, schema: SchemaDefinition) {
     existingSchemas[schemaId] = schema;
-    await InitializeSchema(schemaId, schema);
+    try {
+      await InitializeSchema(schemaId, schema);
+    } catch (err) {
+      delete existingSchemas[schemaId];
+      throw err;
+    }
   },
   unregister(schemaId: string) {
     delete existingSchemas[schemaId];

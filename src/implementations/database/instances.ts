@@ -5,6 +5,7 @@ import {
   BOOKKEEPING_COLLECTION,
   INSTANCE_FIELD,
   collectionName,
+  normalizeInstanceId,
 } from "./utils";
 
 function rejectCrossInstance(action: string, value: unknown) {
@@ -15,24 +16,12 @@ function rejectCrossInstance(action: string, value: unknown) {
   }
 }
 
-function normalizeId(id: unknown): string | null {
-  if (id === undefined || id === null) {
-    return null;
-  }
-  if (typeof id !== "string") {
-    throw new Error(
-      `Invalid instance id: expected string or undefined, got ${typeof id}`,
-    );
-  }
-  return id;
-}
-
 export async function CreateInstance(
   schemaId: string,
   id: unknown,
 ): Promise<string> {
   rejectCrossInstance("createInstance", id);
-  const instanceId = normalizeId(id);
+  const instanceId = normalizeInstanceId(id);
   const collection = await GetCollection(BOOKKEEPING_COLLECTION);
   await collection.updateOne(
     { schemaId, instanceId },
@@ -47,7 +36,7 @@ export async function DestroyInstance(
   id: unknown,
 ): Promise<void> {
   rejectCrossInstance("destroyInstance", id);
-  const instanceId = normalizeId(id);
+  const instanceId = normalizeInstanceId(id);
   for (const tableName of GetTableNames(schemaId)) {
     const collection = await GetCollection(collectionName(schemaId, tableName));
     await collection.deleteMany({ [INSTANCE_FIELD]: instanceId });
