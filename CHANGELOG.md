@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.2.2
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.1...v1.2.2)
+
+### 🩹 Fixes
+
+- **connection:** Handle race on collection creation ([74182eb](https://github.com/AntelopeJS/mongodb/commit/74182eb))
+
+### 🎨 Styles
+
+- Apply biome formatting ([2204372](https://github.com/AntelopeJS/mongodb/commit/2204372))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.2.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.1.0...v1.2.1)
