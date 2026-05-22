@@ -3,8 +3,8 @@ import { GetCollection } from "../../connection";
 import { GetTableNames } from "./schema";
 import {
   BOOKKEEPING_COLLECTION,
-  INSTANCE_FIELD,
   collectionName,
+  INSTANCE_FIELD,
   normalizeInstanceId,
 } from "./utils";
 

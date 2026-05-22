@@ -23,9 +23,7 @@ export function normalizeInstanceId(id: unknown): string | null {
     return null;
   }
   if (typeof id !== "string") {
-    throw new Error(
-      `Invalid instance id: expected string, got ${typeof id}`,
-    );
+    throw new Error(`Invalid instance id: expected string, got ${typeof id}`);
   }
   return id;
 }

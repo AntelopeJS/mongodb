@@ -7,8 +7,8 @@ import {
 } from "mongodb";
 import {
   BOOKKEEPING_COLLECTION,
-  INSTANCE_FIELD,
   collectionName,
+  INSTANCE_FIELD,
 } from "./implementations/database/utils";
 
 const INSTANCE_INDEX = "_instance";

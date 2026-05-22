@@ -6,9 +6,9 @@ import { GetCollection } from "../../connection";
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction, DecodeValue } from "./query";
 import {
+  collectionName,
   DecodingContext,
   INSTANCE_FIELD,
-  collectionName,
   normalizeInstanceId,
 } from "./utils";
 

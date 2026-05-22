@@ -2,11 +2,7 @@ import assert from "node:assert";
 import { Query, ValueProxy } from "@antelopejs/interface-database";
 import type { Value } from "@antelopejs/interface-database/common";
 import { Expression } from "./expression";
-import {
-  CreateInstance,
-  DestroyInstance,
-  ListInstances,
-} from "./instances";
+import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 import type { AggregationPipeline } from "./pipeline";
 import { SelectionQuery } from "./selection";
 import type { ArgumentProvider, DecodingContext, QueryStage } from "./utils";
@@ -22,7 +18,9 @@ const LIFECYCLE_HANDLERS: Record<
   listInstances: (schemaId) => ListInstances(schemaId),
 };
 
-function tryHandleLifecycle(stages: QueryStage[]): Promise<unknown> | undefined {
+function tryHandleLifecycle(
+  stages: QueryStage[],
+): Promise<unknown> | undefined {
   if (stages.length !== 2 || stages[0]?.stage !== "schema") {
     return undefined;
   }
