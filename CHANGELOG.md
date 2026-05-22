@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.1.0...v1.2.1)
+
+### 🚀 Enhancements
+
+- **database:** Single physical DB with prefixed collections, explicit instance lifecycle ([#20](https://github.com/AntelopeJS/mongodb/pull/20))
+
+### 🎨 Styles
+
+- Apply biome formatting ([bbdb6e2](https://github.com/AntelopeJS/mongodb/commit/bbdb6e2))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+
 ## v1.2.0
 
 ### ⚠ Breaking Changes (pre-adoption — minor bump)
