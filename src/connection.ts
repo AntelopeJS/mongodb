@@ -84,9 +84,7 @@ export interface SchemaDefinition {
 }
 
 function isNamespaceExistsError(err: unknown): boolean {
-  return (
-    err instanceof MongoServerError && err.code === NAMESPACE_EXISTS_CODE
-  );
+  return err instanceof MongoServerError && err.code === NAMESPACE_EXISTS_CODE;
 }
 
 async function ensureCollection(
