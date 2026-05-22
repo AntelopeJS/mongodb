@@ -4,6 +4,7 @@ import {
   type Db,
   MongoClient,
   type MongoClientOptions,
+  MongoServerError,
 } from "mongodb";
 import {
   BOOKKEEPING_COLLECTION,
@@ -13,6 +14,10 @@ import {
 
 const INSTANCE_INDEX = "_instance";
 const BOOKKEEPING_INDEX = "schemaId_instanceId";
+const NAMESPACE_EXISTS_CODE = 48;
+const COLLECTION_OPTIONS = {
+  changeStreamPreAndPostImages: { enabled: true },
+} as const;
 
 let configuredDatabase: string | undefined;
 
@@ -78,6 +83,12 @@ export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
+function isNamespaceExistsError(err: unknown): boolean {
+  return (
+    err instanceof MongoServerError && err.code === NAMESPACE_EXISTS_CODE
+  );
+}
+
 async function ensureCollection(
   db: Db,
   collectionId: string,
@@ -86,9 +97,12 @@ async function ensureCollection(
   if (existingCollections.has(collectionId)) {
     return;
   }
-  await db.createCollection(collectionId, {
-    changeStreamPreAndPostImages: { enabled: true },
-  });
+  try {
+    await db.createCollection(collectionId, COLLECTION_OPTIONS);
+  } catch (err) {
+    if (!isNamespaceExistsError(err)) throw err;
+    await db.command({ collMod: collectionId, ...COLLECTION_OPTIONS });
+  }
 }
 
 async function syncSecondaryIndexes(
