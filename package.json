@@ -43,9 +43,9 @@
     "test": "src/test/antelope.test.ts"
   },
   "dependencies": {
-    "@antelopejs/interface-core": "^0.0.3",
-    "@antelopejs/interface-database": "^0.1.1",
-    "@antelopejs/interface-mongodb": "^0.0.2",
+    "@antelopejs/interface-core": "^0.0.5",
+    "@antelopejs/interface-database": "^0.1.3",
+    "@antelopejs/interface-mongodb": "^0.0.3",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
     "randomstring": "^1.3.1",
