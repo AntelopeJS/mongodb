@@ -122,7 +122,12 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
 
 export async function CloseCursor(reqId: number) {
   if (reqId in openQueries) {
-    await openQueries[reqId].closeCursor();
+    const query = openQueries[reqId];
     delete openQueries[reqId];
+    try {
+      await query.closeCursor();
+    } catch {
+      // Ignore close failures; the entry is already evicted.
+    }
   }
 }
