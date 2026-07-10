@@ -272,19 +272,12 @@ export class SelectionQuery extends AggregationPipeline {
     return super.run();
   }
 
-  private needsExpr(value: unknown): boolean {
-    if (typeof value === "string" && value.startsWith("$")) return true;
-    if (value && typeof value === "object" && !Array.isArray(value))
-      return true;
-    return false;
-  }
-
   protected async stage_get(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
     const value = await DecodeValue(stage.args[0], this.context);
-    if (this.needsExpr(value)) {
+    if (this.hasExpression(value)) {
       this.pipeline.push({
         $match: { $expr: { $eq: ["$_id", value] } },
       });
@@ -304,7 +297,7 @@ export class SelectionQuery extends AggregationPipeline {
       const values = await Promise.all(
         rawValue.map((v) => DecodeValue(v, this.context)),
       );
-      if (values.some((v) => this.needsExpr(v))) {
+      if (values.some((v) => this.hasExpression(v))) {
         this.pipeline.push({
           $match: { $expr: { $in: [`$${index}`, values] } },
         });
@@ -315,7 +308,7 @@ export class SelectionQuery extends AggregationPipeline {
       }
     } else {
       const value = await DecodeValue(rawValue, this.context);
-      if (this.needsExpr(value)) {
+      if (this.hasExpression(value)) {
         this.pipeline.push({
           $match: { $expr: { $eq: [`$${index}`, value] } },
         });
