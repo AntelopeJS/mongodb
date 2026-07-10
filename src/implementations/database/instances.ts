@@ -37,10 +37,14 @@ export async function DestroyInstance(
 ): Promise<void> {
   rejectCrossInstance("destroyInstance", id);
   const instanceId = normalizeInstanceId(id);
-  for (const tableName of GetTableNames(schemaId)) {
-    const collection = await GetCollection(collectionName(schemaId, tableName));
-    await collection.deleteMany({ [INSTANCE_FIELD]: instanceId });
-  }
+  await Promise.all(
+    GetTableNames(schemaId).map(async (tableName) => {
+      const collection = await GetCollection(
+        collectionName(schemaId, tableName),
+      );
+      await collection.deleteMany({ [INSTANCE_FIELD]: instanceId });
+    }),
+  );
   const bookkeeping = await GetCollection(BOOKKEEPING_COLLECTION);
   await bookkeeping.deleteOne({ schemaId, instanceId });
 }
