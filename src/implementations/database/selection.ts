@@ -120,10 +120,10 @@ export class SelectionQuery extends AggregationPipeline {
     if (filters.length === 0) {
       return filterDoc;
     } else {
-      for (const [key, val] of Object.entries(filterDoc)) {
-        filters.push({ $eq: [`$${key}`, val] });
-      }
-      return { $expr: filters.length === 1 ? filters[0] : { $and: filters } };
+      return {
+        ...filterDoc,
+        $expr: filters.length === 1 ? filters[0] : { $and: filters },
+      };
     }
   }
 
@@ -272,19 +272,12 @@ export class SelectionQuery extends AggregationPipeline {
     return super.run();
   }
 
-  private needsExpr(value: unknown): boolean {
-    if (typeof value === "string" && value.startsWith("$")) return true;
-    if (value && typeof value === "object" && !Array.isArray(value))
-      return true;
-    return false;
-  }
-
   protected async stage_get(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
     const value = await DecodeValue(stage.args[0], this.context);
-    if (this.needsExpr(value)) {
+    if (this.hasExpression(value)) {
       this.pipeline.push({
         $match: { $expr: { $eq: ["$_id", value] } },
       });
@@ -304,12 +297,18 @@ export class SelectionQuery extends AggregationPipeline {
       const values = await Promise.all(
         rawValue.map((v) => DecodeValue(v, this.context)),
       );
-      this.pipeline.push({
-        $match: { $expr: { $in: [`$${index}`, values] } },
-      });
+      if (values.some((v) => this.hasExpression(v))) {
+        this.pipeline.push({
+          $match: { $expr: { $in: [`$${index}`, values] } },
+        });
+      } else {
+        this.pipeline.push({
+          $match: { [index]: { $in: values } },
+        });
+      }
     } else {
       const value = await DecodeValue(rawValue, this.context);
-      if (this.needsExpr(value)) {
+      if (this.hasExpression(value)) {
         this.pipeline.push({
           $match: { $expr: { $eq: [`$${index}`, value] } },
         });
