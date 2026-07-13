@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2.4
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.3...v1.2.4)
+
+### 🔥 Performance
+
+- Parallelize per-table deletes in DestroyInstance ([#25](https://github.com/AntelopeJS/mongodb/pull/25))
+- Evict openQueries entry and close server cursor when a read fails ([#26](https://github.com/AntelopeJS/mongodb/pull/26))
+- Emit index-eligible $in match for getAll with literal value arrays ([#27](https://github.com/AntelopeJS/mongodb/pull/27))
+
+### ❤️ Contributors
+
+- Fabrice Cst <fabrice@altab.be>
+
 ## v1.2.3
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.2...v1.2.3)
