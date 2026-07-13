@@ -101,17 +101,33 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
     const query = await SelectionQuery.decode(stages);
     openQueries[reqId] = query;
   }
-  const next = await openQueries[reqId].readCursor();
-  if (next === null) {
-    delete openQueries[reqId];
-  }
+  try {
+    const next = await openQueries[reqId].readCursor();
+    if (next === null) {
+      delete openQueries[reqId];
+    }
 
-  return { done: next === null, value: next };
+    return { done: next === null, value: next };
+  } catch (error) {
+    const query = openQueries[reqId];
+    delete openQueries[reqId];
+    try {
+      await query?.closeCursor();
+    } catch {
+      // Ignore close failures; the read error is the one worth surfacing.
+    }
+    throw error;
+  }
 }
 
 export async function CloseCursor(reqId: number) {
   if (reqId in openQueries) {
-    await openQueries[reqId].closeCursor();
+    const query = openQueries[reqId];
     delete openQueries[reqId];
+    try {
+      await query.closeCursor();
+    } catch {
+      // Ignore close failures; the entry is already evicted.
+    }
   }
 }
