@@ -12,11 +12,11 @@ export async function construct(options: Options) {
   await Connect(options.url, options.database, options.options);
   await EnsureBookkeepingCollection();
 
-  void ImplementInterface(
+  await ImplementInterface(
     await import("@antelopejs/interface-database/query"),
     await import("./implementations/database/query"),
   );
-  void ImplementInterface(
+  await ImplementInterface(
     await import("@antelopejs/interface-database/schema"),
     await import("./implementations/database/schema"),
   );
