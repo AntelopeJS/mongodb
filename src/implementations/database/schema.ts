@@ -1,17 +1,24 @@
 import assert from "node:assert";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 import { InitializeSchema } from "../../connection";
+import { StartSchemaInitialization } from "../../schema-initialization";
 
 const existingSchemas: Record<string, SchemaDefinition> = {};
 
 export const Schemas = {
-  async register(schemaId: string, schema: SchemaDefinition) {
-    existingSchemas[schemaId] = schema;
-    try {
-      await InitializeSchema(schemaId, schema);
-    } catch (err) {
-      delete existingSchemas[schemaId];
-      throw err;
+  register(schemaId: string, schema: SchemaDefinition) {
+    const didStart = StartSchemaInitialization(async () => {
+      try {
+        await InitializeSchema(schemaId, schema);
+      } catch (error) {
+        if (existingSchemas[schemaId] === schema) {
+          delete existingSchemas[schemaId];
+        }
+        throw error;
+      }
+    });
+    if (didStart) {
+      existingSchemas[schemaId] = schema;
     }
   },
   unregister(schemaId: string) {
