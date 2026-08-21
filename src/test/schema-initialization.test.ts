@@ -179,6 +179,26 @@ describe("schema initialization lifecycle", () => {
     ]);
   });
 
+  it("keeps a newer same-schema registration when older work fails", async () => {
+    const first = createDeferred<void>();
+    const second = createDeferred<void>();
+    const failure = new Error("older initialization failed");
+    const initialize = sinon.stub(connection, "InitializeSchema");
+    initialize.onFirstCall().returns(first.promise);
+    initialize.onSecondCall().returns(second.promise);
+    sinon.stub(connection, "Disconnect").resolves();
+
+    Schemas.register("first", schema);
+    Schemas.register("first", schema);
+    const teardown = destroy().catch((error) => error);
+    await Promise.resolve();
+    second.resolve();
+    first.reject(failure);
+
+    expect(await teardown).to.equal(failure);
+    expect(GetSchema("first")).to.equal(schema);
+  });
+
   it("drains real index creation without runtime or unhandled errors", async () => {
     const client = await mongoInternal.client;
     const url = getConnectionUrl(client);
