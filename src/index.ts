@@ -28,6 +28,10 @@ export async function construct(options: Options) {
   );
 }
 
+export function start(): void {
+  AllowSchemaInitializations();
+}
+
 export function stop(): void {
   PreventSchemaInitializations();
 }

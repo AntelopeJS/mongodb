@@ -6,7 +6,7 @@ import type { CommandStartedEvent, MongoClient } from "mongodb";
 import sinon from "sinon";
 import * as connection from "../connection";
 import { GetSchema, Schemas } from "../implementations/database/schema";
-import { destroy, stop } from "../index";
+import { destroy, start, stop } from "../index";
 import { AllowSchemaInitializations } from "../schema-initialization";
 
 interface Deferred<Value> {
@@ -102,6 +102,26 @@ describe("schema initialization lifecycle", () => {
 
     expect(initialize.calledOnceWith("first", schema)).to.equal(true);
     expect(() => GetSchema("late")).to.throw();
+    expect(disconnect.calledOnce).to.equal(true);
+  });
+
+  it("resumes and drains schema initialization after restart", async () => {
+    const first = createDeferred<void>();
+    const initialize = sinon
+      .stub(connection, "InitializeSchema")
+      .returns(first.promise);
+    const disconnect = sinon.stub(connection, "Disconnect").resolves();
+
+    stop();
+    start();
+    Schemas.register("first", schema);
+    const teardown = destroy();
+    await Promise.resolve();
+
+    expect(initialize.calledOnceWith("first", schema)).to.equal(true);
+    expect(disconnect.called).to.equal(false);
+    first.resolve();
+    await teardown;
     expect(disconnect.calledOnce).to.equal(true);
   });
 
