@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.5
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.4...v1.2.5)
+
+### 🩹 Fixes
+
+- Support interface-core 0.0.11 ([#29](https://github.com/AntelopeJS/mongodb/pull/29))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.2.4
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.3...v1.2.4)
