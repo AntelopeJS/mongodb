@@ -1,27 +1,41 @@
 import assert from "node:assert";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 import { InitializeSchema } from "../../connection";
+import { StartSchemaInitialization } from "../../schema-initialization";
 
-const existingSchemas: Record<string, SchemaDefinition> = {};
+interface SchemaRegistration {
+  definition: SchemaDefinition;
+  generation: symbol;
+}
+
+const existingSchemas = new Map<string, SchemaRegistration>();
 
 export const Schemas = {
-  async register(schemaId: string, schema: SchemaDefinition) {
-    existingSchemas[schemaId] = schema;
-    try {
-      await InitializeSchema(schemaId, schema);
-    } catch (err) {
-      delete existingSchemas[schemaId];
-      throw err;
+  register(schemaId: string, schema: SchemaDefinition) {
+    const generation = Symbol(schemaId);
+    const didStart = StartSchemaInitialization(async () => {
+      try {
+        await InitializeSchema(schemaId, schema);
+      } catch (error) {
+        if (existingSchemas.get(schemaId)?.generation === generation) {
+          existingSchemas.delete(schemaId);
+        }
+        throw error;
+      }
+    });
+    if (didStart) {
+      existingSchemas.set(schemaId, { definition: schema, generation });
     }
   },
   unregister(schemaId: string) {
-    delete existingSchemas[schemaId];
+    existingSchemas.delete(schemaId);
   },
 };
 
 export function GetSchema(schemaId: string) {
-  assert(schemaId in existingSchemas);
-  return existingSchemas[schemaId];
+  const registration = existingSchemas.get(schemaId);
+  assert(registration);
+  return registration.definition;
 }
 
 export function GetTable(schemaId: string, tableId: string) {
