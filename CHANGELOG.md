@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.7
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.5...v1.2.7)
+
+### 🩹 Fixes
+
+- **schema:** Drain initialization before disconnect ([#30](https://github.com/AntelopeJS/mongodb/pull/30))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <upd4ting@gmail.com>
+
 ## v1.2.5
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.4...v1.2.5)
