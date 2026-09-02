@@ -1,21 +1,31 @@
-name: ci
+name: CI
 
 on:
+  pull_request:
   push:
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  ubuntu:
+  checks:
     runs-on: ubuntu-latest
-    env:
-      COREPACK_DEFAULT_TO_LATEST: 0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: '20'
-      - run: npm i -g --force corepack && corepack enable
-      - run: npm i -g @antelopejs/core
-      - run: pnpm install
+          node-version: 24
+          cache: pnpm
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$PR_TITLE" | grep -Eq '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?!?: .+'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm add --global @antelopejs/core
       - run: pnpm prepack
       - run: pnpm lint
       - run: pnpm test
