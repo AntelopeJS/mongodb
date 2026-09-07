@@ -68,8 +68,8 @@ describe("schema initialization lifecycle", () => {
     initialize.onSecondCall().returns(second.promise);
     const disconnect = sinon.stub(connection, "Disconnect").resolves();
 
-     Schemas.register("first", schema);
-     Schemas.register("second", schema);
+    Schemas.register("first", schema);
+    Schemas.register("second", schema);
     let isDestroyed = false;
     const teardown = destroy().then(() => {
       isDestroyed = true;

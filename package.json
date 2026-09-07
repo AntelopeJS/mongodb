@@ -4,25 +4,24 @@
   "description": "MongoDB module that implements the Database interface of antelopejs",
   "keywords": [
     "antelopejs",
-    "mongodb",
     "database",
+    "mongodb",
     "nosql",
     "orm"
   ],
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AntelopeJS/mongodb.git"
   },
-  "main": "dist/index.js",
   "files": [
     "dist"
   ],
+  "main": "dist/index.js",
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
-  "license": "Apache-2.0",
-  "packageManager": "pnpm@10.6.5",
   "scripts": {
     "build": "rimraf dist && tsc",
     "format": "oxfmt .",
@@ -33,17 +32,6 @@
     "test": "pnpm run build && ajs module test .",
     "format:check": "oxfmt --check .",
     "knip": "knip"
-  },
-  "antelopeJs": {
-    "implements": [
-      "@antelopejs/interface-database",
-      "@antelopejs/interface-mongodb"
-    ],
-    "defaultConfig": {
-      "url": "mongodb://localhost:27017",
-      "database": "antelopejs"
-    },
-    "test": "src/test/antelope.test.ts"
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.0.5 <1.0.0",
@@ -74,5 +62,17 @@
     "rimraf": "^6.1.3",
     "sinon": "^20.0.0",
     "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.6.5",
+  "antelopeJs": {
+    "implements": [
+      "@antelopejs/interface-database",
+      "@antelopejs/interface-mongodb"
+    ],
+    "defaultConfig": {
+      "url": "mongodb://localhost:27017",
+      "database": "antelopejs"
+    },
+    "test": "src/test/antelope.test.ts"
   }
 }

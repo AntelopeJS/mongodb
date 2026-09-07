@@ -35,23 +35,23 @@ Never use `switch/case` or `if param === 'XXX'` chains. Instead:
 // BAD
 function getStatus(code: string) {
   switch (code) {
-    case 'A':
-      return 'Active';
-    case 'I':
-      return 'Inactive';
+    case "A":
+      return "Active";
+    case "I":
+      return "Inactive";
     default:
-      return 'Unknown';
+      return "Unknown";
   }
 }
 
 // GOOD
 const STATUS_MAP: Record<string, string> = {
-  A: 'Active',
-  I: 'Inactive',
+  A: "Active",
+  I: "Inactive",
 };
 
 function getStatus(code: string) {
-  return STATUS_MAP[code] ?? 'Unknown';
+  return STATUS_MAP[code] ?? "Unknown";
 }
 ```
 
