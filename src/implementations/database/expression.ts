@@ -1,6 +1,12 @@
-import type { QueryStage } from "@antelopejs/interface-database/common";
-import { DecodeFunction, DecodeValue } from "./query";
-import { type DecodingContext, Temporary } from "./utils";
+import assert from "node:assert";
+import { Query, ValueProxy } from "@antelopejs/interface-database";
+import type { QueryStage, Value } from "@antelopejs/interface-database/common";
+
+import {
+  type ArgumentProvider,
+  type DecodingContext,
+  Temporary,
+} from "./utils";
 
 /**
  * This decorator should be used on stages where this.value is used multiple times.
@@ -28,7 +34,7 @@ function CondenseValue(
   };
 }
 
-export class Expression {
+class Expression {
   protected options?: Record<string, any>;
   protected currentStage?: QueryStage;
 
@@ -275,4 +281,57 @@ export class Expression {
     };
     return { $setIsSubset: [fields, keys] };
   }
+}
+
+export async function DecodeValue(
+  value: Value<unknown>,
+  context: DecodingContext,
+): Promise<unknown> {
+  if (value instanceof ValueProxy) {
+    return Expression.decode(value.build(), context);
+  }
+
+  if (value instanceof Query) {
+    return context.decodeSubquery(value.build());
+  }
+
+  if (value && typeof value === "object") {
+    if (Array.isArray(value)) {
+      return Promise.all(value.map((val) => DecodeValue(val, context)));
+    } else if (Object.getPrototypeOf(value) === Object.prototype) {
+      return Object.fromEntries(
+        await Promise.all(
+          Object.entries(value).map(async ([key, val]) => [
+            key,
+            await DecodeValue(val, context),
+          ]),
+        ),
+      );
+    }
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return typeof value === "object" && !(value instanceof Date)
+    ? { $literal: value }
+    : value;
+}
+
+export async function DecodeFunction(
+  func: QueryStage,
+  context: DecodingContext,
+  args: (string | ArgumentProvider)[],
+) {
+  const argNumbers = func.args[0];
+  for (let i = 0; i < argNumbers.length; ++i) {
+    assert(args[i], "Unexpected argument");
+    context.args[argNumbers[i]] = args[i];
+  }
+  const val = await DecodeValue(func.args[1], context);
+  for (let i = 0; i < argNumbers.length; ++i) {
+    delete context.args[argNumbers[i]];
+  }
+  return val;
 }

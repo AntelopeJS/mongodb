@@ -1,6 +1,7 @@
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
-import { GetCollection } from "../../connection";
+
 import { GetTableNames } from "./schema";
+import { GetCollection } from "../../connection";
 import {
   BOOKKEEPING_COLLECTION,
   collectionName,

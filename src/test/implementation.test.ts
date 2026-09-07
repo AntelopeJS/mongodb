@@ -1,7 +1,8 @@
+import { expect } from "chai";
 import { ImplementInterface } from "@antelopejs/interface-core";
 import * as queryDeclaration from "@antelopejs/interface-database/query";
 import * as schemaDeclaration from "@antelopejs/interface-database/schema";
-import { expect } from "chai";
+
 import * as queryImplementation from "../implementations/database/query";
 import * as schemaImplementation from "../implementations/database/schema";
 

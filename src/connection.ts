@@ -6,6 +6,7 @@ import {
   type MongoClientOptions,
   MongoServerError,
 } from "mongodb";
+
 import {
   BOOKKEEPING_COLLECTION,
   collectionName,
@@ -37,7 +38,7 @@ export async function Disconnect() {
   if (internal.connected) {
     await internal.client.then((client) => client.close());
     internal.connected = false;
-    internal.UnsetClient();
+    void internal.UnsetClient();
   }
   configuredDatabase = undefined;
 }
@@ -58,20 +59,12 @@ export async function GetCollection(collection: string): Promise<Collection> {
   );
 }
 
-export async function GetDatabase(): Promise<Db> {
+async function GetDatabase(): Promise<Db> {
   const dbName = GetConfiguredDatabaseName();
   return internal.client.then((client) => client.db(dbName));
 }
 
-export async function ListDatabases(): Promise<{ name: string }[]> {
-  return internal.client
-    .then((client) =>
-      client.db("admin").command({ listDatabases: 1, nameOnly: true }),
-    )
-    .then((result) => result.databases);
-}
-
-export interface IndexDefinition {
+interface IndexDefinition {
   fields?: string[];
 }
 

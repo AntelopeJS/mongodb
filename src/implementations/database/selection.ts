@@ -1,10 +1,12 @@
 import assert from "node:assert";
-import type { QueryStage } from "@antelopejs/interface-database/common";
-import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import { v4 as uuidv4 } from "uuid";
+import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
+import type { QueryStage } from "@antelopejs/interface-database/common";
+
 import { GetCollection } from "../../connection";
+// oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
-import { DecodeFunction, DecodeValue } from "./query";
+import { DecodeFunction, DecodeValue } from "./expression";
 import {
   collectionName,
   DecodingContext,

@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
+
 import { InitializeSchema } from "../../connection";
 import { StartSchemaInitialization } from "../../schema-initialization";
 

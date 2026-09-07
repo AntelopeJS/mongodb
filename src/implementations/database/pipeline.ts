@@ -1,12 +1,18 @@
 import assert from "node:assert";
+import type { AggregationCursor } from "mongodb";
 import type { Stream } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
-import type { AggregationCursor } from "mongodb";
-import { GetCollection } from "../../connection";
-import { DecodeFunction, DecodeValue } from "./query";
+
 import { GetIndex } from "./schema";
+// SelectionQuery extends AggregationPipeline and is also the entry point that decodes a full
+// schema/instance/table stream, so the base class has to reach the subclass to decode the
+// right-hand side of union, join and lookup. Breaking this would mean a runtime-registered
+// decoder, trading a real module load-order hazard for a lint clean-up.
+// oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
 import { SelectionQuery } from "./selection";
+import { GetCollection } from "../../connection";
 import { type DecodingContext, Temporary } from "./utils";
+import { DecodeFunction, DecodeValue } from "./expression";
 
 function DefaultConstant(data: any, def: any) {
   if (def) {
@@ -523,7 +529,7 @@ export class AggregationPipeline {
           [localField]: {
             $cond: {
               if: { $isArray: `$${localField}` },
-              // biome-ignore lint/suspicious/noThenProperty: MongoDB $cond requires a then branch.
+              // oxlint-disable-next-line unicorn/no-thenable -- MongoDB $cond requires a then branch; this is a pipeline operator, not a promise.
               then: `$${tmp}`,
               else: { $arrayElemAt: [`$${tmp}`, 0] },
             },

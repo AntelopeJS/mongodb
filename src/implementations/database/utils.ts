@@ -1,10 +1,10 @@
 import assert from "node:assert";
-import type { StagedObject } from "@antelopejs/interface-database/common";
 import { generate as randomstring } from "randomstring";
+import type { StagedObject } from "@antelopejs/interface-database/common";
 
 export const INSTANCE_FIELD = "_instance";
 export const BOOKKEEPING_COLLECTION = "__antelope_instances";
-export const COLLECTION_NAME_SEPARATOR = "__";
+const COLLECTION_NAME_SEPARATOR = "__";
 
 export function collectionName(schemaId: string, tableName: string): string {
   if (
