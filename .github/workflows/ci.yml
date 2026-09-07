@@ -28,4 +28,6 @@ jobs:
       - run: pnpm add --global @antelopejs/core
       - run: pnpm prepack
       - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm knip
       - run: pnpm test
