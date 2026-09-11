@@ -1,11 +1,9 @@
 import assert from "node:assert";
-import { Query, ValueProxy } from "@antelopejs/interface-database";
-import type { Value } from "@antelopejs/interface-database/common";
-import { Expression } from "./expression";
-import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
-import type { AggregationPipeline } from "./pipeline";
+
+import type { QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
-import type { ArgumentProvider, DecodingContext, QueryStage } from "./utils";
+import type { AggregationPipeline } from "./pipeline";
+import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 
 const LIFECYCLE_HANDLERS: Record<
   string,
@@ -31,59 +29,6 @@ function tryHandleLifecycle(
   const schemaId = stages[0].options?.id;
   assert(typeof schemaId === "string", "Lifecycle query missing schema id");
   return handler(schemaId, stages[1]);
-}
-
-export async function DecodeValue(
-  value: Value<unknown>,
-  context: DecodingContext,
-): Promise<unknown> {
-  if (value instanceof ValueProxy) {
-    return Expression.decode(value.build(), context);
-  }
-
-  if (value instanceof Query) {
-    return context.decodeSubquery(value.build());
-  }
-
-  if (value && typeof value === "object") {
-    if (Array.isArray(value)) {
-      return Promise.all(value.map((val) => DecodeValue(val, context)));
-    } else if (Object.getPrototypeOf(value) === Object.prototype) {
-      return Object.fromEntries(
-        await Promise.all(
-          Object.entries(value).map(async ([key, val]) => [
-            key,
-            await DecodeValue(val, context),
-          ]),
-        ),
-      );
-    }
-  }
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  return typeof value === "object" && !(value instanceof Date)
-    ? { $literal: value }
-    : value;
-}
-
-export async function DecodeFunction(
-  func: QueryStage,
-  context: DecodingContext,
-  args: (string | ArgumentProvider)[],
-) {
-  const argNumbers = func.args[0];
-  for (let i = 0; i < argNumbers.length; ++i) {
-    assert(args[i], "Unexpected argument");
-    context.args[argNumbers[i]] = args[i];
-  }
-  const val = await DecodeValue(func.args[1], context);
-  for (let i = 0; i < argNumbers.length; ++i) {
-    delete context.args[argNumbers[i]];
-  }
-  return val;
 }
 
 export async function RunQuery(stages: QueryStage[]) {

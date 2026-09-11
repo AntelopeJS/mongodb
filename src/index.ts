@@ -1,5 +1,6 @@
-import { ImplementInterface } from "@antelopejs/interface-core";
 import type { MongoClientOptions } from "mongodb";
+import { ImplementInterface } from "@antelopejs/interface-core";
+
 import { Connect, Disconnect, EnsureBookkeepingCollection } from "./connection";
 import {
   AllowSchemaInitializations,

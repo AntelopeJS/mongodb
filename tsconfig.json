@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "moduleResolution": "node",
     "target": "esnext",
     "module": "commonjs",
     "lib": ["ES2021"],
     "allowJs": false,
     "outDir": "dist",
+    "rootDir": "src",
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
@@ -17,8 +17,7 @@
     "declaration": true,
     "noEmitOnError": true,
     "sourceMap": true,
-    "useDefineForClassFields": true,
-    "baseUrl": "src"
+    "useDefineForClassFields": true
   },
   "include": ["src/**/*.ts"]
 }

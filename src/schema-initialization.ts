@@ -38,7 +38,7 @@ export function StartSchemaInitialization(
 
 export async function DrainSchemaInitializations(): Promise<unknown[]> {
   while (pendingInitializations.size) {
-    await Promise.all([...pendingInitializations]);
+    await Promise.all(pendingInitializations);
   }
   const failures = initializationFailures
     .sort((first, second) => first.sequence - second.sequence)

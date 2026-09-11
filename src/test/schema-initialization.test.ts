@@ -1,13 +1,14 @@
-import { internal as coreInternal } from "@antelopejs/interface-core/internal";
-import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
-import { internal as mongoInternal } from "@antelopejs/interface-mongodb";
+import sinon from "sinon";
 import { expect } from "chai";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
-import sinon from "sinon";
+import { internal as mongoInternal } from "@antelopejs/interface-mongodb";
+import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
+import { internal as coreInternal } from "@antelopejs/interface-core/internal";
+
 import * as connection from "../connection";
-import { GetSchema, Schemas } from "../implementations/database/schema";
 import { destroy, start, stop } from "../index";
 import { AllowSchemaInitializations } from "../schema-initialization";
+import { GetSchema, Schemas } from "../implementations/database/schema";
 
 interface Deferred<Value> {
   promise: Promise<Value>;
@@ -67,8 +68,8 @@ describe("schema initialization lifecycle", () => {
     initialize.onSecondCall().returns(second.promise);
     const disconnect = sinon.stub(connection, "Disconnect").resolves();
 
-    void Schemas.register("first", schema);
-    void Schemas.register("second", schema);
+    Schemas.register("first", schema);
+    Schemas.register("second", schema);
     let isDestroyed = false;
     const teardown = destroy().then(() => {
       isDestroyed = true;
