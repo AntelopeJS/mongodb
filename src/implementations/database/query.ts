@@ -2,9 +2,9 @@ import assert from "node:assert";
 
 import type { QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
+import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
-import { RunAtomicMutation } from "./atomic";
 
 const LIFECYCLE_HANDLERS: Record<
   string,

@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
 import sinon from "sinon";
 import { expect } from "chai";
-import type { Collection, CommandStartedEvent, MongoClient } from "mongodb";
+import assert from "node:assert/strict";
 import { MongoNetworkError } from "mongodb";
+import type { Collection, CommandStartedEvent, MongoClient } from "mongodb";
 import { Schema, CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type {
   AtomicMutation,
@@ -10,8 +10,8 @@ import type {
 } from "@antelopejs/interface-database/atomic";
 
 import * as connection from "../connection";
-import { RunQuery, ReadCursor } from "../implementations/database/query";
 import { collectionName } from "../implementations/database/utils";
+import { RunQuery, ReadCursor } from "../implementations/database/query";
 
 interface AtomicRecord {
   _id: string;

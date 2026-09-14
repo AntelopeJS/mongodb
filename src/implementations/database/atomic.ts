@@ -1,14 +1,14 @@
 import assert from "node:assert";
 import type { Collection, Document } from "mongodb";
 import { MongoInvalidArgumentError, MongoServerError } from "mongodb";
+import {
+  ValidateAtomicMutation,
+  ValidateAtomicMutationTable,
+} from "@antelopejs/interface-database/atomic";
 import type {
   AtomicMutation,
   AtomicMutationOutcome,
   AtomicUpdate,
-} from "@antelopejs/interface-database/atomic";
-import {
-  ValidateAtomicMutation,
-  ValidateAtomicMutationTable,
 } from "@antelopejs/interface-database/atomic";
 
 import { GetAtomicCollection } from "../../connection";
