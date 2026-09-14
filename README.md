@@ -84,7 +84,7 @@ All instances of a schema/table share a collection. MongoDB's existing `_id` uni
 
 ### Interface prerequisite
 
-This implementation requires `@antelopejs/interface-database` version `0.1.5` or later within the supported range. Version `0.1.5` provides the atomic mutation contract introduced in [interface-database PR #15](https://github.com/AntelopeJS/interface-database/pull/15). Earlier versions do not provide this capability.
+This implementation requires `@antelopejs/interface-database` version `0.1.6` or later within the supported range. It includes the atomic mutation API and shared real-backend conformance tests, automatically discovered by `ajs module test`. Backend-specific command, storage, and fault tests remain in this provider.
 
 ## License
 
