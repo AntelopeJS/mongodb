@@ -52,6 +52,11 @@ export function GetConfiguredDatabaseName(): string {
   return configuredDatabase;
 }
 
+export async function GetClient(): Promise<MongoClient> {
+  GetConfiguredDatabaseName();
+  return internal.client;
+}
+
 export async function GetCollection(collection: string): Promise<Collection> {
   const dbName = GetConfiguredDatabaseName();
   return internal.client.then((client) =>

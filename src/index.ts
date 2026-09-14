@@ -27,6 +27,10 @@ export async function construct(options: Options) {
     await import("@antelopejs/interface-database/schema"),
     await import("./implementations/database/schema"),
   );
+  await ImplementInterface(
+    await import("@antelopejs/interface-database/transactions"),
+    await import("./implementations/database/transactions"),
+  );
 }
 
 export function start(): void {

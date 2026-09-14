@@ -13,6 +13,7 @@ import { SelectionQuery } from "./selection";
 import { GetCollection } from "../../connection";
 import { type DecodingContext, Temporary } from "./utils";
 import { DecodeFunction, DecodeValue } from "./expression";
+import { AssertCursorAllowed, GetTransactionOptions } from "./transactions";
 
 function DefaultConstant(data: any, def: any) {
   if (def) {
@@ -197,7 +198,9 @@ export class AggregationPipeline {
 
   public async run(): Promise<any> {
     const collection = await GetCollection(this.collection);
-    let result = await collection.aggregate(this.pipeline, {}).toArray();
+    let result = await collection
+      .aggregate(this.pipeline, GetTransactionOptions())
+      .toArray();
     if (this.wrappedObject) {
       const wrappedObject = this.wrappedObject;
       result = result.map((element: any) => element[wrappedObject]);
@@ -214,7 +217,10 @@ export class AggregationPipeline {
     try {
       for (let i = 0; i <= this.pipeline.length; ++i) {
         results[i] = await collection
-          .aggregate([...this.pipeline.slice(0, i), { $limit: limit }])
+          .aggregate(
+            [...this.pipeline.slice(0, i), { $limit: limit }],
+            GetTransactionOptions(),
+          )
           .toArray();
       }
     } catch (e) {
@@ -224,6 +230,7 @@ export class AggregationPipeline {
   }
 
   public async readCursor() {
+    AssertCursorAllowed();
     if (!this.cursor) {
       const collection = await GetCollection(this.collection);
       this.cursor = collection.aggregate(this.pipeline, {});

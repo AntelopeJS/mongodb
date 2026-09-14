@@ -2,6 +2,7 @@ import assert from "node:assert";
 
 import type { QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
+import { AssertCursorAllowed } from "./transactions";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 
@@ -42,6 +43,7 @@ export async function RunQuery(stages: QueryStage[]) {
 
 const openQueries: Record<number, AggregationPipeline> = {};
 export async function ReadCursor(reqId: number, stages: QueryStage[]) {
+  AssertCursorAllowed();
   if (!(reqId in openQueries)) {
     const query = await SelectionQuery.decode(stages);
     openQueries[reqId] = query;

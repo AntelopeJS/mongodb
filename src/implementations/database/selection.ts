@@ -6,6 +6,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 import { GetCollection } from "../../connection";
 // oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
+import { GetTransactionOptions } from "./transactions";
 import { DecodeFunction, DecodeValue } from "./expression";
 import {
   collectionName,
@@ -138,7 +139,10 @@ export class SelectionQuery extends AggregationPipeline {
     const collection = await GetCollection(this.collection);
     const documents = this.prepareInsertDocuments();
     if (!this._conflictMode) {
-      const res = await collection.insertMany(documents);
+      const res = await collection.insertMany(
+        documents,
+        GetTransactionOptions(),
+      );
       return Object.values(res.insertedIds);
     }
     return this.insertWithConflict(collection, documents);
@@ -181,7 +185,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
     };
     const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
-    await collection.bulkWrite(documents.map(buildOp));
+    await collection.bulkWrite(documents.map(buildOp), GetTransactionOptions());
     return documents.map((doc) => doc._id);
   }
 
@@ -225,17 +229,21 @@ export class SelectionQuery extends AggregationPipeline {
 
   private async update() {
     const collection = await GetCollection(this.collection);
-    const res = await collection.updateMany(this.getFilter(), [
-      {
-        $replaceWith: {
-          $mergeObjects: [
-            "$$ROOT",
-            this.literalizeUpdateValue(this._newValue),
-            { [INSTANCE_FIELD]: `$${INSTANCE_FIELD}` },
-          ],
+    const res = await collection.updateMany(
+      this.getFilter(),
+      [
+        {
+          $replaceWith: {
+            $mergeObjects: [
+              "$$ROOT",
+              this.literalizeUpdateValue(this._newValue),
+              { [INSTANCE_FIELD]: `$${INSTANCE_FIELD}` },
+            ],
+          },
         },
-      },
-    ]);
+      ],
+      GetTransactionOptions(),
+    );
     return res.modifiedCount;
   }
 
@@ -250,13 +258,17 @@ export class SelectionQuery extends AggregationPipeline {
     const res = await collection.findOneAndReplace(
       this.getFilter(),
       this._newValue,
+      GetTransactionOptions(),
     );
     return res ? 1 : 0;
   }
 
   private async delete() {
     const collection = await GetCollection(this.collection);
-    const res = await collection.deleteMany(this.getFilter());
+    const res = await collection.deleteMany(
+      this.getFilter(),
+      GetTransactionOptions(),
+    );
     return res.deletedCount;
   }
 

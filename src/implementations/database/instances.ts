@@ -2,6 +2,7 @@ import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 
 import { GetTableNames } from "./schema";
 import { GetCollection } from "../../connection";
+import { GetTransactionOptions } from "./transactions";
 import {
   BOOKKEEPING_COLLECTION,
   collectionName,
@@ -27,7 +28,7 @@ export async function CreateInstance(
   await collection.updateOne(
     { schemaId, instanceId },
     { $setOnInsert: { schemaId, instanceId, createdAt: new Date() } },
-    { upsert: true },
+    { upsert: true, ...GetTransactionOptions() },
   );
   return instanceId ?? "";
 }
@@ -43,17 +44,23 @@ export async function DestroyInstance(
       const collection = await GetCollection(
         collectionName(schemaId, tableName),
       );
-      await collection.deleteMany({ [INSTANCE_FIELD]: instanceId });
+      await collection.deleteMany(
+        { [INSTANCE_FIELD]: instanceId },
+        GetTransactionOptions(),
+      );
     }),
   );
   const bookkeeping = await GetCollection(BOOKKEEPING_COLLECTION);
-  await bookkeeping.deleteOne({ schemaId, instanceId });
+  await bookkeeping.deleteOne(
+    { schemaId, instanceId },
+    GetTransactionOptions(),
+  );
 }
 
 export async function ListInstances(schemaId: string): Promise<string[]> {
   const collection = await GetCollection(BOOKKEEPING_COLLECTION);
   const rows = await collection
-    .find({ schemaId, instanceId: { $ne: null } })
+    .find({ schemaId, instanceId: { $ne: null } }, GetTransactionOptions())
     .project({ instanceId: 1 })
     .toArray();
   return rows.map((row) => row.instanceId as string);
