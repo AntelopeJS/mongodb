@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.3.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.7...v1.3.0)
+
+### 🚀 Enhancements
+
+- **database:** Implement explicit atomic single-record mutations ([#33](https://github.com/AntelopeJS/mongodb/pull/33))
+
+### 🏡 Chore
+
+- Replace Biome with oxlint, oxfmt and Knip ([#32](https://github.com/AntelopeJS/mongodb/pull/32))
+
+### 🤖 CI
+
+- Standardize npm releases ([#31](https://github.com/AntelopeJS/mongodb/pull/31))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+
 ## v1.2.7
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.5...v1.2.7)
