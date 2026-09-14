@@ -21,6 +21,7 @@ const COLLECTION_OPTIONS = {
 } as const;
 
 let configuredDatabase: string | undefined;
+let atomicClient: MongoClient | undefined;
 
 export async function Connect(
   url: string,
@@ -32,9 +33,16 @@ export async function Connect(
   internal.connected = true;
   internal.SetClient(mongoClient);
   configuredDatabase = database;
+  atomicClient = new MongoClient(url, {
+    ...options,
+    retryWrites: false,
+    retryReads: false,
+  });
 }
 
 export async function Disconnect() {
+  await atomicClient?.close();
+  atomicClient = undefined;
   if (internal.connected) {
     await internal.client.then((client) => client.close());
     internal.connected = false;
@@ -57,6 +65,14 @@ export async function GetCollection(collection: string): Promise<Collection> {
   return internal.client.then((client) =>
     client.db(dbName).collection(collection),
   );
+}
+
+export function GetAtomicCollection(collection: string): Collection {
+  const dbName = GetConfiguredDatabaseName();
+  if (!atomicClient) {
+    throw new Error("MongoDB atomic mutation client is not configured");
+  }
+  return atomicClient.db(dbName).collection(collection);
 }
 
 async function GetDatabase(): Promise<Db> {
