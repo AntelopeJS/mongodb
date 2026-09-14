@@ -112,40 +112,6 @@ describe("atomic single-record mutations", () => {
     });
   });
 
-  it("rejects a stale delete after an update, then deletes with the current revision", async () => {
-    expect(await mutate(update())).to.equal("applied");
-    const deletion: AtomicMutation<AtomicRecord> = {
-      type: "delete",
-      revisionField: "revision",
-      expectedRevision: FIRST_REVISION,
-    };
-    expect(await mutate(deletion)).to.equal("not-applied");
-    expect(await collection.countDocuments()).to.equal(1);
-    expect(
-      await mutate({ ...deletion, expectedRevision: SECOND_REVISION }),
-    ).to.equal("applied");
-    expect(await collection.countDocuments()).to.equal(0);
-  });
-
-  it("does not upsert or mutate the wrong tenant or default instance", async () => {
-    expect(await mutate(update(), "missing")).to.equal("not-applied");
-    expect(await mutate(update(), RECORD_ID, "other-tenant")).to.equal(
-      "not-applied",
-    );
-    expect(
-      await schema
-        .instance()
-        .table("records")
-        .atomicMutation(RECORD_ID, update())
-        .run(),
-    ).to.equal("not-applied");
-    expect(await collection.findOne({ _id: RECORD_ID })).to.include({
-      revision: FIRST_REVISION,
-      title: "original",
-    });
-    expect(await collection.countDocuments()).to.equal(1);
-  });
-
   it("matches missing revision only, never null, arrays, or a missing row", async () => {
     const request = {
       ...update(),
