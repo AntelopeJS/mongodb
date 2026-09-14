@@ -82,9 +82,9 @@ Acknowledged matches return `applied`; acknowledged misses return `not-applied`,
 
 All instances of a schema/table share a collection. MongoDB's existing `_id` unique index therefore applies across those instances, not separately within each tenant. A normal insert without a conflict mode throws a duplicate-key error instead of overwriting an existing record, including when another instance owns that identity. Use globally unique record identities within each schema/table. This change does not migrate identities or alter indexes.
 
-### Unpublished interface prerequisite
+### Interface prerequisite
 
-This implementation requires [interface-database PR #15](https://github.com/AntelopeJS/interface-database/pull/15). Published `0.1.4` does not provide this capability. The dependency manifest remains unchanged until an actual interface release exists; this branch is not release-ready. Local verification uses the interface owner's packed source artifact explicitly, without committed file dependencies or a fabricated published version.
+This implementation requires `@antelopejs/interface-database` version `0.1.5` or later within the supported range. Version `0.1.5` provides the atomic mutation contract introduced in [interface-database PR #15](https://github.com/AntelopeJS/interface-database/pull/15). Earlier versions do not provide this capability.
 
 ## License
 
