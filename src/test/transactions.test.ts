@@ -1,5 +1,12 @@
+import sinon from "sinon";
 import { expect } from "chai";
+import {
+  MongoServerError,
+  type ClientSession,
+  type MongoClient,
+} from "mongodb";
 
+import * as connection from "../connection";
 import { GetCollection } from "../connection";
 import {
   GetTransactionOptions,
@@ -136,5 +143,41 @@ describe("transactions", () => {
       `timed out after ${TRANSACTION_TIMEOUT_MS}ms`,
     );
     expect(Date.now() - startedAt).to.be.at.least(TRANSACTION_TIMEOUT_MS);
+  });
+
+  it("retries uncertain commit acknowledgement without replaying the callback", async () => {
+    const uncertain = new MongoServerError({
+      errmsg: "commit acknowledgement uncertain",
+      errorLabels: ["UnknownTransactionCommitResult"],
+    });
+    const commitTransaction = sinon.stub().rejects(uncertain);
+    const session = {
+      abortTransaction: sinon.stub().resolves(),
+      commitTransaction,
+      endSession: sinon.stub().resolves(),
+      inTransaction: sinon.stub().returns(false),
+      startTransaction: sinon.stub(),
+    } as unknown as ClientSession;
+    const client = {
+      db: sinon
+        .stub()
+        .returns({ command: sinon.stub().resolves({ setName: "rs" }) }),
+      startSession: sinon.stub().returns(session),
+    } as unknown as MongoClient;
+    const getClient = sinon.stub(connection, "GetClient").resolves(client);
+    let callbackCalls = 0;
+
+    try {
+      await expectRejection(
+        RunInTransaction(async () => {
+          callbackCalls += 1;
+        }),
+        "commit acknowledgement uncertain",
+      );
+      expect(callbackCalls).to.equal(1);
+      expect(commitTransaction.callCount).to.equal(3);
+    } finally {
+      getClient.restore();
+    }
   });
 });
