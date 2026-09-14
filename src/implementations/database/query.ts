@@ -2,6 +2,7 @@ import assert from "node:assert";
 
 import type { QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
+import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 
@@ -32,6 +33,9 @@ function tryHandleLifecycle(
 }
 
 export async function RunQuery(stages: QueryStage[]) {
+  if (stages.some((stage) => stage.stage === "atomicMutation")) {
+    return RunAtomicMutation(stages);
+  }
   const lifecycle = tryHandleLifecycle(stages);
   if (lifecycle) {
     return await lifecycle;
@@ -42,6 +46,10 @@ export async function RunQuery(stages: QueryStage[]) {
 
 const openQueries: Record<number, AggregationPipeline> = {};
 export async function ReadCursor(reqId: number, stages: QueryStage[]) {
+  assert(
+    !stages.some((stage) => stage.stage === "atomicMutation"),
+    "atomicMutation cannot be read as a cursor",
+  );
   if (!(reqId in openQueries)) {
     const query = await SelectionQuery.decode(stages);
     openQueries[reqId] = query;

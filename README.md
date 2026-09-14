@@ -68,6 +68,24 @@ The module uses the official MongoDB Node.js driver to establish connections to 
   - `uuid` (default): Uses UUID v4 for generating unique identifiers
   - `objectid`: Uses MongoDB's native ObjectId for document identifiers
 
+## Atomic single-record mutations
+
+`Table.atomicMutation(id, request)` implements the shared database interface contract with native `updateOne` and `deleteOne` commands. Each command matches one schema, table, instance, record identity, and condition. It never upserts. `CROSS_INSTANCE`, selections, and query-expression inputs are not supported.
+
+Revision updates replace the supplied top-level fields, including whole nested objects, and install a required new revision in the same command. Patch values are literal data, not MongoDB expressions. Patches cannot change `id`, `_id`, `_instance`, or the revision field. Callers must use fresh revision tokens and must not reuse a deleted record's identity for a different incarnation.
+
+A string revision matches exactly. `{ kind: "missing" }` matches only an existing record with an absent revision field; stored `null` does not match. `deleteIfEqual` deletes only when one field equals the supplied string, finite number, boolean, or valid `Date`. It rejects arrays and missing fields as matches and does not provide revision-based protection against a value changing away and back.
+
+Acknowledged matches return `applied`; acknowledged misses return `not-applied`, including a wrong instance or missing record. An unacknowledged result or uncertain driver error returns `unknown`, which must not be interpreted as failure to write or automatically retried. Input validation errors throw before dispatch; known server validation failures also throw. The adapter uses a separate lazy MongoDB client with `retryWrites` and `retryReads` disabled, preserving the existing client's retry configuration. The additional client uses the configured connection and pool options and closes when the adapter disconnects.
+
+### Identity uniqueness spans instances
+
+All instances of a schema/table share a collection. MongoDB's existing `_id` unique index therefore applies across those instances, not separately within each tenant. A normal insert without a conflict mode throws a duplicate-key error instead of overwriting an existing record, including when another instance owns that identity. Use globally unique record identities within each schema/table. This change does not migrate identities or alter indexes.
+
+### Interface prerequisite
+
+This implementation requires `@antelopejs/interface-database` version `0.1.6` or later within the supported range. It includes the atomic mutation API and shared real-backend conformance tests, automatically discovered by `ajs module test`. Backend-specific command, storage, and fault tests remain in this provider.
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
