@@ -1,5 +1,3 @@
-![MongoDB](.github/social-card.png)
-
 # @antelopejs/mongodb
 
 <div align="center">
