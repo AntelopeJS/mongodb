@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.3.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.3.0...v1.3.1)
+
+### 🩹 Fixes
+
+- **connection:** Tolerate concurrent bookkeeping collection creation ([#41](https://github.com/AntelopeJS/mongodb/pull/41))
+- **schema:** Keep registration and retry when schema initialization fails ([#42](https://github.com/AntelopeJS/mongodb/pull/42))
+
+### 📖 Documentation
+
+- **readme:** Remove social card image ([#37](https://github.com/AntelopeJS/mongodb/pull/37))
+
+### 🏡 Chore
+
+- Align community files with the organization defaults ([#36](https://github.com/AntelopeJS/mongodb/pull/36))
+- Remove .git-blame-ignore-revs ([#38](https://github.com/AntelopeJS/mongodb/pull/38))
+
+### 🤖 CI
+
+- Use shared npm release workflow ([#35](https://github.com/AntelopeJS/mongodb/pull/35))
+- **release:** Release next from a dedicated branch and restore requireCommits ([#39](https://github.com/AntelopeJS/mongodb/pull/39))
+- **release:** Reference the shared release workflows through v1 ([#40](https://github.com/AntelopeJS/mongodb/pull/40))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.3.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.2.7...v1.3.0)
