@@ -180,7 +180,11 @@ export async function EnsureBookkeepingCollection() {
     (await db.listCollections().toArray()).map((c) => c.name),
   );
   if (!existing.has(BOOKKEEPING_COLLECTION)) {
-    await db.createCollection(BOOKKEEPING_COLLECTION);
+    try {
+      await db.createCollection(BOOKKEEPING_COLLECTION);
+    } catch (err) {
+      if (!isNamespaceExistsError(err)) throw err;
+    }
   }
   const collection = db.collection(BOOKKEEPING_COLLECTION);
   const indexes = await collection.indexes();
