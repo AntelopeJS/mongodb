@@ -37,27 +37,8 @@ export function stop(): void {
   PreventSchemaInitializations();
 }
 
-async function collectDisconnectErrors(): Promise<unknown[]> {
-  try {
-    await Disconnect();
-    return [];
-  } catch (error) {
-    return [error];
-  }
-}
-
-function throwDestroyErrors(errors: unknown[]): void {
-  if (errors.length === 1) {
-    throw errors[0];
-  }
-  if (errors.length > 1) {
-    throw new AggregateError(errors, "Failed to destroy MongoDB module");
-  }
-}
-
 export async function destroy() {
   PreventSchemaInitializations();
-  const initializationErrors = await DrainSchemaInitializations();
-  const disconnectErrors = await collectDisconnectErrors();
-  throwDestroyErrors([...initializationErrors, ...disconnectErrors]);
+  await DrainSchemaInitializations();
+  await Disconnect();
 }
