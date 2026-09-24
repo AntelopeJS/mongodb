@@ -25,7 +25,6 @@ jobs:
         run: |
           echo "$PR_TITLE" | grep -Eq '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?!?: .+'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm add --global @antelopejs/core
       - run: pnpm prepack
       - run: pnpm lint
       - run: pnpm format:check
