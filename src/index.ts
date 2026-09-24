@@ -19,11 +19,11 @@ export async function construct(options: Options) {
   await EnsureBookkeepingCollection();
   AllowSchemaInitializations();
 
-  await ImplementInterface(
+  ImplementInterface(
     await import("@antelopejs/interface-database/query"),
     await import("./implementations/database/query"),
   );
-  await ImplementInterface(
+  ImplementInterface(
     await import("@antelopejs/interface-database/schema"),
     await import("./implementations/database/schema"),
   );
