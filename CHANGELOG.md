@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.3.1...v1.4.0)
+
+### 🚀 Enhancements
+
+- **indexes:** Lead secondary indexes with _instance and honor crossInstance ([#44](https://github.com/AntelopeJS/mongodb/pull/44))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.3.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.3.0...v1.3.1)
