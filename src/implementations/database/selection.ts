@@ -7,6 +7,7 @@ import { GetCollection } from "../../connection";
 // oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
 import { DecodeFunction, DecodeValue } from "./expression";
+import { ResolveIndexFields, ResolveSingleIndexField } from "./indexes";
 import {
   collectionName,
   DecodingContext,
@@ -17,6 +18,24 @@ import {
 type InstanceContext =
   | { kind: "scoped"; instanceId: string | null }
   | { kind: "cross" };
+
+const SINGLE_FIELD = 1;
+const SINGLE_KEY = 1;
+const NO_KEYS_FILTER = { _id: { $in: [] } };
+
+type StageArgument = QueryStage["args"][number];
+
+function toKeyTuple(
+  indexId: string | undefined,
+  fields: string[],
+  key: unknown,
+): unknown[] {
+  assert(
+    Array.isArray(key) && key.length === fields.length,
+    `Index "${indexId}" takes keys of ${fields.length} values ([${fields.join(", ")}])`,
+  );
+  return key;
+}
 
 function resolveInstanceContext(instanceId: unknown): InstanceContext {
   if (instanceId === CROSS_INSTANCE) {
@@ -293,39 +312,76 @@ export class SelectionQuery extends AggregationPipeline {
   protected async stage_getAll(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
-    const index = stage.options?.index ?? "_id";
+    const indexId = stage.options?.index;
+    this.warnOnCrossInstanceIndex(indexId);
+    const fields = ResolveIndexFields(this.schemaId, this.tableName, indexId);
     const rawValue = stage.args[0];
+    if (fields.length > SINGLE_FIELD) {
+      const rawKeys: StageArgument[] = Array.isArray(rawValue)
+        ? rawValue
+        : [rawValue];
+      const keys = await Promise.all(
+        rawKeys.map((key) => DecodeValue(key, this.context)),
+      );
+      this.pipeline.push({
+        $match: this.compoundKeysFilter(indexId, fields, keys),
+      });
+      return;
+    }
+    this.pipeline.push({
+      $match: await this.singleFieldKeysFilter(fields[0], rawValue),
+    });
+  }
+
+  private async singleFieldKeysFilter(field: string, rawValue: StageArgument) {
     if (Array.isArray(rawValue)) {
       const values = await Promise.all(
         rawValue.map((v) => DecodeValue(v, this.context)),
       );
       if (values.some((v) => this.hasExpression(v))) {
-        this.pipeline.push({
-          $match: { $expr: { $in: [`$${index}`, values] } },
-        });
-      } else {
-        this.pipeline.push({
-          $match: { [index]: { $in: values } },
-        });
+        return { $expr: { $in: [`$${field}`, values] } };
       }
-    } else {
-      const value = await DecodeValue(rawValue, this.context);
-      if (this.hasExpression(value)) {
-        this.pipeline.push({
-          $match: { $expr: { $eq: [`$${index}`, value] } },
-        });
-      } else {
-        this.pipeline.push({
-          $match: { [index]: value },
-        });
-      }
+      return { [field]: { $in: values } };
     }
+    const value = await DecodeValue(rawValue, this.context);
+    if (this.hasExpression(value)) {
+      return { $expr: { $eq: [`$${field}`, value] } };
+    }
+    return { [field]: value };
+  }
+
+  private compoundKeysFilter(
+    indexId: string | undefined,
+    fields: string[],
+    keys: unknown[],
+  ) {
+    const tuples = keys.map((key) => toKeyTuple(indexId, fields, key));
+    if (tuples.length === 0) {
+      return NO_KEYS_FILTER;
+    }
+    if (tuples.some((tuple) => this.hasExpression(tuple))) {
+      const conditions = tuples.map((tuple) => ({
+        $and: fields.map((field, i) => ({ $eq: [`$${field}`, tuple[i]] })),
+      }));
+      return { $expr: { $or: conditions } };
+    }
+    const documents = tuples.map((tuple) =>
+      Object.fromEntries(fields.map((field, i) => [field, tuple[i]])),
+    );
+    return documents.length === SINGLE_KEY ? documents[0] : { $or: documents };
   }
 
   protected stage_between(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
-    const indexVar = `$${stage.options?.index ?? "_id"}`;
+    const indexId = stage.options?.index;
+    this.warnOnCrossInstanceIndex(indexId);
+    const field = ResolveSingleIndexField(
+      this.schemaId,
+      this.tableName,
+      indexId,
+    );
+    const indexVar = `$${field}`;
     const low = stage.args[0];
     const high = stage.args[1];
     this.pipeline.push({
@@ -333,6 +389,10 @@ export class SelectionQuery extends AggregationPipeline {
         $expr: { $and: [{ $gte: [indexVar, low] }, { $lt: [indexVar, high] }] },
       },
     });
+  }
+
+  protected override isCrossInstance(): boolean {
+    return this.instance.kind === "cross";
   }
 
   protected async stage_insert(stage: QueryStage) {
