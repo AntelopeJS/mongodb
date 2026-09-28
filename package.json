@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.1.1 <1.0.0",
-    "@antelopejs/interface-database": "^0.1.7",
+    "@antelopejs/interface-database": "^0.1.8",
     "@antelopejs/interface-mongodb": ">=0.0.5 <1.0.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
