@@ -11,11 +11,14 @@ import {
   BOOKKEEPING_COLLECTION,
   collectionName,
   INSTANCE_FIELD,
+  instanceIndexName,
 } from "./implementations/database/utils";
 
 const INSTANCE_INDEX = "_instance";
 const BOOKKEEPING_INDEX = "schemaId_instanceId";
 const NAMESPACE_EXISTS_CODE = 48;
+const INDEX_NOT_FOUND_CODE = 27;
+const INDEX_OPTIONS_CONFLICT_CODE = 85;
 const COLLECTION_OPTIONS = {
   changeStreamPreAndPostImages: { enabled: true },
 } as const;
@@ -82,6 +85,7 @@ async function GetDatabase(): Promise<Db> {
 
 interface IndexDefinition {
   fields?: string[];
+  crossInstance?: boolean;
 }
 
 export interface TableDefinition {
@@ -92,8 +96,24 @@ export interface SchemaDefinition {
   [tableName: string]: TableDefinition;
 }
 
+interface PhysicalIndex {
+  name: string;
+  fields: string[];
+}
+
+type ExistingIndex = Awaited<ReturnType<Collection["indexes"]>>[number];
+
+interface ExistingIndexes {
+  byName: Record<string, ExistingIndex>;
+  byFields: Record<string, ExistingIndex>;
+}
+
+function isServerError(err: unknown, code: number): boolean {
+  return err instanceof MongoServerError && err.code === code;
+}
+
 function isNamespaceExistsError(err: unknown): boolean {
-  return err instanceof MongoServerError && err.code === NAMESPACE_EXISTS_CODE;
+  return isServerError(err, NAMESPACE_EXISTS_CODE);
 }
 
 async function ensureCollection(
@@ -112,40 +132,103 @@ async function ensureCollection(
   }
 }
 
+function physicalIndexes(
+  indexId: string,
+  index: IndexDefinition,
+): PhysicalIndex[] {
+  const fields = index.fields ?? [indexId];
+  const instancePrefixed = {
+    name: instanceIndexName(indexId),
+    fields: [INSTANCE_FIELD, ...fields],
+  };
+  if (!index.crossInstance) {
+    return [instancePrefixed];
+  }
+  return [instancePrefixed, { name: indexId, fields }];
+}
+
+function fieldsKey(fields: string[]): string {
+  return fields.join(",");
+}
+
+async function listExistingIndexes(
+  collection: Collection,
+): Promise<ExistingIndexes> {
+  const existingIndexes = await collection.indexes();
+  return {
+    byName: Object.fromEntries(
+      existingIndexes.map((index) => [index.name, index]),
+    ),
+    byFields: Object.fromEntries(
+      existingIndexes.map((index) => [
+        fieldsKey(Object.keys(index.key)),
+        index,
+      ]),
+    ),
+  };
+}
+
+async function dropIndexIfPresent(collection: Collection, name: string) {
+  try {
+    await collection.dropIndex(name);
+  } catch (err) {
+    if (!isServerError(err, INDEX_NOT_FOUND_CODE)) throw err;
+  }
+}
+
+async function createIndexIfAbsent(
+  collection: Collection,
+  wanted: PhysicalIndex,
+) {
+  try {
+    await collection.createIndex(wanted.fields, { name: wanted.name });
+  } catch (err) {
+    // Error 85 means an index on the same keys already exists under another name (concurrent
+    // initialization, or another declared index with these fields): it serves the same queries.
+    if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
+  }
+}
+
+async function ensurePhysicalIndex(
+  collection: Collection,
+  wanted: PhysicalIndex,
+  existing: ExistingIndexes,
+) {
+  const existingByName = existing.byName[wanted.name];
+  if (existingByName) {
+    if (
+      fieldsKey(Object.keys(existingByName.key)) === fieldsKey(wanted.fields)
+    ) {
+      return;
+    }
+    await dropIndexIfPresent(collection, wanted.name);
+  } else if (existing.byFields[fieldsKey(wanted.fields)]) {
+    return;
+  }
+  await createIndexIfAbsent(collection, wanted);
+}
+
 async function syncSecondaryIndexes(
   collection: Collection,
   table: TableDefinition,
 ) {
-  const existingIndexes = await collection.indexes();
-  const indexesByName = Object.fromEntries(
-    existingIndexes.map((index) => [index.name, index]),
+  const existing = await listExistingIndexes(collection);
+  const wantedIndexes = Object.entries(table.indexes).flatMap(
+    ([indexId, index]) => physicalIndexes(indexId, index),
   );
-  const indexesByFields = Object.fromEntries(
-    existingIndexes.map((index) => [Object.keys(index.key).join(","), index]),
-  );
-  for (const [indexId, index] of Object.entries(table.indexes)) {
-    const fields = index.fields ?? [indexId];
-    const fieldsKey = fields.join(",");
-    const existingByName = indexesByName[indexId];
-    const existingByFields = indexesByFields[fieldsKey];
-
-    if (existingByName) {
-      const existingKeys = Object.keys(existingByName.key);
-      const nameFieldsMatch =
-        existingKeys.length === fields.length &&
-        fields.every((field, i) => existingKeys[i] === field);
-      if (nameFieldsMatch) {
-        continue;
-      }
-      await collection.dropIndex(indexId);
-    } else if (existingByFields) {
-      continue;
-    }
-    await collection.createIndex(fields, { name: indexId });
+  for (const wanted of wantedIndexes) {
+    await ensurePhysicalIndex(collection, wanted, existing);
   }
 }
 
-async function ensureInstanceIndex(collection: Collection) {
+async function ensureInstanceIndex(
+  collection: Collection,
+  table: TableDefinition,
+) {
+  const hasDeclaredIndexes = Object.keys(table.indexes).length > 0;
+  if (hasDeclaredIndexes) {
+    return;
+  }
   const existingIndexes = await collection.indexes();
   const hasInstanceIndex = existingIndexes.some(
     (index) =>
@@ -170,7 +253,7 @@ export async function InitializeSchema(
     await ensureCollection(db, mongoCollection, existingCollections);
     const collection = db.collection(mongoCollection);
     await syncSecondaryIndexes(collection, table);
-    await ensureInstanceIndex(collection);
+    await ensureInstanceIndex(collection, table);
   }
 }
 

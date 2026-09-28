@@ -4,6 +4,12 @@ import type { Stream } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
+import {
+  type ResolvedIndex,
+  ResolveIndex,
+  SingleIndexField,
+  WarnIfNotCrossInstance,
+} from "./indexes";
 // SelectionQuery extends AggregationPipeline and is also the entry point that decodes a full
 // schema/instance/table stream, so the base class has to reach the subclass to decode the
 // right-hand side of union, join and lookup. Breaking this would mean a runtime-registered
@@ -135,7 +141,13 @@ export class AggregationPipeline {
         const matchField =
           getStage!.stage === "get"
             ? "_id"
-            : (getStage!.options?.index ?? "_id");
+            : SingleIndexField(
+                ResolveIndex(
+                  rightStream.schemaId,
+                  rightStream.tableName,
+                  getStage!.options?.index,
+                ),
+              );
         const arrVar = Temporary("arr");
         this.pipeline.push({
           $lookup: {
@@ -282,6 +294,18 @@ export class AggregationPipeline {
       this.wrappedObject = "_wrapped";
     }
     return this.wrappedObject;
+  }
+
+  protected isCrossInstance(): boolean {
+    return false;
+  }
+
+  protected resolveQueriedIndex(indexId: string | undefined): ResolvedIndex {
+    const index = ResolveIndex(this.schemaId, this.tableName, indexId);
+    if (this.isCrossInstance()) {
+      WarnIfNotCrossInstance(index);
+    }
+    return index;
   }
 
   protected stage_changes() {
@@ -622,10 +646,9 @@ export class AggregationPipeline {
 
   protected stage_orderBy(stage: QueryStage) {
     assert(!this.isChangeStream, "OrderBy not supported in change streams");
-    const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
+    const index = this.resolveQueriedIndex(stage.options.index);
     const direction = stage.options.direction === "desc" ? -1 : 1;
-    const indexFields = index.fields ?? [stage.options.index];
-    const fields = indexFields.map((field) => [
+    const fields = index.fields.map((field) => [
       this.getField(field),
       direction,
     ]);
