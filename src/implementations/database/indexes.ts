@@ -1,12 +1,21 @@
 import assert from "node:assert";
 import { Logging } from "@antelopejs/interface-core/logging";
+import type { IndexDefinition } from "@antelopejs/interface-database/schema";
 
-import { GetIndex, GetTable } from "./schema";
+import { FindIndex } from "./schema";
 
 const PRIMARY_KEY = "_id";
 const SINGLE_FIELD = 1;
 
-const warnedIndexes = new Set<string>();
+const warnedIndexes = new WeakSet<IndexDefinition>();
+
+export interface ResolvedIndex {
+  schemaId: string;
+  tableName: string;
+  indexId: string | undefined;
+  fields: string[];
+  definition?: IndexDefinition;
+}
 
 function isPrimaryKey(
   indexId: string | undefined,
@@ -14,48 +23,37 @@ function isPrimaryKey(
   return indexId === undefined || indexId === PRIMARY_KEY;
 }
 
-export function ResolveIndexFields(
+export function ResolveIndex(
   schemaId: string,
   tableName: string,
   indexId: string | undefined,
-): string[] {
+): ResolvedIndex {
   if (isPrimaryKey(indexId)) {
-    return [PRIMARY_KEY];
+    return { schemaId, tableName, indexId, fields: [PRIMARY_KEY] };
   }
-  return GetIndex(schemaId, tableName, indexId).fields ?? [indexId];
+  const definition = FindIndex(schemaId, tableName, indexId);
+  const fields = definition?.fields ?? [indexId];
+  return { schemaId, tableName, indexId, fields, definition };
 }
 
-export function ResolveSingleIndexField(
-  schemaId: string,
-  tableName: string,
-  indexId: string | undefined,
-): string {
-  const fields = ResolveIndexFields(schemaId, tableName, indexId);
+export function SingleIndexField(index: ResolvedIndex): string {
   assert(
-    fields.length === SINGLE_FIELD,
-    `Index "${indexId}" spans ${fields.length} fields, but this operation needs a single-field index`,
+    index.fields.length === SINGLE_FIELD,
+    `Index "${index.indexId}" spans ${index.fields.length} fields, but this operation needs a single-field index`,
   );
-  return fields[0];
+  return index.fields[0];
 }
 
-export function WarnIfNotCrossInstance(
-  schemaId: string,
-  tableName: string,
-  indexId: string | undefined,
-) {
-  if (isPrimaryKey(indexId)) {
+export function WarnIfNotCrossInstance(index: ResolvedIndex) {
+  const { definition } = index;
+  if (!definition || definition.crossInstance) {
     return;
   }
-  const index = GetTable(schemaId, tableName).indexes[indexId];
-  if (!index || index.crossInstance) {
+  if (warnedIndexes.has(definition)) {
     return;
   }
-  const warningKey = JSON.stringify([schemaId, tableName, indexId]);
-  if (warnedIndexes.has(warningKey)) {
-    return;
-  }
-  warnedIndexes.add(warningKey);
+  warnedIndexes.add(definition);
   Logging.Warn(
-    `Cross-instance query on "${schemaId}.${tableName}" uses index "${indexId}", which is not declared crossInstance: it may be slow. Set crossInstance: true on this index to keep cross-instance queries fast.`,
+    `Cross-instance query on "${index.schemaId}.${index.tableName}" uses index "${index.indexId}", which is not declared crossInstance: it may be slow. Set crossInstance: true on this index to keep cross-instance queries fast.`,
   );
 }

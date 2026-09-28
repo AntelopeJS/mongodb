@@ -1,5 +1,8 @@
 import assert from "node:assert";
-import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
+import type {
+  IndexDefinition,
+  SchemaDefinition,
+} from "@antelopejs/interface-database/schema";
 
 import { InitializeSchema } from "../../connection";
 import {
@@ -38,6 +41,14 @@ export function GetTable(schemaId: string, tableId: string) {
 
 export function GetTableNames(schemaId: string): string[] {
   return Object.keys(GetSchema(schemaId));
+}
+
+export function FindIndex(
+  schemaId: string,
+  tableId: string,
+  indexId: string,
+): IndexDefinition | undefined {
+  return existingSchemas.get(schemaId)?.[tableId]?.indexes[indexId];
 }
 
 export function GetIndex(

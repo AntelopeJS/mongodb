@@ -183,6 +183,8 @@ async function createIndexIfAbsent(
   try {
     await collection.createIndex(wanted.fields, { name: wanted.name });
   } catch (err) {
+    // Error 85 means an index on the same keys already exists under another name (concurrent
+    // initialization, or another declared index with these fields): it serves the same queries.
     if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
   }
 }
@@ -219,7 +221,14 @@ async function syncSecondaryIndexes(
   }
 }
 
-async function ensureInstanceIndex(collection: Collection) {
+async function ensureInstanceIndex(
+  collection: Collection,
+  table: TableDefinition,
+) {
+  const hasDeclaredIndexes = Object.keys(table.indexes).length > 0;
+  if (hasDeclaredIndexes) {
+    return;
+  }
   const existingIndexes = await collection.indexes();
   const hasInstanceIndex = existingIndexes.some(
     (index) =>
@@ -244,7 +253,7 @@ export async function InitializeSchema(
     await ensureCollection(db, mongoCollection, existingCollections);
     const collection = db.collection(mongoCollection);
     await syncSecondaryIndexes(collection, table);
-    await ensureInstanceIndex(collection);
+    await ensureInstanceIndex(collection, table);
   }
 }
 
