@@ -22,12 +22,12 @@ This module implements two key interfaces:
 - **MongoDB Interface**: Provides direct MongoDB operations and connection management
 - **Database Interface**: Offers a standardized database abstraction layer
 
-Both interfaces can be used independently or together depending on your application's needs. The interfaces are installed separately to maintain modularity and minimize dependencies.
+Both interfaces can be used independently or together depending on your application's needs. The interfaces are installed separately to maintain modularity and minimize dependencies: a module that uses one adds its interface package as a dependency and imports from it.
 
-| Name     | Install command                   |                                                                   |
-| -------- | --------------------------------- | ----------------------------------------------------------------- |
-| MongoDB  | `ajs module imports add mongodb`  | [Documentation](https://github.com/AntelopeJS/interface-mongodb)  |
-| Database | `ajs module imports add database` | [Documentation](https://github.com/AntelopeJS/interface-database) |
+| Name     | Install command                           |                                                                   |
+| -------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| MongoDB  | `pnpm add @antelopejs/interface-mongodb`  | [Documentation](https://github.com/AntelopeJS/interface-mongodb)  |
+| Database | `pnpm add @antelopejs/interface-database` | [Documentation](https://github.com/AntelopeJS/interface-database) |
 
 ## Overview
 
