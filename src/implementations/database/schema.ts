@@ -14,8 +14,8 @@ const existingSchemas = new Map<string, SchemaDefinition>();
 
 export const Schemas = {
   register(schemaId: string, schema: SchemaDefinition) {
-    const didStart = StartSchemaInitialization(schemaId, () =>
-      InitializeSchema(schemaId, schema),
+    const didStart = StartSchemaInitialization(schemaId, (signal) =>
+      InitializeSchema(schemaId, schema, signal),
     );
     if (didStart) {
       existingSchemas.set(schemaId, schema);

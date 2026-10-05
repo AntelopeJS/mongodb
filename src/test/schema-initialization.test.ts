@@ -1,9 +1,6 @@
 import sinon from "sinon";
 import { expect } from "chai";
-import timers from "node:timers";
 import { Logging } from "@antelopejs/interface-core/logging";
-import type { CommandStartedEvent, MongoClient } from "mongodb";
-import { internal as mongoInternal } from "@antelopejs/interface-mongodb";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 import { internal as coreInternal } from "@antelopejs/interface-core/internal";
 
@@ -11,58 +8,18 @@ import * as connection from "../connection";
 import { destroy, start, stop } from "../index";
 import { AllowSchemaInitializations } from "../schema-initialization";
 import { GetSchema, Schemas } from "../implementations/database/schema";
+import {
+  createDeferred,
+  schema,
+  useFakeGlobalTimeouts,
+  waitForNextTurn,
+} from "./schema-initialization-helpers";
 
-interface Deferred<Value> {
-  promise: Promise<Value>;
-  resolve: (value: Value) => void;
-  reject: (error: unknown) => void;
-}
-
-const schema: SchemaDefinition = {
-  records: {
-    fields: { externalId: "string" },
-    indexes: { externalId: { fields: ["externalId"] } },
-  },
-};
-const REAL_SCHEMA_ID = "schema-drain-integration";
 const ONE_MINUTE_MS = 60_000;
 const networkFailure = new Error("network lost");
 
-function createDeferred<Value>(): Deferred<Value> {
-  let resolve!: (value: Value) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
-}
-
-function useFakeGlobalTimeouts(): sinon.SinonFakeTimers {
-  const driverTimers = {
-    setTimeout: timers.setTimeout,
-    clearTimeout: timers.clearTimeout,
-  };
-  const clock = sinon.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  Object.assign(timers, driverTimers);
-  return clock;
-}
-
 function retryWarning(attempt: number, delay: number): string {
   return `Schema "first" initialization attempt ${attempt} failed: network lost. Retrying in ${delay}ms`;
-}
-
-function waitForNextTurn(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
-
-function getConnectionUrl(client: MongoClient): string {
-  const hosts = client.options.hosts.join(",");
-  const replicaSet = client.options.replicaSet;
-  const query = replicaSet
-    ? `?replicaSet=${encodeURIComponent(replicaSet)}`
-    : "";
-  return `mongodb://${hosts}/${query}`;
 }
 
 describe("schema initialization lifecycle", () => {
@@ -80,7 +37,6 @@ describe("schema initialization lifecycle", () => {
     Schemas.unregister("first");
     Schemas.unregister("second");
     Schemas.unregister("late");
-    Schemas.unregister(REAL_SCHEMA_ID);
   });
 
   it("drains every started schema initialization before disconnecting", async () => {
@@ -373,7 +329,10 @@ describe("schema initialization lifecycle", () => {
     await waitForNextTurn();
 
     expect(clock.countTimers()).to.equal(0);
-    expect(initialize.secondCall.args).to.deep.equal(["first", newerSchema]);
+    expect(initialize.secondCall.args.slice(0, 2)).to.deep.equal([
+      "first",
+      newerSchema,
+    ]);
     await clock.tickAsync(ONE_MINUTE_MS);
     expect(initialize.callCount).to.equal(2);
     expect(GetSchema("first")).to.equal(newerSchema);
@@ -393,42 +352,5 @@ describe("schema initialization lifecycle", () => {
     await clock.tickAsync(ONE_MINUTE_MS);
     expect(initialize.callCount).to.equal(1);
     expect(() => GetSchema("first")).to.throw();
-  });
-
-  it("drains real index creation without runtime or unhandled errors", async () => {
-    const client = await mongoInternal.client;
-    const url = getConnectionUrl(client);
-    const database = connection.GetConfiguredDatabaseName();
-    const startedCommands: string[] = [];
-    const runtimeErrors: unknown[] = [];
-    const unhandledErrors: unknown[] = [];
-    const previousReporter = coreInternal.runtimeErrorReporter;
-    const onCommand = (event: CommandStartedEvent) => {
-      startedCommands.push(event.commandName);
-    };
-    const onUnhandled = (error: unknown) => unhandledErrors.push(error);
-    coreInternal.runtimeErrorReporter = (error) => runtimeErrors.push(error);
-    client.on("commandStarted", onCommand);
-    process.on("unhandledRejection", onUnhandled);
-
-    try {
-      Schemas.register(REAL_SCHEMA_ID, schema);
-      stop();
-      await destroy();
-      await waitForNextTurn();
-
-      expect(startedCommands).to.include("createIndexes");
-      expect(mongoInternal.connected).to.equal(false);
-      expect(runtimeErrors).to.deep.equal([]);
-      expect(unhandledErrors).to.deep.equal([]);
-    } finally {
-      client.off("commandStarted", onCommand);
-      process.off("unhandledRejection", onUnhandled);
-      coreInternal.runtimeErrorReporter = previousReporter;
-      if (!mongoInternal.connected) {
-        await connection.Connect(url, database, { monitorCommands: true });
-        AllowSchemaInitializations();
-      }
-    }
   });
 });
