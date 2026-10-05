@@ -122,6 +122,8 @@ A query on a schema whose definition this process does not hold (for example a s
 
 Indexes are created online with `createIndex` when a schema is registered. Several processes may register the same schema at once: an index that another process already created, or is creating, does not fail the initialization. A failed build is retried with the schema initialization.
 
+Schema initialization runs in the background and does not delay a stop. Stopping the module interrupts it between two MongoDB operations: the operation in flight gets up to 2 seconds to finish before the connection closes, and the next start creates the collections and indexes that are still missing.
+
 ### Upgrading from earlier versions
 
 Earlier versions created each declared index as `<name>` on its fields only. After the upgrade, the module creates the new `<name>__i` indexes next to them and never drops an index. An old `<name>` index stays in place and keeps serving queries: for an index declared with `crossInstance: true` it is reused as is, and for any other index it is no longer needed. It is not detected, logged, or dropped automatically. Once the `<name>__i` indexes are built, drop the unneeded ones by hand, for example from `mongosh`:

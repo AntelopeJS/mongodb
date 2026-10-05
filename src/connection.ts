@@ -211,12 +211,14 @@ async function ensurePhysicalIndex(
 async function syncSecondaryIndexes(
   collection: Collection,
   table: TableDefinition,
+  signal?: AbortSignal,
 ) {
   const existing = await listExistingIndexes(collection);
   const wantedIndexes = Object.entries(table.indexes).flatMap(
     ([indexId, index]) => physicalIndexes(indexId, index),
   );
   for (const wanted of wantedIndexes) {
+    signal?.throwIfAborted();
     await ensurePhysicalIndex(collection, wanted, existing);
   }
 }
@@ -243,16 +245,19 @@ async function ensureInstanceIndex(
 export async function InitializeSchema(
   schemaId: string,
   schema: SchemaDefinition,
+  signal?: AbortSignal,
 ) {
   const db = await GetDatabase();
   const existingCollections = new Set(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
   for (const [tableId, table] of Object.entries(schema)) {
+    signal?.throwIfAborted();
     const mongoCollection = collectionName(schemaId, tableId);
     await ensureCollection(db, mongoCollection, existingCollections);
     const collection = db.collection(mongoCollection);
-    await syncSecondaryIndexes(collection, table);
+    await syncSecondaryIndexes(collection, table, signal);
+    signal?.throwIfAborted();
     await ensureInstanceIndex(collection, table);
   }
 }

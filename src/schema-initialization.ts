@@ -1,18 +1,19 @@
 import { Logging } from "@antelopejs/interface-core/logging";
 
-type SchemaInitialization = () => Promise<void>;
+type SchemaInitialization = (signal: AbortSignal) => Promise<void>;
 
 interface InitializationTask {
   schemaId: string;
   initialize: SchemaInitialization;
   failedAttempts: number;
-  isRunning: boolean;
+  runningAttempt?: AbortController;
   retryTimer?: NodeJS.Timeout;
 }
 
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 30_000;
 const RETRY_BACKOFF_FACTOR = 2;
+const DRAIN_GRACE_PERIOD_MS = 2_000;
 
 const incompleteTasks = new Map<string, InitializationTask>();
 const runningAttempts = new Set<Promise<void>>();
@@ -21,7 +22,7 @@ let isAcceptingInitializations = false;
 export function AllowSchemaInitializations(): void {
   isAcceptingInitializations = true;
   for (const task of incompleteTasks.values()) {
-    if (!task.isRunning && !task.retryTimer) {
+    if (!task.runningAttempt && !task.retryTimer) {
       runAttempt(task);
     }
   }
@@ -29,7 +30,7 @@ export function AllowSchemaInitializations(): void {
 
 export function PreventSchemaInitializations(): void {
   isAcceptingInitializations = false;
-  incompleteTasks.forEach(clearRetry);
+  incompleteTasks.forEach(haltTask);
 }
 
 export function StartSchemaInitialization(
@@ -44,7 +45,6 @@ export function StartSchemaInitialization(
     schemaId,
     initialize,
     failedAttempts: 0,
-    isRunning: false,
   };
   incompleteTasks.set(schemaId, task);
   runAttempt(task);
@@ -56,11 +56,28 @@ export function CancelSchemaInitialization(schemaId: string): void {
   if (!task) {
     return;
   }
-  clearRetry(task);
+  haltTask(task);
   incompleteTasks.delete(schemaId);
 }
 
 export async function DrainSchemaInitializations(): Promise<void> {
+  let graceTimer: NodeJS.Timeout | undefined;
+  const gracePeriod = new Promise<boolean>((resolve) => {
+    graceTimer = setTimeout(() => resolve(false), DRAIN_GRACE_PERIOD_MS);
+  });
+  const isDrained = await Promise.race([
+    settleRunningAttempts().then(() => true),
+    gracePeriod,
+  ]);
+  clearTimeout(graceTimer);
+  if (!isDrained) {
+    Logging.Warn(
+      `Schema initialization still running after ${DRAIN_GRACE_PERIOD_MS}ms, abandoning it until the module starts again`,
+    );
+  }
+}
+
+async function settleRunningAttempts(): Promise<void> {
   while (runningAttempts.size) {
     await Promise.all(runningAttempts);
   }
@@ -75,21 +92,27 @@ function clearRetry(task: InitializationTask): void {
   task.retryTimer = undefined;
 }
 
+function haltTask(task: InitializationTask): void {
+  clearRetry(task);
+  task.runningAttempt?.abort();
+}
+
 function runAttempt(task: InitializationTask): void {
-  task.isRunning = true;
+  const controller = new AbortController();
+  task.runningAttempt = controller;
   let attempt!: Promise<void>;
   attempt = Promise.resolve()
-    .then(task.initialize)
+    .then(() => task.initialize(controller.signal))
     .then(
       () => handleSuccess(task),
-      (error: unknown) => handleFailure(task, error),
+      (error: unknown) => handleFailure(task, error, controller.signal),
     )
     .finally(() => runningAttempts.delete(attempt));
   runningAttempts.add(attempt);
 }
 
 function handleSuccess(task: InitializationTask): void {
-  task.isRunning = false;
+  task.runningAttempt = undefined;
   if (!isCurrentTask(task)) {
     return;
   }
@@ -101,9 +124,17 @@ function handleSuccess(task: InitializationTask): void {
   }
 }
 
-function handleFailure(task: InitializationTask, error: unknown): void {
-  task.isRunning = false;
+function handleFailure(
+  task: InitializationTask,
+  error: unknown,
+  signal: AbortSignal,
+): void {
+  task.runningAttempt = undefined;
   if (!isCurrentTask(task)) {
+    return;
+  }
+  if (isInterruption(error, signal)) {
+    resumeIfAccepting(task);
     return;
   }
   task.failedAttempts++;
@@ -116,6 +147,16 @@ function handleFailure(task: InitializationTask, error: unknown): void {
   const delay = getRetryDelay(task.failedAttempts);
   Logging.Warn(`${failure}. Retrying in ${delay}ms`);
   scheduleRetry(task, delay);
+}
+
+function isInterruption(error: unknown, signal: AbortSignal): boolean {
+  return signal.aborted && error === signal.reason;
+}
+
+function resumeIfAccepting(task: InitializationTask): void {
+  if (isAcceptingInitializations) {
+    runAttempt(task);
+  }
 }
 
 function getRetryDelay(failedAttempts: number): number {
