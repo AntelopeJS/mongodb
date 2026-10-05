@@ -73,7 +73,7 @@ function buildInitialPipeline(
                   `$fullDocumentBeforeChange.${INSTANCE_FIELD}`,
                 ],
               },
-              instance.instanceId,
+              { $literal: instance.instanceId },
             ],
           },
         },

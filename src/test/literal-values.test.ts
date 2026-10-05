@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { setTimeout as delay } from "node:timers/promises";
 import { ValueProxy } from "@antelopejs/interface-database";
 import {
   Schema,
@@ -33,6 +34,10 @@ const OTHER_DOLLAR_VALUE = "$dms.y";
 const DOLLAR_TAG = "$tag";
 const PLAIN_VALUE = "plain";
 const INITIAL_COUNT = 1;
+const DOLLAR_INSTANCE = "$tenant";
+const CHANGED_ID = "record-changed";
+const WATCHER_READY_MS = 200;
+const CHANGE_TIMEOUT_MS = 1000;
 
 const definition: SchemaDefinition = {
   [TABLE]: {
@@ -277,5 +282,29 @@ describe("$-prefixed string values: expressions", () => {
       .run();
 
     expect(parts).to.deep.equal(["", "dms.x"]);
+  });
+});
+
+describe("$-prefixed string values: change feeds", () => {
+  seedRecords();
+
+  it("scopes a change feed to a $-prefixed instance id", async () => {
+    const instanceTable = schema.instance(DOLLAR_INSTANCE).table(TABLE);
+    const cursor = instanceTable.changes().cursor();
+    try {
+      const nextChange = cursor.next();
+      await delay(WATCHER_READY_MS);
+
+      await instanceTable.insert(record(CHANGED_ID, DOLLAR_VALUE)).run();
+
+      const change = await Promise.race([
+        nextChange,
+        delay(CHANGE_TIMEOUT_MS, undefined),
+      ]);
+      expect(change?.value).to.deep.include({ changeType: "added" });
+    } finally {
+      await cursor.return();
+      await instanceTable.delete().run();
+    }
   });
 });
