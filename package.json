@@ -44,7 +44,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@antelopejs/core": "^1.9.1",
+    "@antelopejs/core": "^1.13.3",
     "@antelopejs/tooling-configs": "^0.0.6",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
