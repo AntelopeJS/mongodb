@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.0...v1.4.1)
+
+### 🩹 Fixes
+
+- **schema:** Stop without waiting for the background schema initialization ([#45](https://github.com/AntelopeJS/mongodb/pull/45))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.4.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.3.1...v1.4.0)
