@@ -6,7 +6,12 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 import { GetCollection } from "../../connection";
 // oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
-import { DecodeFunction, DecodeValue } from "./expression";
+import {
+  DecodeFunction,
+  DecodeLiteralValue,
+  DecodeValue,
+  IsConstantValue,
+} from "./expression";
 import { type ResolvedIndex, SingleIndexField } from "./indexes";
 import {
   collectionName,
@@ -80,6 +85,7 @@ function buildInitialPipeline(
 
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
+  private _updateValue: unknown;
   private _conflictMode?: "update" | "replace";
   private readonly instance: InstanceContext;
   public readonly instanceId: string | typeof CROSS_INSTANCE | undefined;
@@ -209,44 +215,6 @@ export class SelectionQuery extends AggregationPipeline {
     return documents.map((doc) => doc._id);
   }
 
-  private isAggregationOperator(
-    value: unknown,
-  ): value is Record<string, unknown> {
-    return (
-      value !== null &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.getPrototypeOf(value) === Object.prototype &&
-      Object.keys(value as object).some((k) => k.startsWith("$"))
-    );
-  }
-
-  private hasExpression(value: unknown): boolean {
-    if (typeof value === "string") return value.startsWith("$");
-    if (value === null || typeof value !== "object") return false;
-    if (Array.isArray(value)) return value.some((v) => this.hasExpression(v));
-    if (Object.getPrototypeOf(value) !== Object.prototype) return false;
-    if (this.isAggregationOperator(value)) return true;
-    return Object.values(value as object).some((v) => this.hasExpression(v));
-  }
-
-  private literalizeUpdateValue(value: unknown): unknown {
-    if (!this.hasExpression(value)) return { $literal: value };
-    if (typeof value === "string") return value;
-    if (Array.isArray(value)) {
-      return value.map((v) => this.literalizeUpdateValue(v));
-    }
-    if (this.isAggregationOperator(value)) return value;
-    return {
-      $arrayToObject: [
-        Object.entries(value as object).map(([k, v]) => [
-          k,
-          this.literalizeUpdateValue(v),
-        ]),
-      ],
-    };
-  }
-
   private async update() {
     const collection = await GetCollection(this.collection);
     const res = await collection.updateMany(this.getFilter(), [
@@ -254,7 +222,7 @@ export class SelectionQuery extends AggregationPipeline {
         $replaceWith: {
           $mergeObjects: [
             "$$ROOT",
-            this.literalizeUpdateValue(this._newValue),
+            this._updateValue,
             { [INSTANCE_FIELD]: `$${INSTANCE_FIELD}` },
           ],
         },
@@ -302,16 +270,15 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
-    const value = await DecodeValue(stage.args[0], this.context);
-    if (this.hasExpression(value)) {
-      this.pipeline.push({
-        $match: { $expr: { $eq: ["$_id", value] } },
-      });
-    } else {
-      this.pipeline.push({
-        $match: { _id: value },
-      });
+    const key = stage.args[0];
+    if (IsConstantValue(key)) {
+      this.pipeline.push({ $match: { _id: key } });
+      return;
     }
+    const value = await DecodeValue(key, this.context);
+    this.pipeline.push({
+      $match: { $expr: { $eq: ["$_id", value] } },
+    });
   }
 
   protected async stage_getAll(stage: QueryStage) {
@@ -320,9 +287,16 @@ export class SelectionQuery extends AggregationPipeline {
     const index = this.resolveQueriedIndex(stage.options?.index);
     const rawValue = stage.args[0];
     if (index.fields.length > SINGLE_FIELD) {
-      const keys = await DecodeValue(rawValue, this.context);
+      const isConstant = IsConstantValue(rawValue);
+      const keys = isConstant
+        ? rawValue
+        : await DecodeValue(rawValue, this.context);
       this.pipeline.push({
-        $match: this.compoundKeysFilter(index.fields, toKeyTuples(index, keys)),
+        $match: this.compoundKeysFilter(
+          index.fields,
+          toKeyTuples(index, keys),
+          isConstant,
+        ),
       });
       return;
     }
@@ -332,27 +306,24 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async singleFieldKeysFilter(field: string, rawValue: StageArgument) {
-    if (Array.isArray(rawValue)) {
-      const values = await Promise.all(
-        rawValue.map((v) => DecodeValue(v, this.context)),
-      );
-      if (values.some((v) => this.hasExpression(v))) {
-        return { $expr: { $in: [`$${field}`, values] } };
-      }
-      return { [field]: { $in: values } };
+    const isList = Array.isArray(rawValue);
+    if (IsConstantValue(rawValue)) {
+      return { [field]: isList ? { $in: rawValue } : rawValue };
     }
     const value = await DecodeValue(rawValue, this.context);
-    if (this.hasExpression(value)) {
-      return { $expr: { $eq: [`$${field}`, value] } };
-    }
-    return { [field]: value };
+    const operator = isList ? "$in" : "$eq";
+    return { $expr: { [operator]: [`$${field}`, value] } };
   }
 
-  private compoundKeysFilter(fields: string[], tuples: unknown[][]) {
+  private compoundKeysFilter(
+    fields: string[],
+    tuples: unknown[][],
+    isConstant: boolean,
+  ) {
     if (tuples.length === 0) {
       return NO_KEYS_FILTER;
     }
-    if (tuples.some((tuple) => this.hasExpression(tuple))) {
+    if (!isConstant) {
       const conditions = tuples.map((tuple) => ({
         $and: fields.map((field, i) => ({ $eq: [`$${field}`, tuple[i]] })),
       }));
@@ -364,13 +335,13 @@ export class SelectionQuery extends AggregationPipeline {
     return documents.length === SINGLE_KEY ? documents[0] : { $or: documents };
   }
 
-  protected stage_between(stage: QueryStage) {
+  protected async stage_between(stage: QueryStage) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
     const indexVar = `$${SingleIndexField(index)}`;
-    const low = stage.args[0];
-    const high = stage.args[1];
+    const low = await DecodeValue(stage.args[0], this.context);
+    const high = await DecodeValue(stage.args[1], this.context);
     this.pipeline.push({
       $match: {
         $expr: { $and: [{ $gte: [indexVar, low] }, { $lt: [indexVar, high] }] },
@@ -393,11 +364,14 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "update";
     if (stage.args[0]?.stage === "func") {
-      this._newValue = await DecodeFunction(stage.args[0], this.context, [
-        "$$ROOT",
-      ]);
+      this._updateValue = await DecodeFunction(
+        stage.args[0],
+        this.context,
+        ["$$ROOT"],
+        DecodeLiteralValue,
+      );
     } else {
-      this._newValue = stage.args[0];
+      this._updateValue = { $literal: stage.args[0] };
     }
   }
 

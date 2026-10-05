@@ -8,6 +8,26 @@ import {
   Temporary,
 } from "./utils";
 
+const FIELD_PATH_PREFIX = "$";
+const DEFAULT_SEPARATOR = " ";
+
+type ValueDecoder = (
+  value: Value<unknown>,
+  context: DecodingContext,
+) => Promise<unknown>;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
+
+function isExpressionMarker(value: unknown): boolean {
+  return value instanceof ValueProxy || value instanceof Query;
+}
+
 /**
  * This decorator should be used on stages where this.value is used multiple times.
  */
@@ -89,15 +109,10 @@ class Expression {
   async stage_arg(num: number) {
     return this.context.args[num];
   }
-  stage_constant(constant: unknown) {
-    if (
-      constant &&
-      typeof constant === "object" &&
-      !Array.isArray(constant) &&
-      !(constant instanceof Date) &&
-      Object.getPrototypeOf(constant) === Object.prototype
-    ) {
-      return { $literal: constant };
+  stage_constant() {
+    const constant = this.currentStage!.args[0];
+    if (isPlainObject(constant)) {
+      return DecodeLiteralValue(constant, this.context);
     }
     return DecodeValue(constant, this.context);
   }
@@ -174,7 +189,8 @@ class Expression {
   stage_cmp_le = "$lte";
 
   stage_str_split() {
-    const split = { $split: [this.value, this.options?.separator ?? " "] };
+    const separator = this.options?.separator ?? DEFAULT_SEPARATOR;
+    const split = { $split: [this.value, { $literal: separator }] };
     if (this.options?.maxSplits) {
       return { $slice: [split, this.options.maxSplits] };
     }
@@ -314,22 +330,73 @@ export async function DecodeValue(
     return undefined;
   }
 
-  return typeof value === "object" && !(value instanceof Date)
-    ? { $literal: value }
-    : value;
+  return needsLiteral(value) ? { $literal: value } : value;
+}
+
+function needsLiteral(value: unknown): boolean {
+  if (typeof value === "string") {
+    return value.startsWith(FIELD_PATH_PREFIX);
+  }
+  return typeof value === "object" && !(value instanceof Date);
+}
+
+/**
+ * Tells whether a query value is plain data, i.e. holds no value proxy or
+ * subquery anywhere in its tree.
+ */
+export function IsConstantValue(value: unknown): boolean {
+  if (isExpressionMarker(value)) {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.every(IsConstantValue);
+  }
+  if (isPlainObject(value)) {
+    return Object.values(value).every(IsConstantValue);
+  }
+  return true;
+}
+
+/**
+ * Decodes a value meant to be written as is: plain data subtrees become
+ * `$literal` expressions and objects mixing data and expressions are rebuilt
+ * with `$arrayToObject`, so that no data key or value is read as a field path
+ * or an operator.
+ */
+export async function DecodeLiteralValue(
+  value: Value<unknown>,
+  context: DecodingContext,
+): Promise<unknown> {
+  if (IsConstantValue(value)) {
+    return { $literal: value };
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((val) => DecodeLiteralValue(val, context)));
+  }
+  if (!isPlainObject(value)) {
+    return DecodeValue(value, context);
+  }
+  const entries = await Promise.all(
+    Object.entries(value).map(async ([key, val]) => [
+      { $literal: key },
+      await DecodeLiteralValue(val, context),
+    ]),
+  );
+  return { $arrayToObject: [entries] };
 }
 
 export async function DecodeFunction(
   func: QueryStage,
   context: DecodingContext,
   args: (string | ArgumentProvider)[],
+  decode: ValueDecoder = DecodeValue,
 ) {
   const argNumbers = func.args[0];
   for (let i = 0; i < argNumbers.length; ++i) {
     assert(args[i], "Unexpected argument");
     context.args[argNumbers[i]] = args[i];
   }
-  const val = await DecodeValue(func.args[1], context);
+  const val = await decode(func.args[1], context);
   for (let i = 0; i < argNumbers.length; ++i) {
     delete context.args[argNumbers[i]];
   }
