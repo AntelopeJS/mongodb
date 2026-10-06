@@ -18,13 +18,17 @@ import {
 import { SelectionQuery } from "./selection";
 import { GetCollection } from "../../connection";
 import { type DecodingContext, Temporary } from "./utils";
-import { DecodeFunction, DecodeValue } from "./expression";
+import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
 
-function DefaultConstant(data: any, def: any) {
+function DefaultExpression(data: any, def: any) {
   if (def) {
-    return { $ifNull: [data, { $literal: def }] };
+    return { $ifNull: [data, def] };
   }
   return data;
+}
+
+function DefaultConstant(data: any, def: any) {
+  return DefaultExpression(data, def && { $literal: def });
 }
 
 export class AggregationPipeline {
@@ -340,19 +344,20 @@ export class AggregationPipeline {
   }
 
   protected async stage_default(stage: QueryStage) {
-    const defaultValue = await DecodeValue(stage.args[0], this.context);
+    const defaultValue =
+      stage.args[0] && (await DecodeLiteralValue(stage.args[0], this.context));
     if (this.isChangeStream) {
       this.pipeline.push({
         $addFields: {
-          fullDocument: DefaultConstant(`$fullDocument`, defaultValue),
-          fullDocumentBeforeChange: DefaultConstant(
+          fullDocument: DefaultExpression(`$fullDocument`, defaultValue),
+          fullDocumentBeforeChange: DefaultExpression(
             `$fullDocumentBeforeChange`,
             defaultValue,
           ),
         },
       });
     } else if (this.wrappedObject) {
-      this.setRoot(DefaultConstant(`$${this.wrappedObject}`, defaultValue));
+      this.setRoot(DefaultExpression(`$${this.wrappedObject}`, defaultValue));
     }
     return this;
   }
