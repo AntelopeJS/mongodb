@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4.2
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.1...v1.4.2)
+
+### 🩹 Fixes
+
+- **database:** Keep $-prefixed string values literal ([#47](https://github.com/AntelopeJS/mongodb/pull/47))
+
+### 📖 Documentation
+
+- **readme:** Fix the outdated CLI commands ([#48](https://github.com/AntelopeJS/mongodb/pull/48))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.4.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.0...v1.4.1)
