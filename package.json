@@ -1,14 +1,17 @@
 {
   "name": "@antelopejs/mongodb",
   "version": "1.4.2",
-  "description": "MongoDB module that implements the Database interface of antelopejs",
+  "description": "MongoDB backend for AntelopeJS, implementing the Database and MongoDB interfaces with the official MongoDB driver",
   "keywords": [
     "antelopejs",
     "database",
     "mongodb",
-    "nosql",
-    "orm"
+    "nosql"
   ],
+  "homepage": "https://interfaces.antelopejs.com/docs/database",
+  "bugs": {
+    "url": "https://github.com/AntelopeJS/mongodb/issues"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

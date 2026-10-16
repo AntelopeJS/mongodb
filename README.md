@@ -1,137 +1,124 @@
 # @antelopejs/mongodb
 
 <div align="center">
-<a href="https://www.npmjs.com/package/@antelopejs/mongodb"><img alt="NPM version" src="https://img.shields.io/npm/v/@antelopejs/mongodb.svg?style=for-the-badge&labelColor=000000"></a>
-<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/mongodb.svg?style=for-the-badge&labelColor=000000"></a>
+<a href="https://www.npmjs.com/package/@antelopejs/mongodb"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
+<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
 <a href="https://discord.gg/sjK28QHrA7"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" alt="Discord"></a>
-<a href="https://antelopejs.com/modules/mongodb"><img src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" alt="Documentation"></a>
+<a href="https://interfaces.antelopejs.com/docs/database"><img src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" alt="Documentation"></a>
 </div>
 
-A full-featured MongoDB client module that implements both the MongoDB interface and the Database interface for AntelopeJS.
+The MongoDB backend of AntelopeJS: it runs the database interface's queries on MongoDB with the official [`mongodb`](https://github.com/mongodb/node-mongodb-native) driver, and exposes that client to modules that need it directly.
 
-## Installation
+## Interfaces
+
+| Interface                                                                            | Documentation                                                          |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`@antelopejs/interface-database`](https://github.com/AntelopeJS/interface-database) | [Database](https://interfaces.antelopejs.com/docs/database)            |
+| [`@antelopejs/interface-mongodb`](https://github.com/AntelopeJS/interface-mongodb)   | [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction) |
+
+Schemas, tables, queries, change feeds and atomic mutations are documented on the database interface pages.
+
+## Install
 
 ```bash
 ajs project modules add @antelopejs/mongodb
 ```
 
-## Interfaces
-
-This module implements two key interfaces:
-
-- **MongoDB Interface**: Provides direct MongoDB operations and connection management
-- **Database Interface**: Offers a standardized database abstraction layer
-
-Both interfaces can be used independently or together depending on your application's needs. The interfaces are installed separately to maintain modularity and minimize dependencies: a module that uses one adds its interface package as a dependency and imports from it.
-
-| Name     | Install command                           |                                                                   |
-| -------- | ----------------------------------------- | ----------------------------------------------------------------- |
-| MongoDB  | `pnpm add @antelopejs/interface-mongodb`  | [Documentation](https://github.com/AntelopeJS/interface-mongodb)  |
-| Database | `pnpm add @antelopejs/interface-database` | [Documentation](https://github.com/AntelopeJS/interface-database) |
-
-## Overview
-
-The AntelopeJS MongoDB module provides functionality for interacting with MongoDB:
-
-- MongoDB client connection management through the MongoDB interface
-- Common database operations through the Database interface
+The command writes the module's default configuration: `mongodb://localhost:27017`, database `antelopejs`.
 
 ## Configuration
 
-The MongoDB module supports connection using the native MongoDB driver with the following options:
+```typescript [antelope.config.ts]
+import { defineConfig } from "@antelopejs/interface-core/config";
+
+export default defineConfig({
+  name: "my-project",
+  modules: {
+    mongodb: {
+      source: {
+        type: "package",
+        package: "@antelopejs/mongodb",
+        version: "^1.4.2",
+      },
+      config: {
+        url: "mongodb://localhost:27017/?replicaSet=rs0",
+        database: "my-project",
+        options: { maxPoolSize: 10 },
+      },
+    },
+  },
+  envOverrides: {
+    MONGODB_URL: "modules.mongodb.config.url",
+  },
+});
+```
+
+| Key        | Description                                                                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`      | MongoDB connection string.                                                                                                                   |
+| `database` | Database that holds every schema's collections.                                                                                              |
+| `options`  | Optional [`MongoClientOptions`](https://mongodb.github.io/node-mongodb-native/6.21/interfaces/MongoClientOptions.html) passed to the driver. |
+
+Change feeds rely on MongoDB change streams, which need a replica set. A single-node replica set is enough in development.
+
+## Quick start
+
+In the module that stores data, add the database interface:
+
+```bash
+pnpm add @antelopejs/interface-database
+```
+
+Then follow the [database interface guide](https://framework.antelopejs.com/docs/guides/database) to declare a schema and query it. The same code runs on [`@antelopejs/rethinkdb`](https://github.com/AntelopeJS/rethinkdb).
+
+To call the driver directly instead, add `@antelopejs/interface-mongodb`:
 
 ```typescript
-// MongoDB connection options
-{
-    url: "mongodb://localhost:27017",     // The MongoDB connection string
-    id_provider: "uuid",                  // ID generation strategy: "uuid" (default) or "objectid"
-    options: {                            // Optional MongoDB client options
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        maxPoolSize: 10,                  // Maximum number of connections in the pool
-        connectTimeoutMS: 30000,          // Connection timeout in milliseconds
-        socketTimeoutMS: 30000            // Socket timeout in milliseconds
-    }
-}
+import { GetClient } from "@antelopejs/interface-mongodb";
+
+const client = await GetClient();
+const users = client.db("my-project").collection("users");
 ```
 
-### Configuration Details
+## Storage layout
 
-The module uses the official MongoDB Node.js driver to establish connections to your MongoDB servers:
+- Each schema table is one collection, `<schemaId>__<table>`, shared by every instance of the schema. Each document stores its instance in `_instance`.
+- `_id` stays unique across instances: use globally unique record identities.
+- Each declared index `<name>` becomes a `<name>__i` MongoDB index led by `_instance`. An index declared with `crossInstance: true` also gets an unprefixed `<name>` index for `CROSS_INSTANCE` queries; without it, those queries still work but log a one-time warning and cannot use an index.
+- Atomic mutations use a second client with `retryWrites` and `retryReads` disabled.
 
-- Connection using `MongoClient.connect()` from the mongodb package
-- Support for standard MongoDB connection options
-- Built-in connection pooling through the MongoDB driver
-- ID generation strategies:
-  - `uuid` (default): Uses UUID v4 for generating unique identifiers
-  - `objectid`: Uses MongoDB's native ObjectId for document identifiers
+Versions before 1.4 created each index as `<name>` only. The module creates the `<name>__i` indexes next to them and never drops an index: drop the old ones you no longer need by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
 
-## Atomic single-record mutations
+## Documentation
 
-`Table.atomicMutation(id, request)` implements the shared database interface contract with native `updateOne` and `deleteOne` commands. Each command matches one schema, table, instance, record identity, and condition. It never upserts. `CROSS_INSTANCE`, selections, and query-expression inputs are not supported.
+- [Database](https://interfaces.antelopejs.com/docs/database): the `@antelopejs/interface-database` contract this module implements
+- [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction): the `@antelopejs/interface-mongodb` contract this module implements
+- [Configuration](https://framework.antelopejs.com/docs/concepts/configuration): module sources, `config` blocks and config variables in `antelope.config.ts`
 
-Revision updates replace the supplied top-level fields, including whole nested objects, and install a required new revision in the same command. Patch values are literal data, not MongoDB expressions. Patches cannot change `id`, `_id`, `_instance`, or the revision field. Callers must use fresh revision tokens and must not reuse a deleted record's identity for a different incarnation.
+## Compatibility
 
-A string revision matches exactly. `{ kind: "missing" }` matches only an existing record with an absent revision field; stored `null` does not match. `deleteIfEqual` deletes only when one field equals the supplied string, finite number, boolean, or valid `Date`. It rejects arrays and missing fields as matches and does not provide revision-based protection against a value changing away and back.
+| Package                          | Supported range  |
+| -------------------------------- | ---------------- |
+| `@antelopejs/interface-database` | `^0.1.8`         |
+| `@antelopejs/interface-mongodb`  | `>=0.0.5 <1.0.0` |
+| `@antelopejs/interface-core`     | `>=0.1.1 <1.0.0` |
 
-Acknowledged matches return `applied`; acknowledged misses return `not-applied`, including a wrong instance or missing record. An unacknowledged result or uncertain driver error returns `unknown`, which must not be interpreted as failure to write or automatically retried. Input validation errors throw before dispatch; known server validation failures also throw. The adapter uses a separate lazy MongoDB client with `retryWrites` and `retryReads` disabled, preserving the existing client's retry configuration. The additional client uses the configured connection and pool options and closes when the adapter disconnects.
+The module is developed and tested against `@antelopejs/core` `^1.13.4` on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
 
-### Identity uniqueness spans instances
+## Contributing
 
-All instances of a schema/table share a collection. MongoDB's existing `_id` unique index therefore applies across those instances, not separately within each tenant. A normal insert without a conflict mode throws a duplicate-key error instead of overwriting an existing record, including when another instance owns that identity. Use globally unique record identities within each schema/table. This change does not migrate identities or alter indexes.
-
-### Interface prerequisite
-
-This implementation requires `@antelopejs/interface-database` version `0.1.8` or later within the supported range. It includes the atomic mutation API, the `crossInstance` index flag, and shared real-backend conformance tests, automatically discovered by `ajs module test`. Backend-specific command, storage, and fault tests remain in this provider.
-
-## Secondary indexes
-
-All instances of a schema/table share one collection, and every document carries its instance in the `_instance` field. Queries scoped to one instance filter on `_instance` first, so the module builds every declared secondary index led by that field:
-
-| Declared index                                    | Physical MongoDB indexes                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `email: {}`                                       | `email__i` on `{ _instance: 1, email: 1 }`                                           |
-| `fullName: { fields: ["lastName", "firstName"] }` | `fullName__i` on `{ _instance: 1, lastName: 1, firstName: 1 }`                       |
-| `category: { crossInstance: true }`               | `category__i` on `{ _instance: 1, category: 1 }` and `category` on `{ category: 1 }` |
-
-A table without declared indexes gets a single-field `_instance` index instead, which serves its scoped queries. Every `<name>__i` index already starts with `_instance`, so tables with declared indexes do not need it; an existing `_instance` index is left in place.
-
-Scoped `getAll`, `between`, and `orderBy` queries are served by the `<name>__i` index. Set `crossInstance: true` on the indexes that `CROSS_INSTANCE` queries rely on: the module then also maintains the unprefixed `<name>` index, which serves those queries. Cross-instance queries that name an index without `crossInstance` still return the same results, but cannot use an index and may be slow; the module logs a warning once per schema, table, and index when that happens. Plain filters never log this warning. The flag never changes query results.
-
-`getAll` resolves an index through its declaration, so an index whose `fields` differ from its name matches on those fields. A compound index takes keys that hold one value per field, in declaration order. A flat list of values is one key:
-
-```typescript
-table.getAll(["Doe", "John"], "fullName");
+```bash
+pnpm install
+pnpm lint
+pnpm format:check
+pnpm knip
+pnpm test           # build, then ajs module test against an in-memory replica set
 ```
 
-A list of lists holds several keys:
+The tests start MongoDB with `mongodb-memory-server`, which downloads the server binary on the first run. They also run the shared conformance suite of `@antelopejs/interface-database`.
 
-```typescript
-table.getAll(
-  [
-    ["Doe", "John"],
-    ["Roe", "Jane"],
-  ],
-  "fullName",
-);
-```
-
-The interface types `getAll` keys as scalars (`string | number | boolean`), so TypeScript rejects the list of lists form; pass each key as a proxy instead, for example `ValueProxy.constant(["Doe", "John"]).cast<string | number | boolean>()`. A scalar key, or a key whose length differs from the number of fields, throws. `between` requires a single-field index and throws on a compound one.
-
-A query on a schema whose definition this process does not hold (for example a schema registered by another module that has not started yet) uses the index name as the field name, as earlier versions did, and never logs the cross-instance warning.
-
-Indexes are created online with `createIndex` when a schema is registered. Several processes may register the same schema at once: an index that another process already created, or is creating, does not fail the initialization. A failed build is retried with the schema initialization.
-
-Schema initialization runs in the background and does not delay a stop. Stopping the module interrupts it between two MongoDB operations: the operation in flight gets up to 2 seconds to finish before the connection closes, and the next start creates the collections and indexes that are still missing.
-
-### Upgrading from earlier versions
-
-Earlier versions created each declared index as `<name>` on its fields only. After the upgrade, the module creates the new `<name>__i` indexes next to them and never drops an index. An old `<name>` index stays in place and keeps serving queries: for an index declared with `crossInstance: true` it is reused as is, and for any other index it is no longer needed. It is not detected, logged, or dropped automatically. Once the `<name>__i` indexes are built, drop the unneeded ones by hand, for example from `mongosh`:
-
-```javascript
-db.getCollection("<schemaId>__<tableName>").dropIndex("<name>");
-```
+Read the [contribution guidelines](CONTRIBUTING.md) before opening a pull request.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+[Apache-2.0](LICENSE)
