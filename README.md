@@ -89,6 +89,12 @@ const users = client.db("my-project").collection("users");
 
 Versions before 1.4 created each index as `<name>` only. The module creates the `<name>__i` indexes next to them and never drops an index: drop the old ones you no longer need by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
 
+## Documentation
+
+- [Database](https://interfaces.antelopejs.com/docs/database): the `@antelopejs/interface-database` contract this module implements
+- [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction): the `@antelopejs/interface-mongodb` contract this module implements
+- [Configuration](https://framework.antelopejs.com/docs/concepts/configuration): module sources, `config` blocks and config variables in `antelope.config.ts`
+
 ## Compatibility
 
 | Package                          | Supported range  |
