@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.4.3
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.2...v1.4.3)
+
+### 📖 Documentation
+
+- Rewrite the README ([#51](https://github.com/AntelopeJS/mongodb/pull/51))
+- **agents:** Simplify repository guidance ([#52](https://github.com/AntelopeJS/mongodb/pull/52))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.4.2
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.1...v1.4.2)
