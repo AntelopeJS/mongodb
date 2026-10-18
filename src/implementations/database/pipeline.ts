@@ -119,7 +119,6 @@ export class AggregationPipeline {
     this.context.subquery = async (subQuery) => {
       const tmp = Temporary("join");
       const tmpRoot = Temporary("parentRoot");
-      const root = this.getRoot();
       const rightStream = await SelectionQuery.decode(
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
@@ -181,7 +180,10 @@ export class AggregationPipeline {
       this.pipeline.push({
         $lookup: {
           from: rightStream.collection,
-          let: { [tmpRoot]: root },
+          // `withRoot` rebases the outer references, which are document paths
+          // that already include the wrapped field (`$_wrapped.key`), so the
+          // variable must hold the whole document and not the wrapped value.
+          let: { [tmpRoot]: "$$ROOT" },
           pipeline: rightStream.pipeline,
           as: tmp,
         },
