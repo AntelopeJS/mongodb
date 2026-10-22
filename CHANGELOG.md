@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.4
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.3...v1.4.4)
+
+### 🩹 Fixes
+
+- **database:** Resolve subquery relations against the whole document ([#54](https://github.com/AntelopeJS/mongodb/pull/54))
+
+### ❤️ Contributors
+
+- Maxime Westhoven ([@mwesto](http://github.com/mwesto))
+
 ## v1.4.3
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.2...v1.4.3)
