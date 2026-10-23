@@ -85,6 +85,8 @@ const users = client.db("my-project").collection("users");
 - Each schema table is one collection, `<schemaId>__<table>`, shared by every instance of the schema. Each document stores its instance in `_instance`.
 - `_id` stays unique across instances: use globally unique record identities.
 - Each declared index `<name>` becomes a `<name>__i` MongoDB index led by `_instance`. An index declared with `crossInstance: true` also gets an unprefixed `<name>` index for `CROSS_INSTANCE` queries; without it, those queries still work but log a one-time warning and cannot use an index.
+- An index declared with `unique: true` makes its `<name>__i` index unique, so a key is unique per instance; the unprefixed cross-instance index never is. Changing the flag rebuilds the index. Creating a unique index fails while the instance already holds duplicates: schema initialization logs the error and retries until they are removed.
+- A write refused for a duplicate key (MongoDB code 11000), on `_id` or on a unique index, throws the interface's `DuplicateKeyError` with the declared index name and fields.
 - Atomic mutations use a second client with `retryWrites` and `retryReads` disabled.
 
 Versions before 1.4 created each index as `<name>` only. The module creates the `<name>__i` indexes next to them and never drops an index: drop the old ones you no longer need by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.

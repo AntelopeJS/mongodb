@@ -5,7 +5,7 @@ import type { StagedObject } from "@antelopejs/interface-database/common";
 export const INSTANCE_FIELD = "_instance";
 export const BOOKKEEPING_COLLECTION = "__antelope_instances";
 const COLLECTION_NAME_SEPARATOR = "__";
-const INSTANCE_INDEX_SUFFIX = "__i";
+export const INSTANCE_INDEX_SUFFIX = "__i";
 
 export function collectionName(schemaId: string, tableName: string): string {
   if (

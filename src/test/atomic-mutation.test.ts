@@ -35,7 +35,6 @@ const RECORD_ID = "record-one";
 const FIRST_REVISION = "revision-first";
 const SECOND_REVISION = "revision-second";
 const TENANT = "tenant-one";
-const DUPLICATE_KEY_CODE = 11000;
 
 function update(nextRevision = SECOND_REVISION): AtomicUpdate<AtomicRecord> {
   return {
@@ -217,7 +216,7 @@ describe("atomic single-record mutations", () => {
             title: "overwrite",
           })
           .run(),
-        { code: DUPLICATE_KEY_CODE },
+        { name: "DuplicateKeyError", index: "_id" },
       );
     }
     expect(await collection.findOne({ _id: RECORD_ID })).to.include({

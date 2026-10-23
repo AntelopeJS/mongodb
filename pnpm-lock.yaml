@@ -12,8 +12,8 @@ importers:
         specifier: '>=0.2.4 <1.0.0'
         version: 0.2.4
       '@antelopejs/interface-database':
-        specifier: ^0.1.10
-        version: 0.1.10(@antelopejs/interface-core@0.2.4)
+        specifier: '>=0.1.11 <0.2.0'
+        version: 0.1.11(@antelopejs/interface-core@0.2.4)
       '@antelopejs/interface-mongodb':
         specifier: '>=0.0.6 <1.0.0'
         version: 0.0.6(socks@2.8.7)
@@ -101,8 +101,8 @@ packages:
   '@antelopejs/interface-core@0.2.4':
     resolution: {integrity: sha512-2qF6/KwahCQvvNuC/piUvPWD4wq2Npmco941HMg2/bMBoJKbhMH16WcXXRvPYznNSkU0U+6vqK6KE+2N5NojSA==}
 
-  '@antelopejs/interface-database@0.1.10':
-    resolution: {integrity: sha512-sT46GoSXvFTJpXA94toK1B3V+9YmZxjhyyCLhFNtvbijCehdtJCWILb3CbEnrWIWrlj/NPAKZ6ayH+wxUIdRWw==}
+  '@antelopejs/interface-database@0.1.11':
+    resolution: {integrity: sha512-uv6mB1Lghmlc9z+oWzntmzD1ZNBAmrj+2+7MItv6zClEolbqw5hfAt8+c3IPq2yLfWDfhpqWme2m0eTwsAm0RQ==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
@@ -2741,7 +2741,7 @@ snapshots:
     dependencies:
       reflect-metadata: 0.2.2
 
-  '@antelopejs/interface-database@0.1.10(@antelopejs/interface-core@0.2.4)':
+  '@antelopejs/interface-database@0.1.11(@antelopejs/interface-core@0.2.4)':
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
