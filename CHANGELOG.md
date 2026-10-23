@@ -4,6 +4,13 @@
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.4...v1.5.0)
 
+### Upgrade notes
+
+- Implements `@antelopejs/interface-database` `>=0.1.11 <0.2.0` (unique indexes and `DuplicateKeyError`) ([#55](https://github.com/AntelopeJS/mongodb/pull/55)).
+- `unique: true` makes the instance-led `<name>__i` index unique: a key is unique per instance. The unprefixed cross-instance companion is never unique.
+- Index sync compares uniqueness: flipping the flag rebuilds the index.
+- **Behavior change:** a write refused with code 11000 (insert, batch insert, update, replace, atomic mutation) now throws `DuplicateKeyError(index, fields)` with the declared index name (`_id` for the primary key) instead of the raw MongoDB error. Code that matched `code === 11000` must use `IsDuplicateKeyError(error)`.
+
 ### 🚀 Enhancements
 
 - **database:** Unique indexes and DuplicateKeyError ([#55](https://github.com/AntelopeJS/mongodb/pull/55))
