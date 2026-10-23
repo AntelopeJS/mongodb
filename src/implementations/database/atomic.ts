@@ -12,6 +12,7 @@ import type {
 } from "@antelopejs/interface-database/atomic";
 
 import { GetAtomicCollection } from "../../connection";
+import { TypedWriteError } from "./indexes";
 import {
   collectionName,
   INSTANCE_FIELD,
@@ -76,15 +77,19 @@ export async function RunAtomicMutation(
   validateStages(stages);
   const [key, mutation] = stages[3].args;
   ValidateAtomicMutation(key, mutation, [INSTANCE_FIELD]);
-  const collection = GetAtomicCollection(
-    collectionName(stages[0].options.id, stages[2].options.id),
-  );
+  const schemaId: string = stages[0].options.id;
+  const tableName: string = stages[2].options.id;
+  const collection = GetAtomicCollection(collectionName(schemaId, tableName));
   const filter: Document = {
     _id: key,
     [INSTANCE_FIELD]: normalizeInstanceId(stages[1].options?.id),
     ...conditionFilter(mutation),
   };
-  return executeMutation(collection, filter, mutation);
+  return executeMutation(collection, filter, mutation).catch(
+    (error: unknown) => {
+      throw TypedWriteError(schemaId, tableName, error);
+    },
+  );
 }
 
 function updatePipeline(mutation: AtomicUpdate<Document>): Document[] {

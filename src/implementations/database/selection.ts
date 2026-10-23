@@ -12,7 +12,11 @@ import {
   DecodeValue,
   IsConstantValue,
 } from "./expression";
-import { type ResolvedIndex, SingleIndexField } from "./indexes";
+import {
+  type ResolvedIndex,
+  SingleIndexField,
+  TypedWriteError,
+} from "./indexes";
 import {
   collectionName,
   DecodingContext,
@@ -261,7 +265,9 @@ export class SelectionQuery extends AggregationPipeline {
     };
     const runner = RUNNERS[this.resultType];
     if (runner) {
-      return runner();
+      return runner().catch((error: unknown) => {
+        throw TypedWriteError(this.schemaId, this.tableName, error);
+      });
     }
     return super.run();
   }

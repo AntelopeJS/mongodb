@@ -1,11 +1,19 @@
 import assert from "node:assert";
+import { MongoServerError } from "mongodb";
 import { Logging } from "@antelopejs/interface-core/logging";
+import { DuplicateKeyError } from "@antelopejs/interface-database";
 import type { IndexDefinition } from "@antelopejs/interface-database/schema";
 
 import { FindIndex } from "./schema";
+import { INSTANCE_INDEX_SUFFIX } from "./utils";
 
 const PRIMARY_KEY = "_id";
 const SINGLE_FIELD = 1;
+const DUPLICATE_KEY_CODE = 11000;
+/** MongoDB's name for the primary key index of every collection. */
+const PRIMARY_KEY_INDEX = "_id_";
+/** Where MongoDB names the refused index in an E11000 message. */
+const DUPLICATE_INDEX_PATTERN = / index: (\S+) dup key/;
 
 const warnedIndexes = new WeakSet<IndexDefinition>();
 
@@ -56,4 +64,42 @@ export function WarnIfNotCrossInstance(index: ResolvedIndex) {
   Logging.Warn(
     `Cross-instance query on "${index.schemaId}.${index.tableName}" uses index "${index.indexId}", which is not declared crossInstance: it may be slow. Set crossInstance: true on this index to keep cross-instance queries fast.`,
   );
+}
+
+/** The declared index a physical index of the collection serves. */
+function declaredIndexId(physicalName: string): string {
+  if (physicalName === PRIMARY_KEY_INDEX) {
+    return PRIMARY_KEY;
+  }
+  return physicalName.endsWith(INSTANCE_INDEX_SUFFIX)
+    ? physicalName.slice(0, -INSTANCE_INDEX_SUFFIX.length)
+    : physicalName;
+}
+
+/**
+ * The typed error of a write MongoDB refused for a duplicate key (E11000),
+ * naming the declared index rather than its physical, instance-prefixed one;
+ * any other error as it was. A batch reports its first refused row.
+ */
+export function TypedWriteError(
+  schemaId: string,
+  tableName: string,
+  error: unknown,
+): unknown {
+  if (
+    !(error instanceof MongoServerError) ||
+    error.code !== DUPLICATE_KEY_CODE
+  ) {
+    return error;
+  }
+  const physicalName = DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1];
+  if (!physicalName) {
+    return error;
+  }
+  const index = ResolveIndex(
+    schemaId,
+    tableName,
+    declaredIndexId(physicalName),
+  );
+  return new DuplicateKeyError(index.indexId ?? PRIMARY_KEY, index.fields);
 }

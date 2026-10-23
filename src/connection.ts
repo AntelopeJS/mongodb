@@ -86,6 +86,7 @@ async function GetDatabase(): Promise<Db> {
 interface IndexDefinition {
   fields?: string[];
   crossInstance?: boolean;
+  unique?: boolean;
 }
 
 export interface TableDefinition {
@@ -99,6 +100,7 @@ export interface SchemaDefinition {
 interface PhysicalIndex {
   name: string;
   fields: string[];
+  isUnique: boolean;
 }
 
 type ExistingIndex = Awaited<ReturnType<Collection["indexes"]>>[number];
@@ -137,14 +139,18 @@ function physicalIndexes(
   index: IndexDefinition,
 ): PhysicalIndex[] {
   const fields = index.fields ?? [indexId];
+  // Uniqueness holds per instance, so only the instance-prefixed index
+  // enforces it; the cross-instance one would refuse a key another instance
+  // holds.
   const instancePrefixed = {
     name: instanceIndexName(indexId),
     fields: [INSTANCE_FIELD, ...fields],
+    isUnique: index.unique === true,
   };
   if (!index.crossInstance) {
     return [instancePrefixed];
   }
-  return [instancePrefixed, { name: indexId, fields }];
+  return [instancePrefixed, { name: indexId, fields, isUnique: false }];
 }
 
 function fieldsKey(fields: string[]): string {
@@ -181,12 +187,22 @@ async function createIndexIfAbsent(
   wanted: PhysicalIndex,
 ) {
   try {
-    await collection.createIndex(wanted.fields, { name: wanted.name });
+    await collection.createIndex(wanted.fields, {
+      name: wanted.name,
+      unique: wanted.isUnique,
+    });
   } catch (err) {
     // Error 85 means an index on the same keys already exists under another name (concurrent
     // initialization, or another declared index with these fields): it serves the same queries.
     if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
   }
+}
+
+function servesWanted(index: ExistingIndex, wanted: PhysicalIndex): boolean {
+  return (
+    fieldsKey(Object.keys(index.key)) === fieldsKey(wanted.fields) &&
+    (index.unique === true) === wanted.isUnique
+  );
 }
 
 async function ensurePhysicalIndex(
@@ -196,14 +212,19 @@ async function ensurePhysicalIndex(
 ) {
   const existingByName = existing.byName[wanted.name];
   if (existingByName) {
-    if (
-      fieldsKey(Object.keys(existingByName.key)) === fieldsKey(wanted.fields)
-    ) {
+    if (servesWanted(existingByName, wanted)) {
       return;
     }
     await dropIndexIfPresent(collection, wanted.name);
-  } else if (existing.byFields[fieldsKey(wanted.fields)]) {
-    return;
+  }
+  const existingByFields = existing.byFields[fieldsKey(wanted.fields)];
+  if (existingByFields && existingByFields.name !== wanted.name) {
+    if (servesWanted(existingByFields, wanted)) {
+      return;
+    }
+    // MongoDB keeps one index per key pattern: the other index on these
+    // fields goes for the one with the declared uniqueness.
+    await dropIndexIfPresent(collection, existingByFields.name!);
   }
   await createIndexIfAbsent(collection, wanted);
 }
