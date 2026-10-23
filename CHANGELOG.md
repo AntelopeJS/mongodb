@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.5.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.4...v1.5.0)
+
+### 🚀 Enhancements
+
+- **database:** Unique indexes and DuplicateKeyError ([#55](https://github.com/AntelopeJS/mongodb/pull/55))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli <rizzitelli.antony@pm.me>
+
 ## v1.4.4
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.3...v1.4.4)
