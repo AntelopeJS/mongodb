@@ -1,6 +1,7 @@
 import sinon from "sinon";
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
+import { Logging } from "@antelopejs/interface-core/logging";
 import { IsDuplicateKeyError } from "@antelopejs/interface-database";
 import {
   Schema,
@@ -20,9 +21,14 @@ interface AccountTables {
   accounts: Account;
 }
 
+type IndexBuild = typeof connection.InitializeSchema;
+
 const TABLE = "accounts";
 const RACING_INSERTS = 4;
 const INDEX_BUILD_DELAY_MS = 500;
+const RETRY_DEADLINE_MS = 3_000;
+const POLL_INTERVAL_MS = 50;
+const SLOW_TEST_TIMEOUT_MS = 6_000;
 
 const definition: SchemaDefinition = {
   [TABLE]: {
@@ -31,47 +37,120 @@ const definition: SchemaDefinition = {
   },
 };
 
-function delayIndexBuilds(): void {
-  const build = connection.InitializeSchema;
-  sinon
-    .stub(connection, "InitializeSchema")
-    .callsFake(async (schemaId, schema, signal) => {
-      await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_DELAY_MS));
-      return build(schemaId, schema, signal);
-    });
+const realBuild = connection.InitializeSchema;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const delayedBuild: IndexBuild = async (schemaId, schema, signal) => {
+  await delay(INDEX_BUILD_DELAY_MS);
+  return realBuild(schemaId, schema, signal);
+};
+
+function stubIndexBuilds(build: IndexBuild): sinon.SinonStub {
+  return sinon.stub(connection, "InitializeSchema").callsFake(build);
+}
+
+async function accountsWith(
+  schema: Schema<AccountTables>,
+  email: string,
+): Promise<number> {
+  const collection = await connection.GetCollection(
+    collectionName(schema.id, TABLE),
+  );
+  return collection.countDocuments({ email });
+}
+
+function insert(schema: Schema<AccountTables>, email: string) {
+  return schema.instance().table(TABLE).insert({ email }).run();
+}
+
+function race(schema: Schema<AccountTables>, email: string) {
+  return Promise.allSettled(
+    Array.from({ length: RACING_INSERTS }, () => insert(schema, email)),
+  );
+}
+
+function refusals(outcomes: PromiseSettledResult<unknown>[]): unknown[] {
+  return outcomes.flatMap((outcome) =>
+    outcome.status === "rejected" ? [outcome.reason] : [],
+  );
+}
+
+async function expectOneRow(schema: Schema<AccountTables>, email: string) {
+  const refused = refusals(await race(schema, email));
+  expect(await accountsWith(schema, email)).to.equal(1);
+  expect(refused).to.have.length(RACING_INSERTS - 1);
+  expect(refused.every(IsDuplicateKeyError)).to.equal(true);
+}
+
+async function untilServed(schema: Schema<AccountTables>): Promise<void> {
+  const deadline = Date.now() + RETRY_DEADLINE_MS;
+  for (;;) {
+    try {
+      await schema.instance().table(TABLE).count().run();
+      return;
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await delay(POLL_INTERVAL_MS);
+    }
+  }
 }
 
 describe("schema readiness", () => {
-  const schemaId = `schema-readiness-${randomUUID()}`;
+  let schemaIds: string[] = [];
+
+  function freshSchema(): Schema<AccountTables> {
+    const schemaId = `schema-readiness-${randomUUID()}`;
+    schemaIds.push(schemaId);
+    return new Schema<AccountTables>(schemaId, definition);
+  }
+
+  beforeEach(() => {
+    sinon.stub(Logging, "Warn");
+    sinon.stub(Logging, "Info");
+  });
 
   afterEach(async () => {
     sinon.restore();
-    Schemas.unregister(schemaId);
-    const collection = await connection.GetCollection(
-      collectionName(schemaId, TABLE),
-    );
-    await collection.drop().catch(() => undefined);
+    for (const schemaId of schemaIds) {
+      Schemas.unregister(schemaId);
+      const collection = await connection.GetCollection(
+        collectionName(schemaId, TABLE),
+      );
+      await collection.drop().catch(() => undefined);
+    }
+    schemaIds = [];
   });
 
   it("creates one row when inserts on a fresh unique key race a slow index build", async () => {
-    delayIndexBuilds();
-    const schema = new Schema<AccountTables>(schemaId, definition);
-    const email = "racer@example.test";
+    stubIndexBuilds(delayedBuild);
+    await expectOneRow(freshSchema(), "racer@example.test");
+  });
 
-    const outcomes = await Promise.allSettled(
-      Array.from({ length: RACING_INSERTS }, () =>
-        schema.instance().table(TABLE).insert({ email }).run(),
-      ),
-    );
+  it("refuses queries while the index build has failed, then serves them once a retry builds the indexes", async function () {
+    this.timeout(SLOW_TEST_TIMEOUT_MS);
+    let attempts = 0;
+    stubIndexBuilds(async (schemaId, schema, signal) => {
+      attempts++;
+      await delay(INDEX_BUILD_DELAY_MS);
+      if (attempts === 1) throw new Error("index build lost the connection");
+      return realBuild(schemaId, schema, signal);
+    });
+    const schema = freshSchema();
+    const email = "failed@example.test";
 
-    const collection = await connection.GetCollection(
-      collectionName(schemaId, TABLE),
-    );
-    expect(await collection.countDocuments({ email })).to.equal(1);
-    const refusals = outcomes.flatMap((outcome) =>
-      outcome.status === "rejected" ? [outcome.reason] : [],
-    );
-    expect(refusals).to.have.length(RACING_INSERTS - 1);
-    expect(refusals.every(IsDuplicateKeyError)).to.equal(true);
+    const refused = refusals(await race(schema, email));
+
+    expect(await accountsWith(schema, email)).to.equal(0);
+    expect(refused).to.have.length(RACING_INSERTS);
+    for (const error of refused.map(String)) {
+      expect(error).to.include(`Schema "${schema.id}"`);
+      expect(error).to.include("index build lost the connection");
+    }
+    await untilServed(schema);
+    expect(attempts).to.equal(2);
+    await expectOneRow(schema, email);
   });
 });
