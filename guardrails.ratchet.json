@@ -1,8 +1,8 @@
 {
   "rules": {
-    "antelopejs/no-comments": 34,
+    "antelopejs/no-comments": 33,
     "anti-slop/no-chained-type-assertions": 5,
-    "anti-slop/no-known-value-widening": 10,
+    "anti-slop/no-known-value-widening": 9,
     "anti-slop/no-runtime-typeof": 23,
     "anti-slop/no-unknown-parameters": 38,
     "anti-slop/no-unknown-returns": 7,

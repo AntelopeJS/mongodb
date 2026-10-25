@@ -17,6 +17,7 @@ import {
 // oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
 import { SelectionQuery } from "./selection";
 import { GetCollection } from "../../connection";
+import { ToChangeEvent } from "./change-event";
 import { type DecodingContext, Temporary } from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
 
@@ -248,22 +249,9 @@ export class AggregationPipeline {
     }
     const change = await this.cursor.next();
     if (this.isChangeStream) {
-      const operations: Record<string, string> = {
-        insert: "added",
-        replace: "modified",
-        update: "modified",
-        delete: "removed",
-      };
-      const op = change.operationType;
-      return {
-        changeType: operations[op] ?? op,
-        oldValue: op === "insert" ? undefined : change.fullDocumentBeforeChange,
-        newValue: op === "delete" ? undefined : change.fullDocument,
-        _mongo: change,
-      };
-    } else {
-      return this.wrappedObject ? change[this.wrappedObject] : change;
+      return ToChangeEvent(change);
     }
+    return this.wrappedObject ? change[this.wrappedObject] : change;
   }
 
   public async closeCursor() {
