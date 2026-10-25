@@ -52,29 +52,47 @@ export async function RunQuery(stages: QueryStage[]) {
   return await query.run();
 }
 
-const openQueries: Record<number, AggregationPipeline> = {};
+const openQueries: Record<number, Promise<AggregationPipeline>> = {};
+
+async function openQuery(
+  reqId: number,
+  stages: QueryStage[],
+): Promise<AggregationPipeline | undefined> {
+  const opening =
+    openQueries[reqId] ??
+    schemaInitialized(stages).then(() => SelectionQuery.decode(stages));
+  openQueries[reqId] = opening;
+  try {
+    const query = await opening;
+    return openQueries[reqId] === opening ? query : undefined;
+  } catch (error) {
+    if (openQueries[reqId] === opening) {
+      delete openQueries[reqId];
+    }
+    throw error;
+  }
+}
+
 export async function ReadCursor(reqId: number, stages: QueryStage[]) {
   assert(
     !stages.some((stage) => stage.stage === "atomicMutation"),
     "atomicMutation cannot be read as a cursor",
   );
-  if (!(reqId in openQueries)) {
-    await schemaInitialized(stages);
-    const query = await SelectionQuery.decode(stages);
-    openQueries[reqId] = query;
+  const query = await openQuery(reqId, stages);
+  if (!query) {
+    return { done: true, value: null };
   }
   try {
-    const next = await openQueries[reqId].readCursor();
+    const next = await query.readCursor();
     if (next === null) {
       delete openQueries[reqId];
     }
 
     return { done: next === null, value: next };
   } catch (error) {
-    const query = openQueries[reqId];
     delete openQueries[reqId];
     try {
-      await query?.closeCursor();
+      await query.closeCursor();
     } catch {
       // Ignore close failures; the read error is the one worth surfacing.
     }
@@ -84,10 +102,10 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
 
 export async function CloseCursor(reqId: number) {
   if (reqId in openQueries) {
-    const query = openQueries[reqId];
+    const opening = openQueries[reqId];
     delete openQueries[reqId];
     try {
-      await query.closeCursor();
+      await (await opening).closeCursor();
     } catch {
       // Ignore close failures; the entry is already evicted.
     }
