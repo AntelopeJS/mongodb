@@ -1,8 +1,10 @@
 import sinon from "sinon";
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
+import type { CommandStartedEvent } from "mongodb";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { IsDuplicateKeyError } from "@antelopejs/interface-database";
+import { GetClient } from "@antelopejs/interface-mongodb";
 import {
   Schema,
   type SchemaDefinition,
@@ -179,5 +181,29 @@ describe("schema readiness", () => {
     start();
 
     await expectOneRow(schema, "restarted@example.test");
+  });
+
+  it("opens no cursor for a read closed while its index build runs", async () => {
+    stubIndexBuilds(delayedBuild);
+    const schema = freshSchema();
+    const collection = collectionName(schema.id, TABLE);
+    const reads: string[] = [];
+    const onCommand = (event: CommandStartedEvent) => {
+      if (event.command[event.commandName] === collection)
+        reads.push(event.commandName);
+    };
+    const client = await GetClient();
+    client.on("commandStarted", onCommand);
+    try {
+      const cursor = schema.instance().table(TABLE).cursor();
+      const next = cursor.next();
+      await delay(QUEUED_MS);
+      await cursor.return();
+      await next;
+      await delay(INDEX_BUILD_DELAY_MS * 2);
+    } finally {
+      client.off("commandStarted", onCommand);
+    }
+    expect(reads).to.not.include("aggregate");
   });
 });
