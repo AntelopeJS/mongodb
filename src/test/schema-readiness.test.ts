@@ -102,6 +102,23 @@ async function untilServed(schema: Schema<AccountTables>): Promise<void> {
   }
 }
 
+type Accounts = Schema<AccountTables>;
+
+const crossSchemaReads = {
+  union: (parent: Accounts, other: Accounts) =>
+    parent.instance().table(TABLE).union(other.instance().table(TABLE)),
+  lookup: (parent: Accounts, other: Accounts) =>
+    parent
+      .instance()
+      .table(TABLE)
+      .lookup(other.instance().table(TABLE), "email", "email"),
+  subquery: (parent: Accounts, other: Accounts) =>
+    parent
+      .instance()
+      .table(TABLE)
+      .map(() => other.instance().table(TABLE).get("missing")),
+};
+
 describe("schema readiness", () => {
   let schemaIds: string[] = [];
 
@@ -205,5 +222,22 @@ describe("schema readiness", () => {
       client.off("commandStarted", onCommand);
     }
     expect(reads).to.not.include("aggregate");
+  });
+
+  it("waits for the index build of every schema a query reads", async function () {
+    this.timeout(SLOW_TEST_TIMEOUT_MS);
+    const parent = freshSchema();
+    await insert(parent, "parent@example.test");
+    for (const [form, read] of Object.entries(crossSchemaReads)) {
+      let isBuilt = false;
+      const build = stubIndexBuilds(async (schemaId, schema, signal) => {
+        await delayedBuild(schemaId, schema, signal);
+        isBuilt = true;
+      });
+      const other = freshSchema();
+      await read(parent, other).run();
+      expect(isBuilt, form).to.equal(true);
+      build.restore();
+    }
   });
 });
