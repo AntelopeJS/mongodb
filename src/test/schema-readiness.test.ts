@@ -317,4 +317,41 @@ describe("schema readiness across a restart or a close", () => {
 
     expect(await stateAfter(cursor.return(), SETTLE_MS)).to.equal("fulfilled");
   });
+
+  it("never opens a cursor closed while it fetches its collection", async () => {
+    const schema = freshSchema();
+    await insert(schema, "open@example.test");
+    const collection = collectionName(schema.id, TABLE);
+    const realGetCollection = connection.GetCollection;
+    let fetching = () => {};
+    const fetched = new Promise<void>((resolve) => {
+      fetching = resolve;
+    });
+    sinon.stub(connection, "GetCollection").callsFake(async (name) => {
+      if (name === collection) {
+        fetching();
+        await heldBuild();
+      }
+      return realGetCollection(name);
+    });
+    const reads: string[] = [];
+    const onCommand = (event: CommandStartedEvent) => {
+      if (event.command[event.commandName] === collection)
+        reads.push(event.commandName);
+    };
+    const client = await GetClient();
+    client.on("commandStarted", onCommand);
+    try {
+      const cursor = schema.instance().table(TABLE).cursor();
+      const next = cursor.next();
+      await fetched;
+      await cursor.return();
+      releaseBuild();
+      await next;
+      await delay(SETTLE_MS);
+    } finally {
+      client.off("commandStarted", onCommand);
+    }
+    expect(reads).to.not.include("aggregate");
+  });
 });
