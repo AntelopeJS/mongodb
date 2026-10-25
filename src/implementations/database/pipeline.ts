@@ -36,6 +36,7 @@ export class AggregationPipeline {
   public resultType = "stream";
 
   private cursor?: AggregationCursor;
+  private isClosed = false;
 
   /**
    * This query will only return one document, ignore the other
@@ -245,6 +246,9 @@ export class AggregationPipeline {
   public async readCursor() {
     if (!this.cursor) {
       const collection = await GetCollection(this.collection);
+      if (this.isClosed) {
+        return null;
+      }
       this.cursor = collection.aggregate(this.pipeline, {});
     }
     const change = await this.cursor.next();
@@ -255,6 +259,7 @@ export class AggregationPipeline {
   }
 
   public async closeCursor() {
+    this.isClosed = true;
     if (this.cursor) {
       await this.cursor.close();
     }

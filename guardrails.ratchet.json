@@ -12,6 +12,6 @@
     "eslint/max-params": 1
   },
   "oversizeFiles": {
-    "src/implementations/database/pipeline.ts": 22696
+    "src/implementations/database/pipeline.ts": 22427
   }
 }
