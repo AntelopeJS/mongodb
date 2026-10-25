@@ -101,13 +101,16 @@ function refuseQueries(
   state: Exclude<Readiness["state"], "pending">,
   reason: string,
 ): void {
-  if (task.readiness.state !== "pending") {
+  const isPending = task.readiness.state === "pending";
+  if (state === "failed" && !isPending) {
     return;
   }
   task.readiness.state = state;
-  task.readiness.reject(
-    new Error(`Schema "${task.schemaId}" is not initialized: ${reason}`),
-  );
+  if (isPending) {
+    task.readiness.reject(
+      new Error(`Schema "${task.schemaId}" is not initialized: ${reason}`),
+    );
+  }
 }
 
 export async function DrainSchemaInitializations(): Promise<void> {
