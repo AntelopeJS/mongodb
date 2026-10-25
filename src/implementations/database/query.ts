@@ -52,19 +52,30 @@ export async function RunQuery(stages: QueryStage[]) {
   return await query.run();
 }
 
-const openQueries: Record<number, Promise<AggregationPipeline>> = {};
+interface OpenQuery {
+  opening: Promise<AggregationPipeline>;
+  query?: AggregationPipeline;
+}
+
+const openQueries: Record<number, OpenQuery> = {};
 
 async function openQuery(
   reqId: number,
   stages: QueryStage[],
 ): Promise<AggregationPipeline | undefined> {
-  const opening = openQueries[reqId] ?? SelectionQuery.decode(stages);
-  openQueries[reqId] = opening;
+  const entry = openQueries[reqId] ?? {
+    opening: SelectionQuery.decode(stages),
+  };
+  openQueries[reqId] = entry;
   try {
-    const query = await opening;
-    return openQueries[reqId] === opening ? query : undefined;
+    const query = await entry.opening;
+    if (openQueries[reqId] !== entry) {
+      return undefined;
+    }
+    entry.query = query;
+    return query;
   } catch (error) {
-    if (openQueries[reqId] === opening) {
+    if (openQueries[reqId] === entry) {
       delete openQueries[reqId];
     }
     throw error;
@@ -99,13 +110,7 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
 }
 
 export async function CloseCursor(reqId: number) {
-  if (reqId in openQueries) {
-    const opening = openQueries[reqId];
-    delete openQueries[reqId];
-    try {
-      await (await opening).closeCursor();
-    } catch {
-      // Ignore close failures; the entry is already evicted.
-    }
-  }
+  const query = openQueries[reqId]?.query;
+  delete openQueries[reqId];
+  await query?.closeCursor().catch(() => undefined);
 }
