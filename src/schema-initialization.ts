@@ -12,7 +12,7 @@ interface InitializationTask {
 }
 
 interface Readiness {
-  state: "pending" | "failed";
+  state: "pending" | "failed" | "halted";
   promise: Promise<void>;
   resolve: () => void;
   reject: (error: Error) => void;
@@ -30,6 +30,9 @@ let isAcceptingInitializations = false;
 export function AllowSchemaInitializations(): void {
   isAcceptingInitializations = true;
   for (const task of incompleteTasks.values()) {
+    if (task.readiness.state === "halted") {
+      task.readiness = pendingReadiness();
+    }
     if (!task.runningAttempt && !task.retryTimer) {
       runAttempt(task);
     }
@@ -73,8 +76,10 @@ export function CancelSchemaInitialization(schemaId: string): void {
  * Resolves once the schema's initialization has built its indexes, so a query
  * that runs after it sees every unique index of the schema. Rejects, naming
  * the failure, from the first failed attempt until a retry succeeds: a query
- * never runs without the indexes nor waits through the retries. Resolves at
- * once for a schema with no initialization under way.
+ * never runs without the indexes nor waits through the retries. Rejects too
+ * when the initialization is halted by an unregister or a stop; a start
+ * gates the schema again until the resumed build ends. Resolves at once for
+ * a schema with no initialization under way.
  */
 export function SchemaInitialized(schemaId: string): Promise<void> {
   return incompleteTasks.get(schemaId)?.readiness.promise ?? Promise.resolve();
@@ -140,7 +145,7 @@ function clearRetry(task: InitializationTask): void {
 function haltTask(task: InitializationTask): void {
   clearRetry(task);
   task.runningAttempt?.abort();
-  task.readiness.resolve();
+  refuseQueries(task, "halted", "its initialization was halted");
 }
 
 function runAttempt(task: InitializationTask): void {
