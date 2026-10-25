@@ -9,6 +9,7 @@ import {
 } from "@antelopejs/interface-database/schema";
 
 import * as connection from "../connection";
+import { start, stop } from "../index";
 import { Schemas } from "../implementations/database/schema";
 import { collectionName } from "../implementations/database/utils";
 
@@ -29,6 +30,7 @@ const INDEX_BUILD_DELAY_MS = 500;
 const RETRY_DEADLINE_MS = 3_000;
 const POLL_INTERVAL_MS = 50;
 const SLOW_TEST_TIMEOUT_MS = 6_000;
+const QUEUED_MS = 20;
 
 const definition: SchemaDefinition = {
   [TABLE]: {
@@ -152,5 +154,30 @@ describe("schema readiness", () => {
     await untilServed(schema);
     expect(attempts).to.equal(2);
     await expectOneRow(schema, email);
+  });
+
+  it("refuses the queries waiting on a schema unregistered during its index build, and gates it registered again", async () => {
+    stubIndexBuilds(delayedBuild);
+    const schema = freshSchema();
+    const waiting = race(schema, "first@example.test");
+    await delay(QUEUED_MS);
+
+    Schemas.unregister(schema.id);
+    Schemas.register(schema.id, definition);
+
+    expect(refusals(await waiting)).to.have.length(RACING_INSERTS);
+    expect(await accountsWith(schema, "first@example.test")).to.equal(0);
+    await expectOneRow(schema, "second@example.test");
+  });
+
+  it("gates queries again when the module stops and starts during the index build", async () => {
+    stubIndexBuilds(delayedBuild);
+    const schema = freshSchema();
+    await delay(QUEUED_MS);
+
+    stop();
+    start();
+
+    await expectOneRow(schema, "restarted@example.test");
   });
 });
