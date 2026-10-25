@@ -4,6 +4,7 @@ import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetCollection } from "../../connection";
+import { SchemaInitialized } from "../../schema-initialization";
 // oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
 import {
@@ -123,6 +124,7 @@ export class SelectionQuery extends AggregationPipeline {
       const schemaId = stages[0]?.options?.id;
       const instanceId = stages[1]?.options?.id;
       assert(stages[0]?.stage === "schema" && schemaId, "Unknown schema");
+      await SchemaInitialized(schemaId);
       assert(
         stages[1].stage === "instance" && stages[2]?.stage === "table",
         "Invalid request",

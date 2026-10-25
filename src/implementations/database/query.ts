@@ -30,7 +30,7 @@ function tryHandleLifecycle(
   }
   const schemaId = stages[0].options?.id;
   assert(typeof schemaId === "string", "Lifecycle query missing schema id");
-  return handler(schemaId, stages[1]);
+  return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
 }
 
 async function schemaInitialized(stages: QueryStage[]): Promise<void> {
@@ -40,8 +40,8 @@ async function schemaInitialized(stages: QueryStage[]): Promise<void> {
 }
 
 export async function RunQuery(stages: QueryStage[]) {
-  await schemaInitialized(stages);
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
+    await schemaInitialized(stages);
     return RunAtomicMutation(stages);
   }
   const lifecycle = tryHandleLifecycle(stages);
@@ -58,9 +58,7 @@ async function openQuery(
   reqId: number,
   stages: QueryStage[],
 ): Promise<AggregationPipeline | undefined> {
-  const opening =
-    openQueries[reqId] ??
-    schemaInitialized(stages).then(() => SelectionQuery.decode(stages));
+  const opening = openQueries[reqId] ?? SelectionQuery.decode(stages);
   openQueries[reqId] = opening;
   try {
     const query = await opening;
