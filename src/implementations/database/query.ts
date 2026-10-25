@@ -5,6 +5,7 @@ import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
+import { SchemaInitialized } from "../../schema-initialization";
 
 const LIFECYCLE_HANDLERS: Record<
   string,
@@ -29,11 +30,18 @@ function tryHandleLifecycle(
   }
   const schemaId = stages[0].options?.id;
   assert(typeof schemaId === "string", "Lifecycle query missing schema id");
-  return handler(schemaId, stages[1]);
+  return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
+}
+
+async function schemaInitialized(stages: QueryStage[]): Promise<void> {
+  if (stages[0]?.stage === "schema") {
+    await SchemaInitialized(stages[0].options?.id);
+  }
 }
 
 export async function RunQuery(stages: QueryStage[]) {
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
+    await schemaInitialized(stages);
     return RunAtomicMutation(stages);
   }
   const lifecycle = tryHandleLifecycle(stages);
@@ -44,28 +52,56 @@ export async function RunQuery(stages: QueryStage[]) {
   return await query.run();
 }
 
-const openQueries: Record<number, AggregationPipeline> = {};
+interface OpenQuery {
+  opening: Promise<AggregationPipeline>;
+  query?: AggregationPipeline;
+}
+
+const openQueries: Record<number, OpenQuery> = {};
+
+async function openQuery(
+  reqId: number,
+  stages: QueryStage[],
+): Promise<AggregationPipeline | undefined> {
+  const entry = openQueries[reqId] ?? {
+    opening: SelectionQuery.decode(stages),
+  };
+  openQueries[reqId] = entry;
+  try {
+    const query = await entry.opening;
+    if (openQueries[reqId] !== entry) {
+      return undefined;
+    }
+    entry.query = query;
+    return query;
+  } catch (error) {
+    if (openQueries[reqId] === entry) {
+      delete openQueries[reqId];
+    }
+    throw error;
+  }
+}
+
 export async function ReadCursor(reqId: number, stages: QueryStage[]) {
   assert(
     !stages.some((stage) => stage.stage === "atomicMutation"),
     "atomicMutation cannot be read as a cursor",
   );
-  if (!(reqId in openQueries)) {
-    const query = await SelectionQuery.decode(stages);
-    openQueries[reqId] = query;
+  const query = await openQuery(reqId, stages);
+  if (!query) {
+    return { done: true, value: null };
   }
   try {
-    const next = await openQueries[reqId].readCursor();
+    const next = await query.readCursor();
     if (next === null) {
       delete openQueries[reqId];
     }
 
     return { done: next === null, value: next };
   } catch (error) {
-    const query = openQueries[reqId];
     delete openQueries[reqId];
     try {
-      await query?.closeCursor();
+      await query.closeCursor();
     } catch {
       // Ignore close failures; the read error is the one worth surfacing.
     }
@@ -74,13 +110,7 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
 }
 
 export async function CloseCursor(reqId: number) {
-  if (reqId in openQueries) {
-    const query = openQueries[reqId];
-    delete openQueries[reqId];
-    try {
-      await query.closeCursor();
-    } catch {
-      // Ignore close failures; the entry is already evicted.
-    }
-  }
+  const query = openQueries[reqId]?.query;
+  delete openQueries[reqId];
+  await query?.closeCursor().catch(() => undefined);
 }

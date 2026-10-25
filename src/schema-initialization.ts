@@ -8,6 +8,14 @@ interface InitializationTask {
   failedAttempts: number;
   runningAttempt?: AbortController;
   retryTimer?: NodeJS.Timeout;
+  readiness: Readiness;
+}
+
+interface Readiness {
+  state: "pending" | "failed" | "halted";
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (error: Error) => void;
 }
 
 const INITIAL_RETRY_DELAY_MS = 1_000;
@@ -22,6 +30,9 @@ let isAcceptingInitializations = false;
 export function AllowSchemaInitializations(): void {
   isAcceptingInitializations = true;
   for (const task of incompleteTasks.values()) {
+    if (task.readiness.state === "halted") {
+      task.readiness = pendingReadiness();
+    }
     if (!task.runningAttempt && !task.retryTimer) {
       runAttempt(task);
     }
@@ -45,6 +56,7 @@ export function StartSchemaInitialization(
     schemaId,
     initialize,
     failedAttempts: 0,
+    readiness: pendingReadiness(),
   };
   incompleteTasks.set(schemaId, task);
   runAttempt(task);
@@ -58,6 +70,47 @@ export function CancelSchemaInitialization(schemaId: string): void {
   }
   haltTask(task);
   incompleteTasks.delete(schemaId);
+}
+
+/**
+ * Resolves once the schema's initialization has built its indexes, so a query
+ * that runs after it sees every unique index of the schema. Rejects, naming
+ * the failure, from the first failed attempt until a retry succeeds: a query
+ * never runs without the indexes nor waits through the retries. Rejects too
+ * when the initialization is halted by an unregister or a stop; a start
+ * gates the schema again until the resumed build ends. Resolves at once for
+ * a schema with no initialization under way.
+ */
+export function SchemaInitialized(schemaId: string): Promise<void> {
+  return incompleteTasks.get(schemaId)?.readiness.promise ?? Promise.resolve();
+}
+
+function pendingReadiness(): Readiness {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  promise.catch(() => undefined);
+  return { state: "pending", promise, resolve, reject };
+}
+
+function refuseQueries(
+  task: InitializationTask,
+  state: Exclude<Readiness["state"], "pending">,
+  reason: string,
+): void {
+  const isPending = task.readiness.state === "pending";
+  if (state === "failed" && !isPending) {
+    return;
+  }
+  task.readiness.state = state;
+  if (isPending) {
+    task.readiness.reject(
+      new Error(`Schema "${task.schemaId}" is not initialized: ${reason}`),
+    );
+  }
 }
 
 export async function DrainSchemaInitializations(): Promise<void> {
@@ -95,6 +148,7 @@ function clearRetry(task: InitializationTask): void {
 function haltTask(task: InitializationTask): void {
   clearRetry(task);
   task.runningAttempt?.abort();
+  refuseQueries(task, "halted", "its initialization was halted");
 }
 
 function runAttempt(task: InitializationTask): void {
@@ -117,6 +171,7 @@ function handleSuccess(task: InitializationTask): void {
     return;
   }
   incompleteTasks.delete(task.schemaId);
+  task.readiness.resolve();
   if (task.failedAttempts > 0) {
     Logging.Info(
       `Schema "${task.schemaId}" initialized after ${task.failedAttempts} failed attempt(s)`,
@@ -139,6 +194,7 @@ function handleFailure(
   }
   task.failedAttempts++;
   const message = error instanceof Error ? error.message : String(error);
+  refuseQueries(task, "failed", message);
   const failure = `Schema "${task.schemaId}" initialization attempt ${task.failedAttempts} failed: ${message}`;
   if (!isAcceptingInitializations) {
     Logging.Warn(`${failure}. Retrying when the module starts again`);
