@@ -5,18 +5,18 @@ The MongoDB backend of AntelopeJS, published as `@antelopejs/mongodb`. It implem
 ## Layout
 
 - `src/index.ts` holds the module lifecycle (`construct`, `start`, `stop`, `destroy`) and registers the implementations.
-- `src/connection.ts` owns the shared `MongoClient` and the bookkeeping collection; `src/schema-initialization.ts` gates schema initialization across the lifecycle.
+- `src/connection.ts` owns two clients: the shared `MongoClient` registered for `@antelopejs/interface-mongodb`, and a separate client with `retryWrites` and `retryReads` off that `GetAtomicCollection` returns for atomic mutations. Keep them separate. It also owns the bookkeeping collection; `src/schema-initialization.ts` gates schema initialization across the lifecycle.
 - `src/implementations/database/` implements the database interface: `query.ts` and `schema.ts` are the entry points; `pipeline.ts`, `expression.ts`, `selection.ts`, `atomic.ts`, `indexes.ts` and `instances.ts` translate queries, mutations, indexes and instances to MongoDB.
 - `src/test/` holds the mocha suites; `src/test/antelope.test.ts` (`antelopeJs.test` in `package.json`) is the test project config, not a suite.
 
 ## Versioning
 
-- The `@antelopejs/interface-*` packages are runtime dependencies with ranges. When you raise a minimum, update the range in `package.json` and the compatibility table in `README.md` together, and say so under "Upgrade notes" in `CHANGELOG.md`.
-- A behavior change visible to callers (for example the error a write throws) goes under "Upgrade notes" in `CHANGELOG.md` with the migration step.
+- The `@antelopejs/interface-*` packages are runtime dependencies with ranges in `package.json`, listed in the compatibility table in `README.md`.
+- The release commit writes `CHANGELOG.md`. Upgrade notes for that version, including raised interface minimums and behavior changes visible to callers (for example the error a write throws), follow in a separate `docs(changelog)` pull request, under `### Upgrade notes`.
 
 ## Tests
 
-- `pnpm test` builds `dist`, then runs `ajs module test .`, which loads this module with the config from `src/test/antelope.test.ts` and runs the compiled suites in `dist/test`.
+- `pnpm test` builds `dist`, then runs `ajs module test .`, which loads this module with the config from `src/test/antelope.test.ts` and runs the compiled suites in `dist/test` plus the conformance suites shipped in `@antelopejs/interface-database/dist/tests` (most of the tests). Changing the installed interface-database version changes that suite.
 - The test project starts a single-node MongoDB 8.0.8 replica set with `mongodb-memory-server-core` (change streams need a replica set). The first run downloads the server binary, so it needs network access; later runs reuse the cache.
 - `pnpm run checks` runs every test suite; nothing else needs to run separately.
 
