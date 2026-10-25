@@ -241,3 +241,70 @@ describe("schema readiness", () => {
     }
   });
 });
+
+function stateAfter(promise: Promise<unknown>, ms: number) {
+  return Promise.race([
+    promise.then(
+      () => "fulfilled",
+      () => "rejected",
+    ),
+    delay(ms).then(() => "pending"),
+  ]);
+}
+
+describe("schema readiness across a restart or a close", () => {
+  const SETTLE_MS = 150;
+  let schemaIds: string[] = [];
+  let releaseBuild = () => {};
+
+  function freshSchema(): Schema<AccountTables> {
+    const schemaId = `schema-readiness-${randomUUID()}`;
+    schemaIds.push(schemaId);
+    return new Schema<AccountTables>(schemaId, definition);
+  }
+
+  function heldBuild(): Promise<void> {
+    return new Promise((resolve) => {
+      releaseBuild = resolve;
+    });
+  }
+
+  beforeEach(() => {
+    sinon.stub(Logging, "Warn");
+    sinon.stub(Logging, "Info");
+  });
+
+  afterEach(async () => {
+    releaseBuild();
+    sinon.restore();
+    for (const schemaId of schemaIds) {
+      Schemas.unregister(schemaId);
+      const collection = await connection.GetCollection(
+        collectionName(schemaId, TABLE),
+      );
+      await collection.drop().catch(() => undefined);
+    }
+    schemaIds = [];
+  });
+
+  it("gates queries on the resumed build after a failed build and a restart", async () => {
+    let attempts = 0;
+    stubIndexBuilds(async (schemaId, schema, signal) => {
+      attempts++;
+      if (attempts === 1) throw new Error("index build lost the connection");
+      await heldBuild();
+      return realBuild(schemaId, schema, signal);
+    });
+    const schema = freshSchema();
+    const count = () => schema.instance().table(TABLE).count().run();
+    expect(await stateAfter(count(), SETTLE_MS)).to.equal("rejected");
+
+    stop();
+    start();
+    const afterRestart = count();
+
+    expect(await stateAfter(afterRestart, SETTLE_MS)).to.equal("pending");
+    releaseBuild();
+    expect(await stateAfter(afterRestart, SETTLE_MS * 4)).to.equal("fulfilled");
+  });
+});
