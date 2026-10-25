@@ -307,4 +307,14 @@ describe("schema readiness across a restart or a close", () => {
     releaseBuild();
     expect(await stateAfter(afterRestart, SETTLE_MS * 4)).to.equal("fulfilled");
   });
+
+  it("closes a cursor that has not opened without waiting for the build", async () => {
+    stubIndexBuilds(() => heldBuild());
+    const cursor = freshSchema().instance().table(TABLE).cursor();
+    const next = cursor.next();
+    next.catch(() => undefined);
+    await delay(QUEUED_MS);
+
+    expect(await stateAfter(cursor.return(), SETTLE_MS)).to.equal("fulfilled");
+  });
 });
