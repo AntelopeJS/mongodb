@@ -5,6 +5,7 @@ import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
+import { SchemaInitialized } from "../../schema-initialization";
 
 const LIFECYCLE_HANDLERS: Record<
   string,
@@ -32,7 +33,14 @@ function tryHandleLifecycle(
   return handler(schemaId, stages[1]);
 }
 
+async function schemaInitialized(stages: QueryStage[]): Promise<void> {
+  if (stages[0]?.stage === "schema") {
+    await SchemaInitialized(stages[0].options?.id);
+  }
+}
+
 export async function RunQuery(stages: QueryStage[]) {
+  await schemaInitialized(stages);
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
     return RunAtomicMutation(stages);
   }
@@ -51,6 +59,7 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
     "atomicMutation cannot be read as a cursor",
   );
   if (!(reqId in openQueries)) {
+    await schemaInitialized(stages);
     const query = await SelectionQuery.decode(stages);
     openQueries[reqId] = query;
   }

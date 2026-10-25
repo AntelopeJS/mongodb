@@ -8,6 +8,8 @@ interface InitializationTask {
   failedAttempts: number;
   runningAttempt?: AbortController;
   retryTimer?: NodeJS.Timeout;
+  settled: Promise<void>;
+  settle: () => void;
 }
 
 const INITIAL_RETRY_DELAY_MS = 1_000;
@@ -41,10 +43,16 @@ export function StartSchemaInitialization(
     return false;
   }
   CancelSchemaInitialization(schemaId);
+  let settle!: () => void;
+  const settled = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
   const task: InitializationTask = {
     schemaId,
     initialize,
     failedAttempts: 0,
+    settled,
+    settle,
   };
   incompleteTasks.set(schemaId, task);
   runAttempt(task);
@@ -58,6 +66,17 @@ export function CancelSchemaInitialization(schemaId: string): void {
   }
   haltTask(task);
   incompleteTasks.delete(schemaId);
+}
+
+/**
+ * Resolves once the schema's initialization has built its indexes, so a query
+ * that runs after it sees every unique index of the schema. It also resolves
+ * when an attempt fails or the initialization is halted, letting queries run
+ * as they would without the indexes rather than wait for a retry. Resolves at
+ * once for a schema with no initialization under way.
+ */
+export function SchemaInitialized(schemaId: string): Promise<void> {
+  return incompleteTasks.get(schemaId)?.settled ?? Promise.resolve();
 }
 
 export async function DrainSchemaInitializations(): Promise<void> {
@@ -95,6 +114,7 @@ function clearRetry(task: InitializationTask): void {
 function haltTask(task: InitializationTask): void {
   clearRetry(task);
   task.runningAttempt?.abort();
+  task.settle();
 }
 
 function runAttempt(task: InitializationTask): void {
@@ -117,6 +137,7 @@ function handleSuccess(task: InitializationTask): void {
     return;
   }
   incompleteTasks.delete(task.schemaId);
+  task.settle();
   if (task.failedAttempts > 0) {
     Logging.Info(
       `Schema "${task.schemaId}" initialized after ${task.failedAttempts} failed attempt(s)`,
@@ -138,6 +159,7 @@ function handleFailure(
     return;
   }
   task.failedAttempts++;
+  task.settle();
   const message = error instanceof Error ? error.message : String(error);
   const failure = `Schema "${task.schemaId}" initialization attempt ${task.failedAttempts} failed: ${message}`;
   if (!isAcceptingInitializations) {
