@@ -25,6 +25,7 @@ const DRAIN_GRACE_PERIOD_MS = 2_000;
 
 const incompleteTasks = new Map<string, InitializationTask>();
 const runningAttempts = new Set<Promise<void>>();
+const latestAttempts = new Map<string, Promise<void>>();
 let isAcceptingInitializations = false;
 
 export function AllowSchemaInitializations(): void {
@@ -44,6 +45,12 @@ export function PreventSchemaInitializations(): void {
   incompleteTasks.forEach(haltTask);
 }
 
+/**
+ * Starts the initialization of a schema, superseding the one under way. The
+ * new build starts once the superseded attempt has settled, so two builds
+ * never run on the same collection at once: a stale snapshot of the indexes
+ * would otherwise drop or recreate indexes the new build just made.
+ */
 export function StartSchemaInitialization(
   schemaId: string,
   initialize: SchemaInitialization,
@@ -154,15 +161,23 @@ function haltTask(task: InitializationTask): void {
 function runAttempt(task: InitializationTask): void {
   const controller = new AbortController();
   task.runningAttempt = controller;
+  const previousAttempt =
+    latestAttempts.get(task.schemaId) ?? Promise.resolve();
   let attempt!: Promise<void>;
-  attempt = Promise.resolve()
+  attempt = previousAttempt
     .then(() => task.initialize(controller.signal))
     .then(
       () => handleSuccess(task),
       (error: unknown) => handleFailure(task, error, controller.signal),
     )
-    .finally(() => runningAttempts.delete(attempt));
+    .finally(() => {
+      runningAttempts.delete(attempt);
+      if (latestAttempts.get(task.schemaId) === attempt) {
+        latestAttempts.delete(task.schemaId);
+      }
+    });
   runningAttempts.add(attempt);
+  latestAttempts.set(task.schemaId, attempt);
 }
 
 function handleSuccess(task: InitializationTask): void {
