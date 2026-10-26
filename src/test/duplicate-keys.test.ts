@@ -10,6 +10,7 @@ import {
 } from "@antelopejs/interface-database/schema";
 
 import * as connection from "../connection";
+import { SchemaInitialized } from "../schema-initialization";
 import { collectionName } from "../implementations/database/utils";
 
 interface Member {
@@ -67,7 +68,7 @@ async function membersSchema(
   definition: SchemaDefinition,
 ): Promise<Schema<MemberTables>> {
   const schema = new Schema<MemberTables>(schemaId, definition);
-  await connection.InitializeSchema(schemaId, definition);
+  await SchemaInitialized(schemaId);
   return schema;
 }
 

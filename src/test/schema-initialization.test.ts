@@ -189,6 +189,28 @@ describe("schema initialization lifecycle", () => {
     expect(initialize.callCount).to.equal(2);
   });
 
+  it("starts the replacement build only once the superseded attempt has settled", async () => {
+    const first = createDeferred<void>();
+    const newerSchema: SchemaDefinition = { ...schema };
+    const initialize = sinon.stub(connection, "InitializeSchema");
+    initialize.onFirstCall().returns(first.promise);
+    initialize.onSecondCall().resolves();
+
+    Schemas.register("first", schema);
+    await waitForNextTurn();
+    Schemas.register("first", newerSchema);
+    await waitForNextTurn();
+    expect(initialize.callCount).to.equal(1);
+    first.resolve();
+    await waitForNextTurn();
+
+    expect(initialize.callCount).to.equal(2);
+    expect(initialize.secondCall.args.slice(0, 2)).to.deep.equal([
+      "first",
+      newerSchema,
+    ]);
+  });
+
   it("keeps the registration and logs a warning when initialization fails", async () => {
     useFakeGlobalTimeouts();
     sinon.stub(connection, "InitializeSchema").rejects(networkFailure);
