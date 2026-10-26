@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/mongodb",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MongoDB backend for AntelopeJS, implementing the Database and MongoDB interfaces with the official MongoDB driver",
   "keywords": [
     "antelopejs",

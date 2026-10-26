@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.5.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.5.0...v1.5.1)
+
+### 🩹 Fixes
+
+- **database:** Make queries on a schema wait for its index build ([#59](https://github.com/AntelopeJS/mongodb/pull/59))
+- **database:** Start a replacement index build after the superseded one settles ([#61](https://github.com/AntelopeJS/mongodb/pull/61))
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of mongodb 1.5.0 ([#56](https://github.com/AntelopeJS/mongodb/pull/56))
+
+### 🏡 Chore
+
+- Adopt the guardrail pack from tooling-configs 0.2.0 ([#57](https://github.com/AntelopeJS/mongodb/pull/57))
+- Configure Renovate with the shared preset ([#58](https://github.com/AntelopeJS/mongodb/pull/58))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.5.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.4.4...v1.5.0)
