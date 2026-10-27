@@ -14,9 +14,9 @@ importers:
       '@antelopejs/interface-database':
         specifier: '>=0.1.11 <0.2.0'
         version: 0.1.11(@antelopejs/interface-core@0.2.4)
-      '@antelopejs/interface-mongodb':
-        specifier: '>=0.0.6 <1.0.0'
-        version: 0.0.6(socks@2.8.7)
+      '@antelopejs/interface-database-catalog':
+        specifier: '>=0.0.3 <0.1.0'
+        version: 0.0.3(@antelopejs/interface-core@0.2.4)
       chai:
         specifier: ^4.5.0
         version: 4.5.0
@@ -93,6 +93,10 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+    optionalDependencies:
+      '@antelopejs/interface-mongodb':
+        specifier: '>=0.0.6 <1.0.0'
+        version: 0.0.6(socks@2.8.7)
 
 packages:
 
@@ -103,6 +107,11 @@ packages:
 
   '@antelopejs/interface-core@0.2.4':
     resolution: {integrity: sha512-2qF6/KwahCQvvNuC/piUvPWD4wq2Npmco941HMg2/bMBoJKbhMH16WcXXRvPYznNSkU0U+6vqK6KE+2N5NojSA==}
+
+  '@antelopejs/interface-database-catalog@0.0.3':
+    resolution: {integrity: sha512-ZT7bZ0ycEs8VvEgNGQTGMAzKiFQC1BOYOM2f2e+vFuCN/1VPBZZFxg3XOmHClTzdW/RzX2k7lasfMyaVOUzOCA==}
+    peerDependencies:
+      '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
   '@antelopejs/interface-database@0.1.11':
     resolution: {integrity: sha512-uv6mB1Lghmlc9z+oWzntmzD1ZNBAmrj+2+7MItv6zClEolbqw5hfAt8+c3IPq2yLfWDfhpqWme2m0eTwsAm0RQ==}
@@ -2803,6 +2812,10 @@ snapshots:
     dependencies:
       reflect-metadata: 0.2.2
 
+  '@antelopejs/interface-database-catalog@0.0.3(@antelopejs/interface-core@0.2.4)':
+    dependencies:
+      '@antelopejs/interface-core': 0.2.4
+
   '@antelopejs/interface-database@0.1.11(@antelopejs/interface-core@0.2.4)':
     dependencies:
       '@antelopejs/interface-core': 0.2.4
@@ -2818,6 +2831,7 @@ snapshots:
       - mongodb-client-encryption
       - snappy
       - socks
+    optional: true
 
   '@antelopejs/tooling-configs@0.2.0(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
     dependencies:

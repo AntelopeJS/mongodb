@@ -1,6 +1,7 @@
 import { antelopeKnipConfig } from "@antelopejs/tooling-configs/knip";
 
 export default antelopeKnipConfig({
+  entry: ["src/test-external/**/*.test.ts"],
   ignoreDependencies: [
     // emitDecoratorMetadata makes tsc emit Reflect.metadata calls, so the
     // polyfill has to be loaded at runtime even though nothing imports it.

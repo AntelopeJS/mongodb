@@ -3,8 +3,19 @@ import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
+import { IsExternal } from "../../config";
 import { GetCollection } from "../../connection";
 import { SchemaInitialized } from "../../schema-initialization";
+import { TimeLimit } from "./external-probe";
+import { RenderOutput } from "./external-read";
+import { ExternalTarget, PredicateAfterRows } from "./external-selection";
+import { ExternalStages } from "./external-stages";
+import { RunExternalWrite } from "./external-writes";
+import {
+  buildInitialPipeline,
+  type InstanceContext,
+  resolveInstanceContext,
+} from "./instance-scope";
 // oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
 import { AggregationPipeline } from "./pipeline";
 import {
@@ -14,20 +25,12 @@ import {
   IsConstantValue,
 } from "./expression";
 import {
+  ResolveIndex,
   type ResolvedIndex,
   SingleIndexField,
   TypedWriteError,
 } from "./indexes";
-import {
-  collectionName,
-  DecodingContext,
-  INSTANCE_FIELD,
-  normalizeInstanceId,
-} from "./utils";
-
-type InstanceContext =
-  | { kind: "scoped"; instanceId: string | null }
-  | { kind: "cross" };
+import { collectionName, DecodingContext, INSTANCE_FIELD } from "./utils";
 
 const SINGLE_FIELD = 1;
 const SINGLE_KEY = 1;
@@ -52,48 +55,14 @@ function toKeyTuples(index: ResolvedIndex, decodedKeys: unknown): unknown[][] {
   return tuples.map((key) => toKeyTuple(index, key));
 }
 
-function resolveInstanceContext(instanceId: unknown): InstanceContext {
-  if (instanceId === CROSS_INSTANCE) {
-    return { kind: "cross" };
-  }
-  return { kind: "scoped", instanceId: normalizeInstanceId(instanceId) };
-}
-
-function buildInitialPipeline(
-  instance: InstanceContext,
-  isChangeStream: boolean,
-): any[] {
-  if (instance.kind !== "scoped") {
-    return [];
-  }
-  if (isChangeStream) {
-    return [
-      {
-        $match: {
-          $expr: {
-            $eq: [
-              {
-                $ifNull: [
-                  `$fullDocument.${INSTANCE_FIELD}`,
-                  `$fullDocumentBeforeChange.${INSTANCE_FIELD}`,
-                ],
-              },
-              { $literal: instance.instanceId },
-            ],
-          },
-        },
-      },
-    ];
-  }
-  return [{ $match: { [INSTANCE_FIELD]: instance.instanceId } }];
-}
-
 export class SelectionQuery extends AggregationPipeline {
   private _newValue: any;
   private _updateValue: unknown;
   private _conflictMode?: "update" | "replace";
   private readonly instance: InstanceContext;
   public readonly instanceId: string | typeof CROSS_INSTANCE | undefined;
+  /** The stages of a read on an external instance's collection; undefined on an owned instance. */
+  public readonly external?: ExternalStages;
 
   public constructor(
     schemaId: string,
@@ -102,15 +71,23 @@ export class SelectionQuery extends AggregationPipeline {
     isChangeStream: boolean,
     context: DecodingContext,
   ) {
-    const instance = resolveInstanceContext(instanceId);
+    const external = IsExternal()
+      ? ExternalTarget(schemaId, tableName, instanceId, isChangeStream)
+      : undefined;
+    const instance = external
+      ? ({ kind: "cross" } as const)
+      : resolveInstanceContext(instanceId);
     super(
       schemaId,
       tableName,
-      collectionName(schemaId, tableName),
-      buildInitialPipeline(instance, isChangeStream),
+      external?.collection ?? collectionName(schemaId, tableName),
+      external ? [] : buildInitialPipeline(instance, isChangeStream),
       isChangeStream,
       context,
     );
+    this.external =
+      external && new ExternalStages(external, this.pipeline, context);
+    this.options = external ? TimeLimit() : {};
     this.instanceId = instanceId;
     this.instance = instance;
     this.resultType = "table";
@@ -138,6 +115,7 @@ export class SelectionQuery extends AggregationPipeline {
         context ?? new DecodingContext(),
       );
       await selection.addStages(stages.slice(3));
+      selection.external?.finish(selection.resultType);
       return selection;
     }
     return AggregationPipeline.decode(stages, context);
@@ -266,12 +244,36 @@ export class SelectionQuery extends AggregationPipeline {
       delete: () => this.delete(),
     };
     const runner = RUNNERS[this.resultType];
+    if (this.external && this.resultType in RUNNERS) {
+      return RunExternalWrite(this.external.collection, {
+        kind: this.resultType,
+        value: this._newValue,
+        pipeline: this.pipeline,
+        conflict: this._conflictMode,
+      });
+    }
     if (runner) {
       return runner().catch((error: unknown) => {
         throw TypedWriteError(this.schemaId, this.tableName, error);
       });
     }
-    return super.run();
+    const result = await super.run();
+    return this.external ? RenderOutput(result) : result;
+  }
+
+  public override async readCursor() {
+    const next = await super.readCursor();
+    return this.external ? RenderOutput(next) : next;
+  }
+
+  public override async addStages(stages: QueryStage[]) {
+    if (!this.external) {
+      return super.addStages(stages);
+    }
+    for (const stage of stages) {
+      this.external.beforeStage(stage);
+      await super.addStages([stage]);
+    }
   }
 
   protected async stage_get(stage: QueryStage) {
@@ -279,6 +281,10 @@ export class SelectionQuery extends AggregationPipeline {
     this.resultType = "selection";
     this.singleElement = true;
     const key = stage.args[0];
+    if (this.external) {
+      await this.external.get(key);
+      return;
+    }
     if (IsConstantValue(key)) {
       this.pipeline.push({ $match: { _id: key } });
       return;
@@ -294,6 +300,9 @@ export class SelectionQuery extends AggregationPipeline {
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
     const rawValue = stage.args[0];
+    if (this.external?.getAll(index.fields, rawValue)) {
+      return;
+    }
     if (index.fields.length > SINGLE_FIELD) {
       const isConstant = IsConstantValue(rawValue);
       const keys = isConstant
@@ -347,6 +356,9 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
+    if (this.external?.between(SingleIndexField(index), stage)) {
+      return;
+    }
     const indexVar = `$${SingleIndexField(index)}`;
     const low = await DecodeValue(stage.args[0], this.context);
     const high = await DecodeValue(stage.args[1], this.context);
@@ -358,7 +370,75 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   protected override isCrossInstance(): boolean {
-    return this.instance.kind === "cross";
+    return !this.external && this.instance.kind === "cross";
+  }
+
+  protected override async stage_filter(stage: QueryStage) {
+    if (await this.external?.filter(stage.args[0])) {
+      return this;
+    }
+    return super.stage_filter(stage);
+  }
+
+  protected override stage_orderBy(stage: QueryStage) {
+    this.external?.orderBy(
+      ResolveIndex(this.schemaId, this.tableName, stage.options.index).fields,
+    );
+    return super.stage_orderBy(stage);
+  }
+
+  protected override stage_count(stage: QueryStage) {
+    this.external?.count(stage);
+    super.stage_count(stage);
+    this.external?.reduced();
+  }
+
+  private reduceNatively(stage: QueryStage, operator: string): boolean {
+    const reduced =
+      this.external?.reduce(stage, operator, () => this.makeWrapped()) ?? false;
+    this.singleElement ||= reduced;
+    return reduced;
+  }
+
+  protected override stage_sum(stage: QueryStage) {
+    if (!this.reduceNatively(stage, "$sum")) {
+      return super.stage_sum(stage);
+    }
+    this.reductionDefault = 0;
+    return this;
+  }
+
+  protected override stage_avg(stage: QueryStage) {
+    return this.reduceNatively(stage, "$avg") ? this : super.stage_avg(stage);
+  }
+
+  protected override stage_min(stage: QueryStage) {
+    return this.reduceNatively(stage, "$min") ? this : super.stage_min(stage);
+  }
+
+  protected override stage_max(stage: QueryStage) {
+    return this.reduceNatively(stage, "$max") ? this : super.stage_max(stage);
+  }
+
+  protected override async stage_join(stage: QueryStage) {
+    const from = this.pipeline.length;
+    const joined = await super.stage_join(stage);
+    if (this.external) {
+      PredicateAfterRows(this.pipeline, from);
+    }
+    return joined;
+  }
+
+  protected override async stage_lookup(stage: QueryStage) {
+    if (!this.external) {
+      return super.stage_lookup(stage);
+    }
+    await this.external.lookup(
+      stage,
+      this.getField(stage.options.localKey),
+      (stages) => SelectionQuery.decode(stages, this.context),
+    );
+    return this;
   }
 
   protected async stage_insert(stage: QueryStage) {
@@ -371,6 +451,10 @@ export class SelectionQuery extends AggregationPipeline {
   protected async stage_update(stage: QueryStage) {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "update";
+    if (this.external) {
+      this._newValue = this.external.updateValue(stage.args[0]);
+      return;
+    }
     if (stage.args[0]?.stage === "func") {
       this._updateValue = await DecodeFunction(
         stage.args[0],

@@ -6,6 +6,11 @@ import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 import { SchemaInitialized } from "../../schema-initialization";
+import { IsExternal } from "../../config";
+import {
+  ExternalAtomicRefusal,
+  ExternalInstanceRefusal,
+} from "./external-refusals";
 
 const LIFECYCLE_HANDLERS: Record<
   string,
@@ -18,13 +23,27 @@ const LIFECYCLE_HANDLERS: Record<
   listInstances: (schemaId) => ListInstances(schemaId),
 };
 
+/**
+ * The lifecycle stages on an external instance, whose collections have no instances: creating or
+ * destroying one is refused rather than recorded nowhere, and the list of them is empty.
+ */
+const EXTERNAL_LIFECYCLE_HANDLERS: typeof LIFECYCLE_HANDLERS = {
+  createInstance: (_schemaId, stage) =>
+    Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  destroyInstance: (_schemaId, stage) =>
+    Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  listInstances: () => Promise.resolve([]),
+};
+
 function tryHandleLifecycle(
   stages: QueryStage[],
 ): Promise<unknown> | undefined {
   if (stages.length !== 2 || stages[0]?.stage !== "schema") {
     return undefined;
   }
-  const handler = LIFECYCLE_HANDLERS[stages[1].stage];
+  const handler = (
+    IsExternal() ? EXTERNAL_LIFECYCLE_HANDLERS : LIFECYCLE_HANDLERS
+  )[stages[1].stage];
   if (!handler) {
     return undefined;
   }
@@ -42,6 +61,9 @@ async function schemaInitialized(stages: QueryStage[]): Promise<void> {
 export async function RunQuery(stages: QueryStage[]) {
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
     await schemaInitialized(stages);
+    if (IsExternal()) {
+      throw ExternalAtomicRefusal(stages[2]?.options?.id);
+    }
     return RunAtomicMutation(stages);
   }
   const lifecycle = tryHandleLifecycle(stages);
