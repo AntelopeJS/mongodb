@@ -11,10 +11,11 @@ The MongoDB backend of AntelopeJS: it runs the database interface's queries on M
 
 ## Interfaces
 
-| Interface                                                                            | Documentation                                                          |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [`@antelopejs/interface-database`](https://github.com/AntelopeJS/interface-database) | [Database](https://interfaces.antelopejs.com/docs/database)            |
-| [`@antelopejs/interface-mongodb`](https://github.com/AntelopeJS/interface-mongodb)   | [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction) |
+| Interface                                                                                            | Documentation                                                          |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`@antelopejs/interface-database`](https://github.com/AntelopeJS/interface-database)                 | [Database](https://interfaces.antelopejs.com/docs/database)            |
+| [`@antelopejs/interface-mongodb`](https://github.com/AntelopeJS/interface-mongodb)                   | [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction) |
+| [`@antelopejs/interface-database-catalog`](https://github.com/AntelopeJS/interface-database-catalog) | [External mode](docs/external-mode.md#the-catalog)                     |
 
 Schemas, tables, queries, change feeds and atomic mutations are documented on the database interface pages.
 
@@ -53,11 +54,16 @@ export default defineConfig({
 });
 ```
 
-| Key        | Description                                                                                                                                  |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`      | MongoDB connection string.                                                                                                                   |
-| `database` | Database that holds every schema's collections.                                                                                              |
-| `options`  | Optional [`MongoClientOptions`](https://mongodb.github.io/node-mongodb-native/6.21/interfaces/MongoClientOptions.html) passed to the driver. |
+| Key                  | Description                                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`                | MongoDB connection string.                                                                                                                                            |
+| `database`           | Database that holds every schema's collections.                                                                                                                       |
+| `options`            | Optional [`MongoClientOptions`](https://mongodb.github.io/node-mongodb-native/6.21/interfaces/MongoClientOptions.html) passed to the driver.                          |
+| `mode`               | `owned` (default): the module creates and scopes its own collections. `external`: it serves a database it did not create, see [External mode](docs/external-mode.md). |
+| `statementTimeoutMs` | Optional server-side time limit of each read and write of an external instance, sent as `maxTimeMS`.                                                                  |
+| `catalog`            | `{ enabled?: boolean }`: whether an external instance answers the catalog outside development.                                                                        |
+
+An external instance requires `url` and `database`, and reads and writes the client's own collections without changing their structure: see [External mode](docs/external-mode.md).
 
 Change feeds rely on MongoDB change streams, which need a replica set. A single-node replica set is enough in development.
 
@@ -95,15 +101,17 @@ Versions before 1.4 created each index as `<name>` only. The module creates the 
 
 - [Database](https://interfaces.antelopejs.com/docs/database): the `@antelopejs/interface-database` contract this module implements
 - [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction): the `@antelopejs/interface-mongodb` contract this module implements
+- [External mode](docs/external-mode.md): serving a database the module did not create, and its catalog
 - [Configuration](https://framework.antelopejs.com/docs/concepts/configuration): module sources, `config` blocks and config variables in `antelope.config.ts`
 
 ## Compatibility
 
-| Package                          | Supported range  |
-| -------------------------------- | ---------------- |
-| `@antelopejs/interface-database` | `^0.1.8`         |
-| `@antelopejs/interface-mongodb`  | `>=0.0.5 <1.0.0` |
-| `@antelopejs/interface-core`     | `>=0.1.1 <1.0.0` |
+| Package                                  | Supported range  |
+| ---------------------------------------- | ---------------- |
+| `@antelopejs/interface-database`         | `^0.1.8`         |
+| `@antelopejs/interface-mongodb`          | `>=0.0.5 <1.0.0` |
+| `@antelopejs/interface-database-catalog` | `>=0.0.3 <0.1.0` |
+| `@antelopejs/interface-core`             | `>=0.1.1 <1.0.0` |
 
 The module is developed and tested against `@antelopejs/core` `^1.13.4` on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
 
