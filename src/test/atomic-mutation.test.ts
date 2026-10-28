@@ -1,8 +1,8 @@
 import sinon from "sinon";
 import { expect } from "chai";
 import assert from "node:assert/strict";
-import { MongoNetworkError } from "mongodb";
-import type { Collection, CommandStartedEvent, MongoClient } from "mongodb";
+import { MongoClient, MongoNetworkError } from "mongodb";
+import type { Collection, CommandStartedEvent } from "mongodb";
 import { Schema, CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type {
   AtomicMutation,
@@ -18,7 +18,7 @@ interface AtomicRecord {
   _instance?: string | null;
   revision?: string | null | string[];
   title?: string;
-  nested?: Record<string, unknown>;
+  nested?: Record<string, boolean | string>;
   expires?: Date | Date[] | null;
 }
 
@@ -48,6 +48,13 @@ function update(nextRevision = SECOND_REVISION): AtomicUpdate<AtomicRecord> {
 
 let schema: Schema<AtomicTables>;
 let collection: InstrumentedCollection;
+let atomicCollection: Collection;
+
+function assertInstrumented<Target extends object>(
+  target: Target,
+): asserts target is Target & InstrumentedCollection {
+  assert.ok("client" in target && target.client instanceof MongoClient);
+}
 
 function mutate(
   request: AtomicMutation<AtomicRecord>,
@@ -66,9 +73,12 @@ describe("atomic single-record mutations", () => {
     schema = new Schema<AtomicTables>(SCHEMA_ID, {
       records: { fields: {}, indexes: {} },
     });
-    collection = connection.GetAtomicCollection(
+    const atomic = connection.GetAtomicCollection(
       collectionName(SCHEMA_ID, "records"),
-    ) as unknown as InstrumentedCollection;
+    );
+    assertInstrumented(atomic);
+    atomicCollection = atomic;
+    collection = atomic;
   });
 
   beforeEach(async () => {
@@ -161,9 +171,7 @@ function revisionCases() {
   });
 
   it("throws validation failures before sending any write", async () => {
-    sinon
-      .stub(connection, "GetAtomicCollection")
-      .returns(collection as unknown as Collection);
+    sinon.stub(connection, "GetAtomicCollection").returns(atomicCollection);
     const write = sinon.spy(collection, "updateOne");
     const table = schema.instance(TENANT).table("records");
     const invalid = [
@@ -202,9 +210,7 @@ function writeOutcomeCases() {
         await nativeUpdate(...args);
         throw new MongoNetworkError("lost acknowledgement");
       });
-    sinon
-      .stub(connection, "GetAtomicCollection")
-      .returns(collection as unknown as Collection);
+    sinon.stub(connection, "GetAtomicCollection").returns(atomicCollection);
     expect(await mutate(update())).to.equal("unknown");
     expect(write.calledOnce).to.equal(true);
     expect(await collection.findOne({ _id: RECORD_ID })).to.include({
@@ -291,9 +297,7 @@ function writeOutcomeCases() {
 
 function driverFailureCases() {
   it("returns unknown for unacknowledged writes and a lost delete acknowledgement", async () => {
-    sinon
-      .stub(connection, "GetAtomicCollection")
-      .returns(collection as unknown as Collection);
+    sinon.stub(connection, "GetAtomicCollection").returns(atomicCollection);
     sinon.stub(collection, "updateOne").resolves({
       acknowledged: false,
       matchedCount: 0,

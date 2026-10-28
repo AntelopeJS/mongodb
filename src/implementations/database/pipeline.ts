@@ -11,6 +11,7 @@ import {
   type DecodingContext,
   DefaultConstant,
   DefaultExpression,
+  hasKey,
   isString,
   Temporary,
 } from "./utils";
@@ -98,10 +99,10 @@ export class AggregationPipeline extends PipelineCore {
     try {
       for (const stage of stages) {
         const stageCallback = `stage_${stage.stage}`;
-        if (!(stageCallback in this)) {
+        if (!hasKey(this, stageCallback)) {
           throw new Error(`Unimplemented stage: ${stage.stage}`);
         }
-        const callback = this[stageCallback as keyof this];
+        const callback = this[stageCallback];
         if (!(callback instanceof Function)) {
           continue;
         }

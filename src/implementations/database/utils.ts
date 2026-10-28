@@ -42,6 +42,14 @@ export function isDocument<Value>(value: Value): value is Value & Document {
   return typeof value === "object" && value !== null;
 }
 
+/** Tells whether `key` names a property of `table`, own or inherited, as the `in` operator does. */
+export function hasKey<Table extends object>(
+  table: Table,
+  key: PropertyKey,
+): key is keyof Table {
+  return key in table;
+}
+
 export function normalizeInstanceId(
   id: InstanceId | null | undefined,
 ): string | null {
@@ -84,7 +92,12 @@ function isArgumentProvider(
 export class DecodingContext {
   public args: Record<string, ArgumentProvider | string> = {};
   public subquery?: ArgumentProvider;
-  public mapVarSources: Record<string, unknown> = {}; // maps $$var → array source expression
+  /**
+   * The array expression each `$map` variable (`$$var`) iterates, typed as the `source` an
+   * `ArrayLookup` takes. A `$lookup` pipeline cannot read `$map` variables, so a join keyed on one
+   * is planned from this source instead.
+   */
+  public mapVarSources: Record<string, Document[keyof Document]> = {};
 
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {

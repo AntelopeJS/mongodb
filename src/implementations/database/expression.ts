@@ -5,6 +5,7 @@ import type { QueryStage, Value } from "@antelopejs/interface-database/common";
 import {
   type ArgumentProvider,
   type DecodingContext,
+  hasKey,
   isDocument,
   isObjectOrNull,
   isString,
@@ -19,7 +20,7 @@ type ValueDecoder = (
   context: DecodingContext,
 ) => Promise<unknown>;
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+function isPlainObject<Value>(value: Value): value is Value & object {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -81,10 +82,10 @@ class Expression {
   public async addStages(stages: QueryStage[]) {
     for (const stage of stages) {
       const stageCallback = `stage_${stage.stage}`;
-      if (!(stageCallback in this)) {
+      if (!hasKey(this, stageCallback)) {
         throw new Error(`Unimplemented stage: ${stage.stage}`);
       }
-      const callback = this[stageCallback as keyof this];
+      const callback = this[stageCallback];
       if (isString(callback)) {
         this.value = {
           [callback]:

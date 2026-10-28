@@ -17,7 +17,7 @@ import {
   type InstanceContext,
   resolveInstanceContext,
 } from "./instance-scope";
-// oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
+// oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
 import {
   DecodeFunction,
