@@ -190,7 +190,8 @@ describe("schema initialization stop", () => {
     const runtimeErrors: unknown[] = [];
     const unhandledErrors: unknown[] = [];
     const previousReporter = coreInternal.runtimeErrorReporter;
-    const onUnhandled = (error: unknown) => unhandledErrors.push(error);
+    const onUnhandled: NodeJS.UnhandledRejectionListener = (error) =>
+      unhandledErrors.push(error);
     coreInternal.runtimeErrorReporter = (error) => runtimeErrors.push(error);
     process.on("unhandledRejection", onUnhandled);
 

@@ -1,6 +1,6 @@
 import assert from "node:assert";
 
-import type { QueryStage } from "./utils";
+import { hasKey, isString, type QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
@@ -12,16 +12,18 @@ import {
   ExternalInstanceRefusal,
 } from "./external-refusals";
 
-const LIFECYCLE_HANDLERS: Record<
-  string,
-  (schemaId: string, stage: QueryStage) => Promise<unknown>
-> = {
+type LifecycleHandler = (
+  schemaId: string,
+  stage: QueryStage,
+) => Promise<string | string[] | void>;
+
+const LIFECYCLE_HANDLERS = {
   createInstance: (schemaId, stage) =>
     CreateInstance(schemaId, stage.options?.id),
   destroyInstance: (schemaId, stage) =>
     DestroyInstance(schemaId, stage.options?.id),
   listInstances: (schemaId) => ListInstances(schemaId),
-};
+} satisfies Record<string, LifecycleHandler>;
 
 /**
  * The lifecycle stages on an external instance, whose collections have no instances: creating or
@@ -37,18 +39,20 @@ const EXTERNAL_LIFECYCLE_HANDLERS: typeof LIFECYCLE_HANDLERS = {
 
 function tryHandleLifecycle(
   stages: QueryStage[],
-): Promise<unknown> | undefined {
+): ReturnType<LifecycleHandler> | undefined {
   if (stages.length !== 2 || stages[0]?.stage !== "schema") {
     return undefined;
   }
-  const handler = (
-    IsExternal() ? EXTERNAL_LIFECYCLE_HANDLERS : LIFECYCLE_HANDLERS
-  )[stages[1].stage];
-  if (!handler) {
+  const handlers = IsExternal()
+    ? EXTERNAL_LIFECYCLE_HANDLERS
+    : LIFECYCLE_HANDLERS;
+  const lifecycleStage = stages[1].stage;
+  if (!hasKey(handlers, lifecycleStage)) {
     return undefined;
   }
+  const handler: LifecycleHandler = handlers[lifecycleStage];
   const schemaId = stages[0].options?.id;
-  assert(typeof schemaId === "string", "Lifecycle query missing schema id");
+  assert(isString(schemaId), "Lifecycle query missing schema id");
   return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
 }
 
@@ -124,9 +128,7 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
     delete openQueries[reqId];
     try {
       await query.closeCursor();
-    } catch {
-      // Ignore close failures; the read error is the one worth surfacing.
-    }
+    } catch {}
     throw error;
   }
 }

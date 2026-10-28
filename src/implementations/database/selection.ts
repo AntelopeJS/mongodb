@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import type { AnyBulkWriteOperation, Document } from "mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type { QueryStage } from "@antelopejs/interface-database/common";
@@ -30,7 +31,12 @@ import {
   SingleIndexField,
   TypedWriteError,
 } from "./indexes";
-import { collectionName, DecodingContext, INSTANCE_FIELD } from "./utils";
+import {
+  collectionName,
+  DecodingContext,
+  hasKey,
+  INSTANCE_FIELD,
+} from "./utils";
 
 const SINGLE_FIELD = 1;
 const SINGLE_KEY = 1;
@@ -172,8 +178,8 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async insertWithConflict(collection: any, documents: any[]) {
-    const CONFLICT_OPERATIONS: Record<string, (doc: any) => any> = {
-      update: (doc) => ({
+    const CONFLICT_OPERATIONS = {
+      update: (doc: Document): AnyBulkWriteOperation => ({
         updateOne: {
           filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           update: [
@@ -186,7 +192,7 @@ export class SelectionQuery extends AggregationPipeline {
           upsert: true,
         },
       }),
-      replace: (doc) => ({
+      replace: (doc: Document): AnyBulkWriteOperation => ({
         replaceOne: {
           filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           replacement: doc,
@@ -237,13 +243,15 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   public async run(): Promise<any> {
-    const RUNNERS: Record<string, () => Promise<any>> = {
+    const RUNNERS = {
       insert: () => this.insert(),
       update: () => this.update(),
       replace: () => this.replace(),
       delete: () => this.delete(),
     };
-    const runner = RUNNERS[this.resultType];
+    const runner = hasKey(RUNNERS, this.resultType)
+      ? RUNNERS[this.resultType]
+      : undefined;
     if (this.external && this.resultType in RUNNERS) {
       return RunExternalWrite(this.external.collection, {
         kind: this.resultType,
