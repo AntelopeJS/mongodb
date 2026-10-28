@@ -78,14 +78,16 @@ export class SelectionQuery extends AggregationPipeline {
     const instance = external
       ? ({ kind: "cross" } as const)
       : resolveInstanceContext(instanceId);
-    super(
+    super({
       schemaId,
       tableName,
-      external?.collection ?? collectionName(schemaId, tableName),
-      external ? [] : buildInitialPipeline(instance, isChangeStream),
+      collection: external?.collection ?? collectionName(schemaId, tableName),
+      initialFilter: external
+        ? []
+        : buildInitialPipeline(instance, isChangeStream),
       isChangeStream,
       context,
-    );
+    });
     this.external =
       external && new ExternalStages(external, this.pipeline, context);
     this.options = external ? TimeLimit() : {};
