@@ -78,6 +78,7 @@ Verify a boundary against the imports a developer or agent would plausibly write
 | Comments are TSDoc, directives, or `SAFETY:` only                              | `antelopejs/no-comments`                            |
 | Every test asserts                                                             | `antelopejs/require-assertion`                      |
 | Tests read no files outside fixtures, helpers, locales                         | `antelopejs/no-fs-read-in-tests`                    |
+| Tests import the code under test from local source, not their own package name | `antelopejs/no-self-import-in-tests`                |
 | No assertion that restates a constant                                          | `antelopejs/no-constant-value-assertion`            |
 | No test whose only check is "is a function"                                    | `antelopejs/no-typeof-function-only-test`           |
 | Params ≤ 5, function ≤ 120 lines, file ≤ 500 lines, depth ≤ 4, complexity ≤ 20 | `eslint/max-*`, `eslint/complexity`                 |
