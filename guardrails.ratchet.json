@@ -1,10 +1,10 @@
 {
   "rules": {
-    "antelopejs/no-comments": 33,
+    "antelopejs/no-comments": 30,
     "anti-slop/no-chained-type-assertions": 5,
     "anti-slop/no-known-value-widening": 9,
-    "anti-slop/no-runtime-typeof": 23,
-    "anti-slop/no-unknown-parameters": 38,
+    "anti-slop/no-runtime-typeof": 22,
+    "anti-slop/no-unknown-parameters": 37,
     "anti-slop/no-unknown-returns": 7,
     "anti-slop/no-unsafe-dictionary-type": 12,
     "anti-slop/require-safety-comment-for-type-assertion": 20,
@@ -12,6 +12,6 @@
     "eslint/max-params": 1
   },
   "oversizeFiles": {
-    "src/implementations/database/pipeline.ts": 22427
+    "src/implementations/database/pipeline.ts": 21374
   }
 }
