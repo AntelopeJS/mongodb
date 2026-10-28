@@ -46,10 +46,22 @@ function update(nextRevision = SECOND_REVISION): AtomicUpdate<AtomicRecord> {
   };
 }
 
-describe("atomic single-record mutations", () => {
-  let schema: Schema<AtomicTables>;
-  let collection: InstrumentedCollection;
+let schema: Schema<AtomicTables>;
+let collection: InstrumentedCollection;
 
+function mutate(
+  request: AtomicMutation<AtomicRecord>,
+  key = RECORD_ID,
+  tenant: string | undefined = TENANT,
+) {
+  return schema
+    .instance(tenant)
+    .table("records")
+    .atomicMutation(key, request)
+    .run();
+}
+
+describe("atomic single-record mutations", () => {
   before(() => {
     schema = new Schema<AtomicTables>(SCHEMA_ID, {
       records: { fields: {}, indexes: {} },
@@ -75,18 +87,12 @@ describe("atomic single-record mutations", () => {
 
   afterEach(() => sinon.restore());
 
-  function mutate(
-    request: AtomicMutation<AtomicRecord>,
-    key = RECORD_ID,
-    tenant: string | undefined = TENANT,
-  ) {
-    return schema
-      .instance(tenant)
-      .table("records")
-      .atomicMutation(key, request)
-      .run();
-  }
+  revisionCases();
+  writeOutcomeCases();
+  driverFailureCases();
+});
 
+function revisionCases() {
   it("applies exactly one of two competing distinct patches and revisions", async () => {
     const first = update("winner-a");
     first.patch = {
@@ -185,7 +191,9 @@ describe("atomic single-record mutations", () => {
     await assert.rejects(ReadCursor(1, stages));
     expect(write.called).to.equal(false);
   });
+}
 
+function writeOutcomeCases() {
   it("returns unknown after an applied write loses acknowledgement without retrying", async () => {
     const nativeUpdate = collection.updateOne.bind(collection);
     const write = sinon
@@ -279,7 +287,9 @@ describe("atomic single-record mutations", () => {
       client.off("commandStarted", onCommand);
     }
   });
+}
 
+function driverFailureCases() {
   it("returns unknown for unacknowledged writes and a lost delete acknowledgement", async () => {
     sinon
       .stub(connection, "GetAtomicCollection")
@@ -331,4 +341,4 @@ describe("atomic single-record mutations", () => {
       });
     }
   });
-});
+}

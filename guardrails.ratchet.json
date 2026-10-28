@@ -7,11 +7,7 @@
     "anti-slop/no-unknown-parameters": 26,
     "anti-slop/no-unknown-returns": 4,
     "anti-slop/no-unsafe-dictionary-type": 3,
-    "anti-slop/require-safety-comment-for-type-assertion": 15,
-    "eslint/max-lines-per-function": 3,
-    "eslint/max-params": 1
+    "anti-slop/require-safety-comment-for-type-assertion": 15
   },
-  "oversizeFiles": {
-    "src/implementations/database/pipeline.ts": 20454
-  }
+  "oversizeFiles": {}
 }
