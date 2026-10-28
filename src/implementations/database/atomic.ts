@@ -86,11 +86,9 @@ export async function RunAtomicMutation(
     [INSTANCE_FIELD]: normalizeInstanceId(stages[1].options?.id),
     ...conditionFilter(mutation),
   };
-  return executeMutation(collection, filter, mutation).catch(
-    (error: unknown) => {
-      throw TypedWriteError(schemaId, tableName, error);
-    },
-  );
+  return executeMutation(collection, filter, mutation).catch((error) => {
+    throw TypedWriteError(schemaId, tableName, error);
+  });
 }
 
 function updatePipeline(mutation: AtomicUpdate<Document>): Document[] {

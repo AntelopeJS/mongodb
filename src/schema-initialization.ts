@@ -168,7 +168,7 @@ function runAttempt(task: InitializationTask): void {
     .then(() => task.initialize(controller.signal))
     .then(
       () => handleSuccess(task),
-      (error: unknown) => handleFailure(task, error, controller.signal),
+      (error) => handleFailure(task, error, controller.signal),
     )
     .finally(() => {
       runningAttempts.delete(attempt);
@@ -196,7 +196,7 @@ function handleSuccess(task: InitializationTask): void {
 
 function handleFailure(
   task: InitializationTask,
-  error: unknown,
+  error: PromiseRejectedResult["reason"],
   signal: AbortSignal,
 ): void {
   task.runningAttempt = undefined;
@@ -220,7 +220,10 @@ function handleFailure(
   scheduleRetry(task, delay);
 }
 
-function isInterruption(error: unknown, signal: AbortSignal): boolean {
+function isInterruption(
+  error: PromiseRejectedResult["reason"],
+  signal: AbortSignal,
+): boolean {
   return signal.aborted && error === signal.reason;
 }
 

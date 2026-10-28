@@ -3,10 +3,12 @@ import timers from "node:timers";
 import type { MongoClient } from "mongodb";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 
+type Reject = Parameters<ConstructorParameters<PromiseConstructor>[0]>[1];
+
 interface Deferred<Value> {
   promise: Promise<Value>;
   resolve: (value: Value) => void;
-  reject: (error: unknown) => void;
+  reject: Reject;
 }
 
 export const schema: SchemaDefinition = {
@@ -18,7 +20,7 @@ export const schema: SchemaDefinition = {
 
 export function createDeferred<Value>(): Deferred<Value> {
   let resolve!: (value: Value) => void;
-  let reject!: (error: unknown) => void;
+  let reject!: Reject;
   const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;

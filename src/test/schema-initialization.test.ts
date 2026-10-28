@@ -167,7 +167,7 @@ function failureCases() {
 
     Schemas.register("first", schema);
     Schemas.register("second", schema);
-    const teardown = destroy().catch((error: unknown) => error);
+    const teardown = destroy().catch((error) => error);
     await Promise.resolve();
     second.reject(new Error("second initialization failed"));
     first.reject(new Error("first initialization failed"));

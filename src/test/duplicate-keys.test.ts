@@ -73,7 +73,9 @@ async function membersSchema(
   return schema;
 }
 
-async function refusal(write: PromiseLike<unknown>): Promise<unknown> {
+async function refusal(
+  write: PromiseLike<unknown>,
+): Promise<PromiseRejectedResult["reason"]> {
   try {
     await write;
   } catch (error) {
