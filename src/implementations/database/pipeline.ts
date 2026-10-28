@@ -9,10 +9,6 @@ import {
   ResolveIndex,
   WarnIfNotCrossInstance,
 } from "./indexes";
-// SelectionQuery extends AggregationPipeline and is also the entry point that decodes a full
-// schema/instance/table stream, so the base class has to reach the subclass to decode the
-// right-hand side of union, join and lookup. Breaking this would mean a runtime-registered
-// decoder, trading a real module load-order hazard for a lint clean-up.
 // oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
 import { SelectionQuery } from "./selection";
 import { ArrayLookup } from "./array-lookup";
@@ -121,9 +117,6 @@ export class AggregationPipeline {
         this.context.withRoot(`$$${tmpRoot}`),
       );
 
-      // Check if the FK value is a $map variable ($$temporary_*).
-      // $lookup pipeline can't access $map variables — they only exist
-      // during expression evaluation, not at pipeline stage level.
       const getStage = subQuery.find(
         (s) => s.stage === "get" || s.stage === "getAll",
       );
@@ -151,9 +144,6 @@ export class AggregationPipeline {
       this.pipeline.push({
         $lookup: {
           from: rightStream.collection,
-          // `withRoot` rebases the outer references, which are document paths
-          // that already include the wrapped field (`$_wrapped.key`), so the
-          // variable must hold the whole document and not the wrapped value.
           let: { [tmpRoot]: "$$ROOT" },
           pipeline: rightStream.pipeline,
           as: tmp,
@@ -600,7 +590,6 @@ export class AggregationPipeline {
         }
       }
       if (isBeforeGroup) {
-        // no group stage found, make stream into an array
         groupStage[tmp] = { $push: `$${tmp}` };
       }
       setupStage[tmp] = root;
@@ -645,8 +634,6 @@ export class AggregationPipeline {
     this.singleElement = true;
     return this.stage_slice({ stage: "slice", args: [stage.args[0], 1] });
   }
-
-  // Reduction stages
 
   protected stage_count(stage: QueryStage) {
     this.singleElement = true;

@@ -154,14 +154,15 @@ async function ensureCollection(
   }
 }
 
+/**
+ * Uniqueness holds per instance, so only the instance-prefixed index enforces
+ * it; the cross-instance one would refuse a key another instance holds.
+ */
 function physicalIndexes(
   indexId: string,
   index: IndexDefinition,
 ): PhysicalIndex[] {
   const fields = index.fields ?? [indexId];
-  // Uniqueness holds per instance, so only the instance-prefixed index
-  // enforces it; the cross-instance one would refuse a key another instance
-  // holds.
   const instancePrefixed = {
     name: instanceIndexName(indexId),
     fields: [INSTANCE_FIELD, ...fields],
@@ -202,6 +203,11 @@ async function dropIndexIfPresent(collection: Collection, name: string) {
   }
 }
 
+/**
+ * Error 85 means an index on the same keys already exists under another name
+ * (concurrent initialization, or another declared index with these fields): it
+ * serves the same queries.
+ */
 async function createIndexIfAbsent(
   collection: Collection,
   wanted: PhysicalIndex,
@@ -212,8 +218,6 @@ async function createIndexIfAbsent(
       unique: wanted.isUnique,
     });
   } catch (err) {
-    // Error 85 means an index on the same keys already exists under another name (concurrent
-    // initialization, or another declared index with these fields): it serves the same queries.
     if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
   }
 }
@@ -225,6 +229,10 @@ function servesWanted(index: ExistingIndex, wanted: PhysicalIndex): boolean {
   );
 }
 
+/**
+ * MongoDB keeps one index per key pattern: another index on the wanted fields
+ * is dropped for the one with the declared uniqueness.
+ */
 async function ensurePhysicalIndex(
   collection: Collection,
   wanted: PhysicalIndex,
@@ -242,8 +250,6 @@ async function ensurePhysicalIndex(
     if (servesWanted(existingByFields, wanted)) {
       return;
     }
-    // MongoDB keeps one index per key pattern: the other index on these
-    // fields goes for the one with the declared uniqueness.
     await dropIndexIfPresent(collection, existingByFields.name!);
   }
   await createIndexIfAbsent(collection, wanted);

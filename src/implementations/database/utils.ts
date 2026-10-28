@@ -73,6 +73,11 @@ export class DecodingContext {
     throw new Error("Subquery with no handler?");
   }
 
+  /**
+   * Rebases the outer references, which are document paths that include the
+   * wrapped field (`$_wrapped.key`), onto `parentRoot`. The variable named by
+   * `parentRoot` must therefore hold the whole document, not the wrapped value.
+   */
   public withRoot(parentRoot: string) {
     const remapString = (value: string): string => {
       if (value === "$$ROOT") {
