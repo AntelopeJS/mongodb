@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { AggregationCursor } from "mongodb";
+import type { AggregateOptions, AggregationCursor } from "mongodb";
 import type { Stream } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
@@ -7,7 +7,6 @@ import { GetIndex } from "./schema";
 import {
   type ResolvedIndex,
   ResolveIndex,
-  SingleIndexField,
   WarnIfNotCrossInstance,
 } from "./indexes";
 // SelectionQuery extends AggregationPipeline and is also the entry point that decodes a full
@@ -16,26 +15,22 @@ import {
 // decoder, trading a real module load-order hazard for a lint clean-up.
 // oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
 import { SelectionQuery } from "./selection";
+import { ArrayLookup } from "./array-lookup";
 import { GetCollection } from "../../connection";
 import { ToChangeEvent } from "./change-event";
-import { type DecodingContext, Temporary } from "./utils";
+import {
+  type DecodingContext,
+  DefaultConstant,
+  DefaultExpression,
+  Temporary,
+} from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
-
-function DefaultExpression(data: any, def: any) {
-  if (def) {
-    return { $ifNull: [data, def] };
-  }
-  return data;
-}
-
-function DefaultConstant(data: any, def: any) {
-  return DefaultExpression(data, def && { $literal: def });
-}
 
 export class AggregationPipeline {
   public resultType = "stream";
 
   private cursor?: AggregationCursor;
+  protected options: AggregateOptions = {};
   private isClosed = false;
 
   /**
@@ -141,42 +136,16 @@ export class AggregationPipeline {
           : undefined;
 
       if (arraySource) {
-        // Inside a $map: do a $lookup with $in on the full array, then
-        // $filter per-element in the expression.
-        const matchField =
-          getStage!.stage === "get"
-            ? "_id"
-            : SingleIndexField(
-                ResolveIndex(
-                  rightStream.schemaId,
-                  rightStream.tableName,
-                  getStage!.options?.index,
-                ),
-              );
-        const arrVar = Temporary("arr");
-        this.pipeline.push({
-          $lookup: {
-            from: rightStream.collection,
-            let: { [arrVar]: arraySource },
-            pipeline: [
-              ...rightStream.initialFilter,
-              { $match: { $expr: { $in: [`$${matchField}`, `$$${arrVar}`] } } },
-            ],
-            as: tmp,
-          },
-        });
+        const plan = ArrayLookup(
+          rightStream,
+          getStage!,
+          fkExpr,
+          arraySource,
+          tmp,
+        );
+        this.pipeline.push(plan.stage);
         this.pendingUnset.push(tmp);
-        // Return a $filter that picks the matching doc for this $map element
-        const filterExpr = {
-          $filter: {
-            input: `$${tmp}`,
-            as: "bdoc",
-            cond: { $eq: [`$$bdoc.${matchField}`, fkExpr] },
-          },
-        };
-        return rightStream.singleElement
-          ? { $ifNull: [{ $first: filterExpr }, null] }
-          : filterExpr;
+        return plan.match;
       }
 
       this.pipeline.push({
@@ -217,7 +186,9 @@ export class AggregationPipeline {
 
   public async run(): Promise<any> {
     const collection = await GetCollection(this.collection);
-    let result = await collection.aggregate(this.pipeline, {}).toArray();
+    let result = await collection
+      .aggregate(this.pipeline, this.options)
+      .toArray();
     if (this.wrappedObject) {
       const wrappedObject = this.wrappedObject;
       result = result.map((element: any) => element[wrappedObject]);
@@ -249,7 +220,7 @@ export class AggregationPipeline {
       if (this.isClosed) {
         return null;
       }
-      this.cursor = collection.aggregate(this.pipeline, {});
+      this.cursor = collection.aggregate(this.pipeline, this.options);
     }
     const change = await this.cursor.next();
     if (this.isChangeStream) {
@@ -281,14 +252,14 @@ export class AggregationPipeline {
     }
   }
 
-  private getField(field?: string) {
+  protected getField(field?: string) {
     if (this.wrappedObject) {
       return field ? `${this.wrappedObject}.${field}` : this.wrappedObject;
     }
     return field ?? "$ROOT";
   }
 
-  private makeWrapped() {
+  protected makeWrapped() {
     if (!this.wrappedObject) {
       this.wrappedObject = "_wrapped";
     }

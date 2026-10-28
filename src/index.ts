@@ -1,6 +1,6 @@
-import type { MongoClientOptions } from "mongodb";
 import { ImplementInterface } from "@antelopejs/interface-core";
 
+import { IsExternal, type Options, SetOptions } from "./config";
 import { Connect, Disconnect, EnsureBookkeepingCollection } from "./connection";
 import {
   AllowSchemaInitializations,
@@ -8,15 +8,14 @@ import {
   PreventSchemaInitializations,
 } from "./schema-initialization";
 
-export interface Options {
-  url: string;
-  database: string;
-  options?: MongoClientOptions;
-}
+export type { CatalogOptions, Mode, Options } from "./config";
 
-export async function construct(options: Options) {
-  await Connect(options.url, options.database, options.options);
-  await EnsureBookkeepingCollection();
+export async function construct(options?: Options) {
+  const resolved = SetOptions(options);
+  await Connect(resolved.url, resolved.database, resolved.options);
+  if (!IsExternal()) {
+    await EnsureBookkeepingCollection();
+  }
   AllowSchemaInitializations();
 
   ImplementInterface(
@@ -26,6 +25,10 @@ export async function construct(options: Options) {
   ImplementInterface(
     await import("@antelopejs/interface-database/schema"),
     await import("./implementations/database/schema"),
+  );
+  ImplementInterface(
+    await import("@antelopejs/interface-database-catalog"),
+    await import("./implementations/catalog"),
   );
 }
 

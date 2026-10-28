@@ -33,6 +33,17 @@ export function normalizeInstanceId(id: unknown): string | null {
   return id;
 }
 
+export function DefaultExpression(data: any, def: any) {
+  if (def) {
+    return { $ifNull: [data, def] };
+  }
+  return data;
+}
+
+export function DefaultConstant(data: any, def: any) {
+  return DefaultExpression(data, def && { $literal: def });
+}
+
 export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
 }

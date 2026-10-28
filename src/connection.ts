@@ -13,6 +13,7 @@ import {
   INSTANCE_FIELD,
   instanceIndexName,
 } from "./implementations/database/utils";
+import { IsExternal } from "./config";
 
 const INSTANCE_INDEX = "_instance";
 const BOOKKEEPING_INDEX = "schemaId_instanceId";
@@ -25,6 +26,15 @@ const COLLECTION_OPTIONS = {
 
 let configuredDatabase: string | undefined;
 let atomicClient: MongoClient | undefined;
+let connectedClient: MongoClient | undefined;
+let resolveClient: (client: MongoClient) => void = () => undefined;
+let clientPromise = PendingClient();
+
+function PendingClient(): Promise<MongoClient> {
+  return new Promise((resolve) => {
+    resolveClient = resolve;
+  });
+}
 
 export async function Connect(
   url: string,
@@ -33,9 +43,14 @@ export async function Connect(
 ) {
   await Disconnect();
   const mongoClient = await MongoClient.connect(url, options);
+  connectedClient = mongoClient;
+  configuredDatabase = database;
+  resolveClient(mongoClient);
+  if (IsExternal()) {
+    return;
+  }
   internal.connected = true;
   internal.SetClient(mongoClient);
-  configuredDatabase = database;
   atomicClient = new MongoClient(url, {
     ...options,
     retryWrites: false,
@@ -46,8 +61,12 @@ export async function Connect(
 export async function Disconnect() {
   await atomicClient?.close();
   atomicClient = undefined;
+  await connectedClient?.close();
+  if (connectedClient) {
+    clientPromise = PendingClient();
+  }
+  connectedClient = undefined;
   if (internal.connected) {
-    await internal.client.then((client) => client.close());
     internal.connected = false;
     void internal.UnsetClient();
   }
@@ -65,7 +84,7 @@ export function GetConfiguredDatabaseName(): string {
 
 export async function GetCollection(collection: string): Promise<Collection> {
   const dbName = GetConfiguredDatabaseName();
-  return internal.client.then((client) =>
+  return clientPromise.then((client) =>
     client.db(dbName).collection(collection),
   );
 }
@@ -78,9 +97,10 @@ export function GetAtomicCollection(collection: string): Collection {
   return atomicClient.db(dbName).collection(collection);
 }
 
-async function GetDatabase(): Promise<Db> {
+/** The database this instance serves, once connected. */
+export async function GetDatabase(): Promise<Db> {
   const dbName = GetConfiguredDatabaseName();
-  return internal.client.then((client) => client.db(dbName));
+  return clientPromise.then((client) => client.db(dbName));
 }
 
 interface IndexDefinition {
