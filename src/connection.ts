@@ -130,11 +130,11 @@ interface ExistingIndexes {
   byFields: Record<string, ExistingIndex>;
 }
 
-function isServerError(err: unknown, code: number): boolean {
+function isServerError(err: unknown, code: number): err is MongoServerError {
   return err instanceof MongoServerError && err.code === code;
 }
 
-function isNamespaceExistsError(err: unknown): boolean {
+function isNamespaceExistsError(err: unknown): err is MongoServerError {
   return isServerError(err, NAMESPACE_EXISTS_CODE);
 }
 

@@ -1,6 +1,8 @@
 import assert from "node:assert";
+import type { Document } from "mongodb";
 import { generate as randomstring } from "randomstring";
 import type { StagedObject } from "@antelopejs/interface-database/common";
+import type { InstanceId } from "@antelopejs/interface-database/schema";
 
 export const INSTANCE_FIELD = "_instance";
 export const BOOKKEEPING_COLLECTION = "__antelope_instances";
@@ -23,11 +25,30 @@ export function instanceIndexName(indexId: string): string {
   return `${indexId}${INSTANCE_INDEX_SUFFIX}`;
 }
 
-export function normalizeInstanceId(id: unknown): string | null {
+/** Tells whether a value is a string, keeping what is known of its type. */
+export function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
+}
+
+/** Tells whether a value is an object or `null`, as `typeof` reports both. */
+export function isObjectOrNull<Value>(
+  value: Value,
+): value is Value & (object | null) {
+  return typeof value === "object";
+}
+
+/** Tells whether a value is a non-null object, read as a MongoDB document. */
+export function isDocument<Value>(value: Value): value is Value & Document {
+  return typeof value === "object" && value !== null;
+}
+
+export function normalizeInstanceId(
+  id: InstanceId | null | undefined,
+): string | null {
   if (id === undefined || id === null || id === "") {
     return null;
   }
-  if (typeof id !== "string") {
+  if (!isString(id)) {
     throw new Error(`Invalid instance id: expected string, got ${typeof id}`);
   }
   return id;
@@ -52,7 +73,13 @@ export type QueryStage = StagedObject["stages"][number];
 
 export type ArgumentProvider = (
   subQuery: QueryStage[],
-) => Record<string, any> | string | Promise<Record<string, any> | string>;
+) => Document | string | Promise<Document | string>;
+
+function isArgumentProvider(
+  arg: ArgumentProvider | string,
+): arg is ArgumentProvider {
+  return typeof arg === "function";
+}
 
 export class DecodingContext {
   public args: Record<string, ArgumentProvider | string> = {};
@@ -64,7 +91,7 @@ export class DecodingContext {
       const num = stages[0].args[0];
       const subquery = this.args[num];
       assert(subquery, "Unknown arg used");
-      assert(typeof subquery !== "string", "No query arg for query?");
+      assert(!isString(subquery), "No query arg for query?");
       return subquery(stages);
     }
     if (this.subquery) {
@@ -88,13 +115,11 @@ export class DecodingContext {
       return value;
     };
 
-    const remapValue = (
-      value: Record<string, any> | string,
-    ): Record<string, any> | string => {
-      if (typeof value === "string") {
+    const remapValue = (value: Document | string): Document | string => {
+      if (isString(value)) {
         return remapString(value);
       }
-      if (typeof value === "object" && value !== null && "$first" in value) {
+      if (isDocument(value) && "$first" in value) {
         return { $first: remapValue(value.$first) };
       }
       return value;
@@ -102,13 +127,13 @@ export class DecodingContext {
 
     const newContext = new DecodingContext();
     for (const [id, arg] of Object.entries(this.args)) {
-      if (typeof arg === "function") {
+      if (isArgumentProvider(arg)) {
         newContext.args[id] = async (subQuery: QueryStage[]) => {
           const result = await arg(subQuery);
           return remapValue(result);
         };
       } else {
-        newContext.args[id] = remapValue(arg) as string;
+        newContext.args[id] = remapString(arg);
       }
     }
     newContext.mapVarSources = { ...this.mapVarSources };

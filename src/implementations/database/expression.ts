@@ -5,6 +5,9 @@ import type { QueryStage, Value } from "@antelopejs/interface-database/common";
 import {
   type ArgumentProvider,
   type DecodingContext,
+  isDocument,
+  isObjectOrNull,
+  isString,
   Temporary,
 } from "./utils";
 
@@ -24,7 +27,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function isExpressionMarker(value: unknown): boolean {
+function isExpressionMarker(
+  value: unknown,
+): value is ValueProxy<unknown> | Query<unknown> {
   return value instanceof ValueProxy || value instanceof Query;
 }
 
@@ -40,7 +45,7 @@ function CondenseValue(
   if (!prev) return;
   desc.value = function (this: Expression, ...args: any[]) {
     const valueBefore = this.value;
-    if (typeof valueBefore === "string") {
+    if (isString(valueBefore)) {
       return prev.apply(this, args);
     }
     const tmp = Temporary();
@@ -55,7 +60,7 @@ function CondenseValue(
 }
 
 class Expression {
-  protected options?: Record<string, any>;
+  protected options?: QueryStage["options"];
   protected currentStage?: QueryStage;
 
   public constructor(
@@ -80,7 +85,7 @@ class Expression {
         throw new Error(`Unimplemented stage: ${stage.stage}`);
       }
       const callback = this[stageCallback as keyof this];
-      if (typeof callback === "string") {
+      if (isString(callback)) {
         this.value = {
           [callback]:
             stage.args.length === 0
@@ -257,8 +262,8 @@ class Expression {
 
   stage_obj_index(key: string, def: unknown) {
     const index =
-      typeof this.value === "string" &&
-      typeof key === "string" &&
+      isString(this.value) &&
+      isString(key) &&
       this.value.startsWith("$") &&
       !key.startsWith("$")
         ? `${this.value}.${key}`
@@ -311,7 +316,7 @@ export async function DecodeValue(
     return context.decodeSubquery(value.build());
   }
 
-  if (value && typeof value === "object") {
+  if (isDocument(value)) {
     if (Array.isArray(value)) {
       return Promise.all(value.map((val) => DecodeValue(val, context)));
     } else if (Object.getPrototypeOf(value) === Object.prototype) {
@@ -334,10 +339,10 @@ export async function DecodeValue(
 }
 
 function needsLiteral(value: unknown): boolean {
-  if (typeof value === "string") {
+  if (isString(value)) {
     return value.startsWith(FIELD_PATH_PREFIX);
   }
-  return typeof value === "object" && !(value instanceof Date);
+  return isObjectOrNull(value) && !(value instanceof Date);
 }
 
 /**

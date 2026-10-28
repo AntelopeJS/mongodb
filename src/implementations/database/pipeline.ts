@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { AggregateOptions, AggregationCursor } from "mongodb";
+import type { AggregateOptions, AggregationCursor, Document } from "mongodb";
 import type { Stream } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
@@ -18,6 +18,7 @@ import {
   type DecodingContext,
   DefaultConstant,
   DefaultExpression,
+  isString,
   Temporary,
 } from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
@@ -123,10 +124,9 @@ export class AggregationPipeline {
       const fkExpr = getStage?.args?.[0]
         ? await DecodeValue(getStage.args[0], this.context)
         : null;
-      const arraySource =
-        typeof fkExpr === "string"
-          ? this.context.mapVarSources[fkExpr]
-          : undefined;
+      const arraySource = isString(fkExpr)
+        ? this.context.mapVarSources[fkExpr]
+        : undefined;
 
       if (arraySource) {
         const plan = ArrayLookup(
@@ -373,7 +373,7 @@ export class AggregationPipeline {
         },
       });
     } else if (this.inCompoundObject && this.wrappedObject) {
-      const projectedFields: Record<string, unknown> = {};
+      const projectedFields: Record<string, string> = {};
       for (const field of stage.args[0]) {
         projectedFields[field] = `$${this.wrappedObject}.${field}`;
       }
@@ -532,11 +532,11 @@ export class AggregationPipeline {
     const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
     const indexFields = index.fields ?? [stage.options.index];
 
-    let groupKey: unknown;
+    let groupKey: string | Record<string, string>;
     if (indexFields.length === 1) {
       groupKey = `$${group}`;
     } else {
-      const groupKeyObj: Record<string, unknown> = {};
+      const groupKeyObj: Record<string, string> = {};
       for (const field of indexFields) {
         groupKeyObj[field] = `$${group}.${field}`;
       }
@@ -549,13 +549,13 @@ export class AggregationPipeline {
         : Object.fromEntries(
             indexFields.map((field) => [field, `$${this.getField(field)}`]),
           );
-    const setupStage: Record<string, unknown> = {
+    const setupStage = {
       [group]: groupSetup,
     };
     this.pipeline.push({
       [this.wrappedObject ? "$addFields" : "$project"]: setupStage,
     });
-    const groupStage: Record<string, any> = {
+    const groupStage: Document = {
       _id: groupKey,
       [group]: { $first: `$${group}` },
     };
@@ -620,7 +620,7 @@ export class AggregationPipeline {
 
   protected async stage_slice(stage: QueryStage) {
     const offset = await DecodeValue(stage.args[0], this.context);
-    if (typeof offset !== "number" || offset !== 0) {
+    if (offset !== 0) {
       this.pipeline.push({ $skip: offset });
     }
 

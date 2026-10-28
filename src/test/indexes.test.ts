@@ -102,12 +102,20 @@ async function indexKeysByName(
   return Object.fromEntries(indexes.map((index) => [index.name, index.key]));
 }
 
+function isPlanNode(value: unknown): value is object {
+  return value !== null && typeof value === "object";
+}
+
+function isIndexName(value: unknown): value is string {
+  return typeof value === "string";
+}
+
 function collectIndexNames(plan: unknown, found: Set<string>) {
-  if (plan === null || typeof plan !== "object") {
+  if (!isPlanNode(plan)) {
     return;
   }
   for (const [key, value] of Object.entries(plan)) {
-    if (key === "indexName" && typeof value === "string") {
+    if (key === "indexName" && isIndexName(value)) {
       found.add(value);
     } else {
       collectIndexNames(value, found);
@@ -116,7 +124,7 @@ function collectIndexNames(plan: unknown, found: Set<string>) {
 }
 
 function collectWinningIndexes(explain: unknown, found: Set<string>) {
-  if (explain === null || typeof explain !== "object") {
+  if (!isPlanNode(explain)) {
     return;
   }
   for (const [key, value] of Object.entries(explain)) {

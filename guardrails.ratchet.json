@@ -1,17 +1,17 @@
 {
   "rules": {
-    "antelopejs/no-comments": 2,
+    "antelopejs/no-comments": 1,
     "anti-slop/no-chained-type-assertions": 5,
-    "anti-slop/no-known-value-widening": 9,
-    "anti-slop/no-runtime-typeof": 22,
-    "anti-slop/no-unknown-parameters": 37,
-    "anti-slop/no-unknown-returns": 7,
-    "anti-slop/no-unsafe-dictionary-type": 12,
-    "anti-slop/require-safety-comment-for-type-assertion": 20,
+    "anti-slop/no-known-value-widening": 3,
+    "anti-slop/no-runtime-typeof": 1,
+    "anti-slop/no-unknown-parameters": 26,
+    "anti-slop/no-unknown-returns": 4,
+    "anti-slop/no-unsafe-dictionary-type": 3,
+    "anti-slop/require-safety-comment-for-type-assertion": 15,
     "eslint/max-lines-per-function": 3,
     "eslint/max-params": 1
   },
   "oversizeFiles": {
-    "src/implementations/database/pipeline.ts": 20498
+    "src/implementations/database/pipeline.ts": 20454
   }
 }

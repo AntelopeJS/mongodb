@@ -16,6 +16,7 @@ interface LiteralRecord {
   count: number;
   tags: string[];
   nested: Record<string, string>;
+  missing?: string;
 }
 
 type SelectionKey = string | number | boolean;
@@ -259,11 +260,11 @@ describe("$-prefixed string values: expressions", () => {
       .do((row) => ({
         label: row.key("label"),
         constant: DOLLAR_VALUE,
-        missing: row.key("missing" as "label", DOLLAR_VALUE),
+        missing: row.key("missing", DOLLAR_VALUE),
       }))
       .run();
     const defaulted = await table()
-      .map((row) => row.key("missing" as "label"))
+      .map((row) => row.key("missing"))
       .default(DOLLAR_VALUE)
       .run();
 

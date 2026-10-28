@@ -1,6 +1,6 @@
 import assert from "node:assert";
 
-import type { QueryStage } from "./utils";
+import { isString, type QueryStage } from "./utils";
 import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
@@ -12,10 +12,12 @@ import {
   ExternalInstanceRefusal,
 } from "./external-refusals";
 
-const LIFECYCLE_HANDLERS: Record<
-  string,
-  (schemaId: string, stage: QueryStage) => Promise<unknown>
-> = {
+type LifecycleHandler = (
+  schemaId: string,
+  stage: QueryStage,
+) => Promise<string | string[] | void>;
+
+const LIFECYCLE_HANDLERS: Record<string, LifecycleHandler> = {
   createInstance: (schemaId, stage) =>
     CreateInstance(schemaId, stage.options?.id),
   destroyInstance: (schemaId, stage) =>
@@ -37,7 +39,7 @@ const EXTERNAL_LIFECYCLE_HANDLERS: typeof LIFECYCLE_HANDLERS = {
 
 function tryHandleLifecycle(
   stages: QueryStage[],
-): Promise<unknown> | undefined {
+): ReturnType<LifecycleHandler> | undefined {
   if (stages.length !== 2 || stages[0]?.stage !== "schema") {
     return undefined;
   }
@@ -48,7 +50,7 @@ function tryHandleLifecycle(
     return undefined;
   }
   const schemaId = stages[0].options?.id;
-  assert(typeof schemaId === "string", "Lifecycle query missing schema id");
+  assert(isString(schemaId), "Lifecycle query missing schema id");
   return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
 }
 
@@ -124,9 +126,7 @@ export async function ReadCursor(reqId: number, stages: QueryStage[]) {
     delete openQueries[reqId];
     try {
       await query.closeCursor();
-    } catch {
-      // Ignore close failures; the read error is the one worth surfacing.
-    }
+    } catch {}
     throw error;
   }
 }
