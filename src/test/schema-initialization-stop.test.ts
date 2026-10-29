@@ -83,10 +83,10 @@ async function reconnect(url: string, database: string): Promise<void> {
   AllowSchemaInitializations();
 }
 
-describe("schema initialization stop", () => {
-  let warn: sinon.SinonStub;
-  let info: sinon.SinonStub;
+let warn: sinon.SinonStub;
+let info: sinon.SinonStub;
 
+describe("schema initialization stop", () => {
   beforeEach(() => {
     warn = sinon.stub(Logging, "Warn");
     info = sinon.stub(Logging, "Info");
@@ -100,6 +100,11 @@ describe("schema initialization stop", () => {
     Schemas.unregister(RESUMED_SCHEMA_ID);
   });
 
+  stopAndDestroyCases();
+  realInitializationCases();
+});
+
+function stopAndDestroyCases() {
   it("disconnects promptly after a normal stop once initialization is done", async () => {
     const clock = useFakeGlobalTimeouts();
     sinon.stub(connection, "InitializeSchema").resolves();
@@ -182,7 +187,9 @@ describe("schema initialization stop", () => {
     expect(initialize.callCount).to.equal(2);
     expect(warn.called).to.equal(false);
   });
+}
 
+function realInitializationCases() {
   it("lets in-flight index creation finish before disconnecting without errors", async () => {
     const client = await mongoInternal.client;
     const url = getConnectionUrl(client);
@@ -190,7 +197,8 @@ describe("schema initialization stop", () => {
     const runtimeErrors: unknown[] = [];
     const unhandledErrors: unknown[] = [];
     const previousReporter = coreInternal.runtimeErrorReporter;
-    const onUnhandled = (error: unknown) => unhandledErrors.push(error);
+    const onUnhandled: NodeJS.UnhandledRejectionListener = (error) =>
+      unhandledErrors.push(error);
     coreInternal.runtimeErrorReporter = (error) => runtimeErrors.push(error);
     process.on("unhandledRejection", onUnhandled);
 
@@ -257,4 +265,4 @@ describe("schema initialization stop", () => {
       }
     }
   });
-});
+}

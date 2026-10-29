@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   DuplicateKeyError,
@@ -81,11 +82,15 @@ async function refusal(write: PromiseLike<unknown>): Promise<unknown> {
   return expect.fail("the write should have been refused");
 }
 
-function expectDuplicate(error: unknown, index: string, fields: string[]) {
+function expectDuplicate(
+  error: unknown,
+  index: string,
+  fields: string[],
+): asserts error is DuplicateKeyError {
   expect(IsDuplicateKeyError(error)).to.equal(true);
-  expect(error).to.be.instanceOf(DuplicateKeyError);
+  assert.ok(error instanceof DuplicateKeyError);
   expect(error).to.include({ index });
-  expect((error as DuplicateKeyError).fields).to.deep.equal(fields);
+  expect(error.fields).to.deep.equal(fields);
 }
 
 describe("duplicate keys", () => {

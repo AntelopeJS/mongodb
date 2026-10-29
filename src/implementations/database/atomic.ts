@@ -16,6 +16,7 @@ import { TypedWriteError } from "./indexes";
 import {
   collectionName,
   INSTANCE_FIELD,
+  isString,
   normalizeInstanceId,
   type QueryStage,
 } from "./utils";
@@ -41,8 +42,8 @@ function validateStages(stages: QueryStage[]): void {
       stages.every((stage, index) => stage.stage === ATOMIC_STAGE_PATH[index]),
     "atomicMutation requires a direct schema/instance/table target",
   );
-  assert(typeof stages[0].options?.id === "string", "Missing schema id");
-  assert(typeof stages[2].options?.id === "string", "Missing table id");
+  assert(isString(stages[0].options?.id), "Missing schema id");
+  assert(isString(stages[2].options?.id), "Missing table id");
   ValidateAtomicMutationTable(stages.slice(0, -1));
   assert(
     stages[3].args.length === 2 && stages[3].options === undefined,
@@ -58,7 +59,7 @@ function conditionFilter(mutation: AtomicMutation<Document>): Document {
       },
     };
   }
-  if (typeof mutation.expectedRevision !== "string") {
+  if (!isString(mutation.expectedRevision)) {
     return { [mutation.revisionField]: { $exists: false } };
   }
   return {

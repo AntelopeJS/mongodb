@@ -1,88 +1,26 @@
 import assert from "node:assert";
-import type { AggregateOptions, AggregationCursor } from "mongodb";
+import type { Document } from "mongodb";
 import type { Stream } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
-import {
-  type ResolvedIndex,
-  ResolveIndex,
-  WarnIfNotCrossInstance,
-} from "./indexes";
-// SelectionQuery extends AggregationPipeline and is also the entry point that decodes a full
-// schema/instance/table stream, so the base class has to reach the subclass to decode the
-// right-hand side of union, join and lookup. Breaking this would mean a runtime-registered
-// decoder, trading a real module load-order hazard for a lint clean-up.
 // oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
 import { SelectionQuery } from "./selection";
 import { ArrayLookup } from "./array-lookup";
-import { GetCollection } from "../../connection";
-import { ToChangeEvent } from "./change-event";
 import {
   type DecodingContext,
   DefaultConstant,
   DefaultExpression,
+  hasKey,
+  isString,
   Temporary,
 } from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
+import { PipelineCore } from "./pipeline-core";
 
-export class AggregationPipeline {
-  public resultType = "stream";
-
-  private cursor?: AggregationCursor;
-  protected options: AggregateOptions = {};
-  private isClosed = false;
-
-  /**
-   * This query will only return one document, ignore the other
-   */
-  public singleElement = false;
-
-  public reductionDefault?: number;
-
-  /**
-   * MongoDB does not support values other than objects at the root of aggregation pipelines
-   *
-   * The `wrappedObject` field contains the actual value we want
-   */
-  public wrappedObject?: string;
-
-  /**
-   * Documents contain fields other than `'_id'` and `wrappedObject` that must not be modified
-   */
-  public inCompoundObject = false;
-
-  public readonly initialFilter: any[];
-  public readonly pipeline: any[];
-
-  public constructor(
-    public readonly schemaId: string,
-    public readonly tableName: string,
-    public readonly collection: string,
-    initialFilter: any[],
-    public readonly isChangeStream: boolean,
-    public readonly context: DecodingContext,
-  ) {
-    this.initialFilter = initialFilter;
-    this.pipeline = [...initialFilter];
-    if (isChangeStream) {
-      this.pipeline.unshift(
-        {
-          $changeStream: {
-            fullDocument: "updateLookup",
-            fullDocumentBeforeChange: "whenAvailable",
-          },
-        },
-        {
-          $addFields: {
-            fullDocumentBeforeChange: {
-              $ifNull: ["$fullDocumentBeforeChange", "$documentKey"],
-            },
-          },
-        },
-      );
-    }
-  }
+/** The stages that rewrite the root of a pipeline, including those that decode another stream into it. */
+export class AggregationPipeline extends PipelineCore {
+  private pendingUnset: string[] = [];
 
   public static async decode(
     stages: QueryStage[],
@@ -92,14 +30,14 @@ export class AggregationPipeline {
     if (stages[0]?.stage === "arg") {
       assert(context, "Arg query without context?");
       const argRef = stages[0].args[0];
-      const query = new AggregationPipeline(
-        "",
-        argRef,
-        argRef,
-        [],
-        false,
+      const query = new AggregationPipeline({
+        schemaId: "",
+        tableName: argRef,
+        collection: argRef,
+        initialFilter: [],
+        isChangeStream: false,
         context,
-      );
+      });
       if (modifier) {
         await modifier(query);
       }
@@ -108,8 +46,6 @@ export class AggregationPipeline {
     }
     throw new Error("Invalid query");
   }
-
-  private pendingUnset: string[] = [];
 
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
@@ -121,19 +57,15 @@ export class AggregationPipeline {
         this.context.withRoot(`$$${tmpRoot}`),
       );
 
-      // Check if the FK value is a $map variable ($$temporary_*).
-      // $lookup pipeline can't access $map variables — they only exist
-      // during expression evaluation, not at pipeline stage level.
       const getStage = subQuery.find(
         (s) => s.stage === "get" || s.stage === "getAll",
       );
       const fkExpr = getStage?.args?.[0]
         ? await DecodeValue(getStage.args[0], this.context)
         : null;
-      const arraySource =
-        typeof fkExpr === "string"
-          ? this.context.mapVarSources[fkExpr]
-          : undefined;
+      const arraySource = isString(fkExpr)
+        ? this.context.mapVarSources[fkExpr]
+        : undefined;
 
       if (arraySource) {
         const plan = ArrayLookup(
@@ -151,9 +83,6 @@ export class AggregationPipeline {
       this.pipeline.push({
         $lookup: {
           from: rightStream.collection,
-          // `withRoot` rebases the outer references, which are document paths
-          // that already include the wrapped field (`$_wrapped.key`), so the
-          // variable must hold the whole document and not the wrapped value.
           let: { [tmpRoot]: "$$ROOT" },
           pipeline: rightStream.pipeline,
           as: tmp,
@@ -170,10 +99,10 @@ export class AggregationPipeline {
     try {
       for (const stage of stages) {
         const stageCallback = `stage_${stage.stage}`;
-        if (!(stageCallback in this)) {
+        if (!hasKey(this, stageCallback)) {
           throw new Error(`Unimplemented stage: ${stage.stage}`);
         }
-        const callback = this[stageCallback as keyof this];
+        const callback = this[stageCallback];
         if (!(callback instanceof Function)) {
           continue;
         }
@@ -182,62 +111,6 @@ export class AggregationPipeline {
     } finally {
       this.context.subquery = oldSubquery;
     }
-  }
-
-  public async run(): Promise<any> {
-    const collection = await GetCollection(this.collection);
-    let result = await collection
-      .aggregate(this.pipeline, this.options)
-      .toArray();
-    if (this.wrappedObject) {
-      const wrappedObject = this.wrappedObject;
-      result = result.map((element: any) => element[wrappedObject]);
-    }
-    if (this.singleElement) {
-      return result.length > 0 ? result[0] : this.reductionDefault;
-    }
-    return result;
-  }
-
-  public async runDebug(limit = 10): Promise<any[]> {
-    const collection = await GetCollection(this.collection);
-    const results = [];
-    try {
-      for (let i = 0; i <= this.pipeline.length; ++i) {
-        results[i] = await collection
-          .aggregate([...this.pipeline.slice(0, i), { $limit: limit }])
-          .toArray();
-      }
-    } catch (e) {
-      results.push(e);
-    }
-    return results;
-  }
-
-  public async readCursor() {
-    if (!this.cursor) {
-      const collection = await GetCollection(this.collection);
-      if (this.isClosed) {
-        return null;
-      }
-      this.cursor = collection.aggregate(this.pipeline, this.options);
-    }
-    const change = await this.cursor.next();
-    if (this.isChangeStream) {
-      return ToChangeEvent(change);
-    }
-    return this.wrappedObject ? change[this.wrappedObject] : change;
-  }
-
-  public async closeCursor() {
-    this.isClosed = true;
-    if (this.cursor) {
-      await this.cursor.close();
-    }
-  }
-
-  private getRoot() {
-    return this.wrappedObject ? `$${this.wrappedObject}` : "$$ROOT";
   }
 
   private setRoot(val: unknown) {
@@ -250,37 +123,6 @@ export class AggregationPipeline {
         $replaceRoot: { newRoot: { [this.makeWrapped()]: val } },
       });
     }
-  }
-
-  protected getField(field?: string) {
-    if (this.wrappedObject) {
-      return field ? `${this.wrappedObject}.${field}` : this.wrappedObject;
-    }
-    return field ?? "$ROOT";
-  }
-
-  protected makeWrapped() {
-    if (!this.wrappedObject) {
-      this.wrappedObject = "_wrapped";
-    }
-    return this.wrappedObject;
-  }
-
-  protected isCrossInstance(): boolean {
-    return false;
-  }
-
-  protected resolveQueriedIndex(indexId: string | undefined): ResolvedIndex {
-    const index = ResolveIndex(this.schemaId, this.tableName, indexId);
-    if (this.isCrossInstance()) {
-      WarnIfNotCrossInstance(index);
-    }
-    return index;
-  }
-
-  protected stage_changes() {
-    assert(this.isChangeStream, "Changes call must be last");
-    return this;
   }
 
   protected stage_key(stage: QueryStage) {
@@ -353,74 +195,6 @@ export class AggregationPipeline {
       const root = this.getRoot();
       this.setRoot(await runmap(root));
       this.flushPendingUnset();
-    }
-    return this;
-  }
-
-  protected async stage_filter(stage: QueryStage) {
-    const filterRoot = this.isChangeStream ? "$fullDocument" : this.getRoot();
-    const filterResult = await DecodeFunction(stage.args[0], this.context, [
-      filterRoot,
-    ]);
-    this.pipeline.push({
-      $match: { $expr: filterResult },
-    });
-    return this;
-  }
-
-  protected stage_pluck(stage: QueryStage) {
-    const pluckObject: any = {};
-    for (const field of stage.args[0]) {
-      pluckObject[this.getField(field)] = 1;
-    }
-    if (this.isChangeStream) {
-      this.pipeline.push({
-        $project: {
-          _id: 1,
-          operationType: 1,
-          fullDocument: pluckObject,
-          fullDocumentBeforeChange: pluckObject,
-        },
-      });
-    } else if (this.inCompoundObject && this.wrappedObject) {
-      const projectedFields: Record<string, unknown> = {};
-      for (const field of stage.args[0]) {
-        projectedFields[field] = `$${this.wrappedObject}.${field}`;
-      }
-      this.pipeline.push({
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              "$$ROOT",
-              { [this.wrappedObject]: projectedFields },
-            ],
-          },
-        },
-      });
-    } else {
-      this.pipeline.push({
-        $project: pluckObject,
-      });
-    }
-    return this;
-  }
-
-  protected stage_without(stage: QueryStage) {
-    const withoutObject: any = {};
-    for (const field of stage.args[0]) {
-      withoutObject[this.getField(field)] = 0;
-    }
-    if (this.isChangeStream) {
-      this.pipeline.push({
-        $project: {
-          fullDocument: withoutObject,
-          fullDocumentBeforeChange: withoutObject,
-        },
-      });
-    } else {
-      this.pipeline.push({
-        $project: withoutObject,
-      });
     }
     return this;
   }
@@ -542,11 +316,11 @@ export class AggregationPipeline {
     const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
     const indexFields = index.fields ?? [stage.options.index];
 
-    let groupKey: unknown;
+    let groupKey: string | Record<string, string>;
     if (indexFields.length === 1) {
       groupKey = `$${group}`;
     } else {
-      const groupKeyObj: Record<string, unknown> = {};
+      const groupKeyObj: Record<string, string> = {};
       for (const field of indexFields) {
         groupKeyObj[field] = `$${group}.${field}`;
       }
@@ -559,13 +333,13 @@ export class AggregationPipeline {
         : Object.fromEntries(
             indexFields.map((field) => [field, `$${this.getField(field)}`]),
           );
-    const setupStage: Record<string, unknown> = {
+    const setupStage = {
       [group]: groupSetup,
     };
     this.pipeline.push({
       [this.wrappedObject ? "$addFields" : "$project"]: setupStage,
     });
-    const groupStage: Record<string, any> = {
+    const groupStage: Document = {
       _id: groupKey,
       [group]: { $first: `$${group}` },
     };
@@ -600,7 +374,6 @@ export class AggregationPipeline {
         }
       }
       if (isBeforeGroup) {
-        // no group stage found, make stream into an array
         groupStage[tmp] = { $push: `$${tmp}` };
       }
       setupStage[tmp] = root;
@@ -613,136 +386,5 @@ export class AggregationPipeline {
     this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
     this.setRoot(result);
     return this;
-  }
-
-  protected stage_orderBy(stage: QueryStage) {
-    assert(!this.isChangeStream, "OrderBy not supported in change streams");
-    const index = this.resolveQueriedIndex(stage.options.index);
-    const direction = stage.options.direction === "desc" ? -1 : 1;
-    const fields = index.fields.map((field) => [
-      this.getField(field),
-      direction,
-    ]);
-    this.pipeline.push({
-      $sort: Object.fromEntries(fields),
-    });
-    return this;
-  }
-
-  protected async stage_slice(stage: QueryStage) {
-    const offset = await DecodeValue(stage.args[0], this.context);
-    if (typeof offset !== "number" || offset !== 0) {
-      this.pipeline.push({ $skip: offset });
-    }
-
-    const count = await DecodeValue(stage.args[1], this.context);
-    if (count) {
-      this.pipeline.push({ $limit: count });
-    }
-  }
-
-  protected async stage_nth(stage: QueryStage) {
-    this.singleElement = true;
-    return this.stage_slice({ stage: "slice", args: [stage.args[0], 1] });
-  }
-
-  // Reduction stages
-
-  protected stage_count(stage: QueryStage) {
-    this.singleElement = true;
-    this.reductionDefault = 0;
-    if (stage.options.field) {
-      const field = this.getField(stage.options.field);
-      const wrapped = this.makeWrapped();
-      this.pipeline.push(
-        {
-          $group: {
-            _id: null,
-            [wrapped]: { $addToSet: `$${field}` },
-          },
-        },
-        {
-          $project: {
-            [wrapped]: { $size: `$${wrapped}` },
-          },
-        },
-      );
-    } else {
-      this.pipeline.push({
-        $group: {
-          _id: null,
-          [this.makeWrapped()]: { $count: {} },
-        },
-      });
-    }
-  }
-
-  protected stage_sum(stage: QueryStage) {
-    this.singleElement = true;
-    this.reductionDefault = 0;
-    assert(stage.options.field || this.wrappedObject);
-    const field = this.getField(stage.options.field);
-    this.pipeline.push({
-      $group: {
-        _id: null,
-        [this.makeWrapped()]: { $sum: `$${field}` },
-      },
-    });
-    return this;
-  }
-
-  protected stage_avg(stage: QueryStage) {
-    this.singleElement = true;
-    assert(stage.options.field || this.wrappedObject);
-    const field = this.getField(stage.options.field);
-    this.pipeline.push({
-      $group: {
-        _id: null,
-        [this.makeWrapped()]: { $avg: `$${field}` },
-      },
-    });
-    return this;
-  }
-
-  protected stage_min(stage: QueryStage) {
-    this.singleElement = true;
-    assert(stage.options.field || this.wrappedObject);
-    const field = this.getField(stage.options.field);
-    this.pipeline.push({
-      $group: {
-        _id: null,
-        [this.makeWrapped()]: { $min: `$${field}` },
-      },
-    });
-    return this;
-  }
-
-  protected stage_max(stage: QueryStage) {
-    this.singleElement = true;
-    assert(stage.options.field || this.wrappedObject);
-    const field = this.getField(stage.options.field);
-    this.pipeline.push({
-      $group: {
-        _id: null,
-        [this.makeWrapped()]: { $max: `$${field}` },
-      },
-    });
-    return this;
-  }
-
-  protected stage_distinct(stage: QueryStage) {
-    const field = this.getField(stage.options.field);
-    const wrapped = this.makeWrapped();
-    this.pipeline.push({
-      $group: {
-        _id: null,
-        [wrapped]: { $addToSet: `$${field}` },
-      },
-    });
-    if (!this.inCompoundObject) {
-      this.pipeline.push({
-        $unwind: { path: `$${wrapped}` },
-      });
-    }
   }
 }

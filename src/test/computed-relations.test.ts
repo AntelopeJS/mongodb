@@ -78,9 +78,11 @@ function products() {
   return schema.instance(TENANT).table(PRODUCTS);
 }
 
-// Mirrors how a data layer materializes computed fields before resolving
-// relations: a first map adds values read from another table (wrapping the
-// row), then a later map replaces the foreign key with the related row.
+/**
+ * Mirrors how a data layer materializes computed fields before resolving
+ * relations: a first map adds values read from another table (wrapping the
+ * row), then a later map replaces the foreign key with the related row.
+ */
 function withComputed(row: ProductRow) {
   return row
     .merge({
@@ -108,7 +110,7 @@ function withCategory(row: ProductRow) {
     .cast<ProductView>();
 }
 
-// Rows read back carry the instance they belong to.
+/** Rows read back carry the instance they belong to. */
 function joined(category: Category) {
   return { ...category, _instance: TENANT };
 }
