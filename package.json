@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
-    "@antelopejs/interface-database": ">=0.1.11 <0.2.0",
+    "@antelopejs/interface-database": ">=0.2.0 <0.3.0",
     "@antelopejs/interface-database-catalog": ">=0.0.3 <0.1.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
