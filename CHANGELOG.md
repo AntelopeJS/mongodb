@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.6.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.5.1...v1.6.0)
+
+### 🚀 Enhancements
+
+- External mode and the database catalog ([#62](https://github.com/AntelopeJS/mongodb/pull/62))
+
+### 💅 Refactors
+
+- Clean the repo with the guardrail pack ([#66](https://github.com/AntelopeJS/mongodb/pull/66))
+
+### 📦 Build
+
+- **deps:** Adopt @antelopejs/interface-database 0.2.0 ([#65](https://github.com/AntelopeJS/mongodb/pull/65))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+- Thomas ([@Thomasims](http://github.com/Thomasims))
+
 ## v1.5.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.5.0...v1.5.1)
