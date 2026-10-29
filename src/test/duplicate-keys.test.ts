@@ -73,13 +73,18 @@ async function membersSchema(
   return schema;
 }
 
-async function refusal(write: PromiseLike<unknown>): Promise<unknown> {
+async function expectDuplicateRefusal(
+  write: PromiseLike<unknown>,
+  index: string,
+  fields: string[],
+): Promise<void> {
   try {
     await write;
   } catch (error) {
-    return error;
+    expectDuplicate(error, index, fields);
+    return;
   }
-  return expect.fail("the write should have been refused");
+  expect.fail("the write should have been refused");
 }
 
 function expectDuplicate(
@@ -106,48 +111,48 @@ describe("duplicate keys", () => {
   it("refuses a second row with the same _id", async () => {
     await members().insert(member("a")).run();
 
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members()
         .insert(member("a", { email: "other@example.test" }))
         .run(),
+      "_id",
+      ["_id"],
     );
-
-    expectDuplicate(error, "_id", ["_id"]);
   });
 
   it("refuses a duplicate of a renamed unique index on insert", async () => {
     await members().insert(member("b")).run();
 
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members()
         .insert(member("b2", { email: "b@example.test" }))
         .run(),
+      "byEmail",
+      ["email"],
     );
-
-    expectDuplicate(error, "byEmail", ["email"]);
     expect(await members().get("b2").run()).to.equal(undefined);
   });
 
   it("refuses a duplicate of a compound unique index", async () => {
     await members().insert(member("c")).run();
 
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members()
         .insert(member("c2", { lastName: "last-c", firstName: "first-c" }))
         .run(),
+      "fullName",
+      ["lastName", "firstName"],
     );
-
-    expectDuplicate(error, "fullName", ["lastName", "firstName"]);
   });
 
   it("refuses a duplicate inside a batch insert", async () => {
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members()
         .insert([member("d"), member("d2", { email: "d@example.test" })])
         .run(),
+      "byEmail",
+      ["email"],
     );
-
-    expectDuplicate(error, "byEmail", ["email"]);
   });
 
   it("refuses an update that would duplicate a unique key", async () => {
@@ -155,11 +160,11 @@ describe("duplicate keys", () => {
       .insert([member("e"), member("f")])
       .run();
 
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members().get("f").update({ email: "e@example.test" }).run(),
+      "byEmail",
+      ["email"],
     );
-
-    expectDuplicate(error, "byEmail", ["email"]);
     expect((await members().get("f").run())?.email).to.equal("f@example.test");
   });
 
@@ -171,7 +176,7 @@ describe("duplicate keys", () => {
       ])
       .run();
 
-    const error = await refusal(
+    await expectDuplicateRefusal(
       members()
         .atomicMutation("h", {
           type: "update",
@@ -181,9 +186,9 @@ describe("duplicate keys", () => {
           patch: { email: "g@example.test" },
         })
         .run(),
+      "byEmail",
+      ["email"],
     );
-
-    expectDuplicate(error, "byEmail", ["email"]);
   });
 
   it("accepts the key of another instance", async () => {
@@ -219,14 +224,15 @@ describe("duplicate keys: index synchronization", () => {
     const schema = await membersSchema(SYNC_SCHEMA_ID, membersDefinition(true));
     expect((await indexUniqueness()).byEmail__i).to.equal(true);
     await schema.instance(TENANT).table(TABLE).insert(member("j")).run();
-    const error = await refusal(
+    await expectDuplicateRefusal(
       schema
         .instance(TENANT)
         .table(TABLE)
         .insert(member("j2", { email: "j@example.test" }))
         .run(),
+      "byEmail",
+      ["email"],
     );
-    expectDuplicate(error, "byEmail", ["email"]);
 
     await membersSchema(SYNC_SCHEMA_ID, membersDefinition(false));
     expect((await indexUniqueness()).byEmail__i).to.equal(false);

@@ -240,14 +240,14 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   public async run(): Promise<any> {
-    const RUNNERS: Record<string, () => Promise<any>> = {
-      insert: () => this.insert(),
-      update: () => this.update(),
-      replace: () => this.replace(),
-      delete: () => this.delete(),
-    };
-    const runner = RUNNERS[this.resultType];
-    if (this.external && this.resultType in RUNNERS) {
+    const RUNNERS = new Map<string, () => Promise<any>>([
+      ["insert", () => this.insert()],
+      ["update", () => this.update()],
+      ["replace", () => this.replace()],
+      ["delete", () => this.delete()],
+    ]);
+    const runner = RUNNERS.get(this.resultType);
+    if (this.external && RUNNERS.has(this.resultType)) {
       return RunExternalWrite(this.external.collection, {
         kind: this.resultType,
         value: this._newValue,

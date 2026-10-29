@@ -15,10 +15,7 @@ import {
 const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
 
-type ValueDecoder = (
-  value: Value<unknown>,
-  context: DecodingContext,
-) => Promise<unknown>;
+type ValueDecoder = typeof DecodeValue;
 
 function isPlainObject<Value>(value: Value): value is Value & object {
   return (
@@ -64,17 +61,12 @@ class Expression {
   protected options?: QueryStage["options"];
   protected currentStage?: QueryStage;
 
-  public constructor(
-    public readonly context: DecodingContext,
-    public value?: unknown,
-  ) {}
+  public value: unknown;
 
-  public static async decode(
-    stages: QueryStage[],
-    context: DecodingContext,
-    startValue?: unknown,
-  ) {
-    const expr = new Expression(context, startValue);
+  public constructor(public readonly context: DecodingContext) {}
+
+  public static async decode(stages: QueryStage[], context: DecodingContext) {
+    const expr = new Expression(context);
     await expr.addStages(stages);
     return expr.value;
   }
