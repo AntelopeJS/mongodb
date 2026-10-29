@@ -1,4 +1,7 @@
-import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
+import {
+  CROSS_INSTANCE,
+  type InstanceId,
+} from "@antelopejs/interface-database/schema";
 
 import { GetTableNames } from "./schema";
 import { GetCollection } from "../../connection";
@@ -9,7 +12,7 @@ import {
   normalizeInstanceId,
 } from "./utils";
 
-function rejectCrossInstance(action: string, value: unknown) {
+function rejectCrossInstance(action: string, value: InstanceId | undefined) {
   if (value === CROSS_INSTANCE) {
     throw new Error(
       `${action} does not accept CROSS_INSTANCE: pass a string id or omit for the default instance`,
@@ -19,7 +22,7 @@ function rejectCrossInstance(action: string, value: unknown) {
 
 export async function CreateInstance(
   schemaId: string,
-  id: unknown,
+  id: InstanceId | undefined,
 ): Promise<string> {
   rejectCrossInstance("createInstance", id);
   const instanceId = normalizeInstanceId(id);
@@ -34,7 +37,7 @@ export async function CreateInstance(
 
 export async function DestroyInstance(
   schemaId: string,
-  id: unknown,
+  id: InstanceId | undefined,
 ): Promise<void> {
   rejectCrossInstance("destroyInstance", id);
   const instanceId = normalizeInstanceId(id);
@@ -54,7 +57,7 @@ export async function ListInstances(schemaId: string): Promise<string[]> {
   const collection = await GetCollection(BOOKKEEPING_COLLECTION);
   const rows = await collection
     .find({ schemaId, instanceId: { $ne: null } })
-    .project({ instanceId: 1 })
+    .project<{ instanceId: string }>({ instanceId: 1 })
     .toArray();
-  return rows.map((row) => row.instanceId as string);
+  return rows.map((row) => row.instanceId);
 }

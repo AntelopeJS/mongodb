@@ -1,6 +1,11 @@
 import sinon from "sinon";
 import { expect } from "chai";
-import { Db, type MongoClient, MongoServerError } from "mongodb";
+import {
+  Db,
+  ListCollectionsCursor,
+  type MongoClient,
+  MongoServerError,
+} from "mongodb";
 import { internal as mongoInternal } from "@antelopejs/interface-mongodb";
 
 import * as connection from "../connection";
@@ -22,10 +27,7 @@ function getConnectionUrl(client: MongoClient): string {
 }
 
 function stubEmptyCollectionListing() {
-  const emptyCursor = { toArray: () => Promise.resolve([]) };
-  sinon
-    .stub(Db.prototype, "listCollections")
-    .returns(emptyCursor as unknown as ReturnType<Db["listCollections"]>);
+  sinon.stub(ListCollectionsCursor.prototype, "toArray").resolves([]);
 }
 
 async function withFreshDatabase(run: () => Promise<void>) {

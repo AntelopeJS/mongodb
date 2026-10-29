@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import type { AnyBulkWriteOperation, Document } from "mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type { QueryStage } from "@antelopejs/interface-database/common";
@@ -16,7 +17,7 @@ import {
   type InstanceContext,
   resolveInstanceContext,
 } from "./instance-scope";
-// oxlint-disable-next-line import/no-cycle -- inheritance edge of the AggregationPipeline / SelectionQuery pair; see pipeline.ts
+// oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
 import {
   DecodeFunction,
@@ -77,14 +78,16 @@ export class SelectionQuery extends AggregationPipeline {
     const instance = external
       ? ({ kind: "cross" } as const)
       : resolveInstanceContext(instanceId);
-    super(
+    super({
       schemaId,
       tableName,
-      external?.collection ?? collectionName(schemaId, tableName),
-      external ? [] : buildInitialPipeline(instance, isChangeStream),
+      collection: external?.collection ?? collectionName(schemaId, tableName),
+      initialFilter: external
+        ? []
+        : buildInitialPipeline(instance, isChangeStream),
       isChangeStream,
       context,
-    );
+    });
     this.external =
       external && new ExternalStages(external, this.pipeline, context);
     this.options = external ? TimeLimit() : {};
@@ -172,8 +175,8 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private async insertWithConflict(collection: any, documents: any[]) {
-    const CONFLICT_OPERATIONS: Record<string, (doc: any) => any> = {
-      update: (doc) => ({
+    const CONFLICT_OPERATIONS = {
+      update: (doc: Document): AnyBulkWriteOperation => ({
         updateOne: {
           filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           update: [
@@ -186,7 +189,7 @@ export class SelectionQuery extends AggregationPipeline {
           upsert: true,
         },
       }),
-      replace: (doc) => ({
+      replace: (doc: Document): AnyBulkWriteOperation => ({
         replaceOne: {
           filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
           replacement: doc,

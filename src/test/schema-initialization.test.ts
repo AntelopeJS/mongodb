@@ -22,10 +22,10 @@ function retryWarning(attempt: number, delay: number): string {
   return `Schema "first" initialization attempt ${attempt} failed: network lost. Retrying in ${delay}ms`;
 }
 
-describe("schema initialization lifecycle", () => {
-  let warn: sinon.SinonStub;
-  let info: sinon.SinonStub;
+let warn: sinon.SinonStub;
+let info: sinon.SinonStub;
 
+describe("schema initialization lifecycle", () => {
   beforeEach(() => {
     warn = sinon.stub(Logging, "Warn");
     info = sinon.stub(Logging, "Info");
@@ -39,6 +39,13 @@ describe("schema initialization lifecycle", () => {
     Schemas.unregister("late");
   });
 
+  drainCases();
+  failureCases();
+  retryLifecycleCases();
+  retrySupersessionCases();
+});
+
+function drainCases() {
   it("drains every started schema initialization before disconnecting", async () => {
     const first = createDeferred<void>();
     const second = createDeferred<void>();
@@ -116,7 +123,8 @@ describe("schema initialization lifecycle", () => {
     const runtimeErrors: unknown[] = [];
     const unhandledErrors: unknown[] = [];
     const previousReporter = coreInternal.runtimeErrorReporter;
-    const onUnhandled = (error: unknown) => unhandledErrors.push(error);
+    const onUnhandled: NodeJS.UnhandledRejectionListener = (error) =>
+      unhandledErrors.push(error);
     coreInternal.runtimeErrorReporter = (error) => runtimeErrors.push(error);
     process.on("unhandledRejection", onUnhandled);
 
@@ -145,7 +153,9 @@ describe("schema initialization lifecycle", () => {
       coreInternal.runtimeErrorReporter = previousReporter;
     }
   });
+}
 
+function failureCases() {
   it("throws only the disconnect failure from destroy", async () => {
     const first = createDeferred<void>();
     const second = createDeferred<void>();
@@ -241,7 +251,9 @@ describe("schema initialization lifecycle", () => {
     }
     expect(GetSchema("first")).to.equal(schema);
   });
+}
 
+function retryLifecycleCases() {
   it("logs an info message once initialization succeeds after a failure", async () => {
     const clock = useFakeGlobalTimeouts();
     const initialize = sinon.stub(connection, "InitializeSchema");
@@ -336,7 +348,9 @@ describe("schema initialization lifecycle", () => {
     expect(initialize.callCount).to.equal(2);
     expect(GetSchema("first")).to.equal(schema);
   });
+}
 
+function retrySupersessionCases() {
   it("supersedes the retry loop of an older registration", async () => {
     const clock = useFakeGlobalTimeouts();
     const newerSchema: SchemaDefinition = { ...schema };
@@ -375,4 +389,4 @@ describe("schema initialization lifecycle", () => {
     expect(initialize.callCount).to.equal(1);
     expect(() => GetSchema("first")).to.throw();
   });
-});
+}

@@ -81,11 +81,11 @@ function declaredIndexId(physicalName: string): string {
  * naming the declared index rather than its physical, instance-prefixed one;
  * any other error as it was. A batch reports its first refused row.
  */
-export function TypedWriteError(
+export function TypedWriteError<WriteFailure>(
   schemaId: string,
   tableName: string,
-  error: unknown,
-): unknown {
+  error: WriteFailure,
+): WriteFailure | DuplicateKeyError {
   if (
     !(error instanceof MongoServerError) ||
     error.code !== DUPLICATE_KEY_CODE
