@@ -61,17 +61,12 @@ class Expression {
   protected options?: QueryStage["options"];
   protected currentStage?: QueryStage;
 
-  public constructor(
-    public readonly context: DecodingContext,
-    public value?: unknown,
-  ) {}
+  public value: unknown;
 
-  public static async decode(
-    stages: QueryStage[],
-    context: DecodingContext,
-    startValue?: unknown,
-  ) {
-    const expr = new Expression(context, startValue);
+  public constructor(public readonly context: DecodingContext) {}
+
+  public static async decode(stages: QueryStage[], context: DecodingContext) {
+    const expr = new Expression(context);
     await expr.addStages(stages);
     return expr.value;
   }
