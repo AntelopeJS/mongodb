@@ -18,6 +18,10 @@ import {
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
 import { PipelineCore } from "./pipeline-core";
 
+function buildRightStages(stage: QueryStage): QueryStage[] {
+  return (stage.args[0] as Stream<any>).build();
+}
+
 /** The stages that rewrite the root of a pipeline, including those that decode another stream into it. */
 export class AggregationPipeline extends PipelineCore {
   private pendingUnset: string[] = [];
@@ -202,7 +206,7 @@ export class AggregationPipeline extends PipelineCore {
   protected async stage_union(stage: QueryStage) {
     assert(!this.isChangeStream, "Union not supported in change streams");
     const rightStream = await SelectionQuery.decode(
-      (stage.args[0] as Stream<any>).build(),
+      buildRightStages(stage),
       this.context,
     );
     assert(rightStream instanceof AggregationPipeline);
@@ -230,7 +234,7 @@ export class AggregationPipeline extends PipelineCore {
     assert(!this.isChangeStream, "Join not supported in change streams");
     const innerOnly = stage.options.innerOnly;
     const rightStream = await SelectionQuery.decode(
-      (stage.args[0] as Stream<any>).build(),
+      buildRightStages(stage),
       this.context,
     );
     const predicate = stage.args[1];
@@ -274,7 +278,7 @@ export class AggregationPipeline extends PipelineCore {
   protected async stage_lookup(stage: QueryStage) {
     assert(!this.isChangeStream, "Lookup not supported in change streams");
     const rightStream = await SelectionQuery.decode(
-      (stage.args[0] as Stream<any>).build(),
+      buildRightStages(stage),
       this.context,
     );
     assert(rightStream instanceof SelectionQuery);

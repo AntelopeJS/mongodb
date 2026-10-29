@@ -15,10 +15,7 @@ import {
 const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
 
-type ValueDecoder = (
-  value: Value<unknown>,
-  context: DecodingContext,
-) => Promise<unknown>;
+type ValueDecoder = typeof DecodeValue;
 
 function isPlainObject<Value>(value: Value): value is Value & object {
   return (
