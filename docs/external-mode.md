@@ -5,7 +5,7 @@ own, and reads and writes their documents. It is for describing an existing data
 AntelopeJS, typically a schema written from the module's catalog. It never changes that database's
 structure: no collection, option or index is created, altered or dropped.
 
-```typescript
+```typescript fragment
 {
     mode: "external",
     url: "mongodb://erp_reader:…@client-db:27017/?authSource=erp",
@@ -18,7 +18,7 @@ to construct, rather than falling back to the owned mode's defaults. Projects no
 through `envOverrides`, so the credentials stay out of the repository, and a staging copy of the
 same data under another database name needs only another variable:
 
-```typescript
+```typescript fragment
 envOverrides: {
     ERP_MONGODB_URL: "modules.mongodb-erp.config.url",
     ERP_MONGODB_DATABASE: "modules.mongodb-erp.config.database",
