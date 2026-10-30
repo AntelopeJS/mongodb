@@ -1,6 +1,7 @@
 import {
   Binary,
   type Collection,
+  type CollectionInfo,
   type Db,
   type Document,
   MongoServerError,
@@ -8,6 +9,7 @@ import {
 
 import { GetOptions } from "../../config";
 import type { CollectionKind } from "./external-descriptor";
+import { isDocument, isString } from "./utils";
 
 export const UUID_SUBTYPE = 4;
 
@@ -79,12 +81,6 @@ const SAMPLE_TYPES: Document[] = [
     },
   },
 ];
-
-const COLLECTION_KINDS = new Map<string, CollectionKind>([
-  ["collection", "collection"],
-  ["view", "view"],
-  ["timeseries", "timeseries"],
-]);
 
 /** The server-side time limit of a read, from `statementTimeoutMs`. */
 export function TimeLimit(): Document {
@@ -168,18 +164,68 @@ async function ReadIndexes(collection: Collection): Promise<string[][]> {
 }
 
 /** A listing entry's kind: a time-series collection and a view have no `_id` index. */
-export function KindOf(info: Document): CollectionKind {
-  return COLLECTION_KINDS.get(info.type) ?? "collection";
+export function KindOf(info: Pick<CollectionInfo, "type">): CollectionKind {
+  return info.type === "view" || info.type === "timeseries"
+    ? info.type
+    : "collection";
 }
 
-async function ReadFacts(db: Db, info: Document): Promise<CollectionFacts> {
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isString);
+}
+
+function isValidatorProperty(value: unknown): value is ValidatorProperty {
+  if (!isDocument(value)) {
+    return false;
+  }
+  const bsonType: unknown = value.bsonType;
+  const values: unknown = value.enum;
+  const description: unknown = value.description;
+  return (
+    (bsonType === undefined || isString(bsonType) || isStringList(bsonType)) &&
+    (values === undefined || Array.isArray(values)) &&
+    (description === undefined || isString(description))
+  );
+}
+
+function isValidatorSchema(value: unknown): value is ValidatorSchema {
+  if (!isDocument(value)) {
+    return false;
+  }
+  const description: unknown = value.description;
+  const required: unknown = value.required;
+  const properties: unknown = value.properties;
+  return (
+    (description === undefined || isString(description)) &&
+    (required === undefined || isStringList(required)) &&
+    (properties === undefined ||
+      (isDocument(properties) &&
+        Object.values(properties).every(isValidatorProperty)))
+  );
+}
+
+/** The `$jsonSchema` validator of a listing entry, when the entry has one. */
+export function ValidatorOf(
+  info: Pick<CollectionInfo, "options">,
+): ValidatorSchema | undefined {
+  const validator: unknown = info.options?.validator;
+  const schema: unknown = isDocument(validator)
+    ? validator.$jsonSchema
+    : undefined;
+  return isValidatorSchema(schema) ? schema : undefined;
+}
+
+async function ReadFacts(
+  db: Db,
+  info: CollectionInfo,
+): Promise<CollectionFacts> {
   const kind = KindOf(info);
   const collection = db.collection(info.name);
   const keyed = kind === "collection";
   return {
     name: info.name,
     kind,
-    validator: info.options?.validator?.$jsonSchema,
+    validator: ValidatorOf(info),
     indexes: kind === "view" ? [] : await ReadIndexes(collection),
     ends: keyed ? await ReadEnds(collection) : undefined,
     sample: await ReadSample(collection),
@@ -200,7 +246,7 @@ export async function ProbeCollection(
   path: string,
   name: string,
 ): Promise<CollectionFacts> {
-  const [info] = await db.listCollections({ name }).toArray();
+  const [info] = await db.listCollections<CollectionInfo>({ name }).toArray();
   if (!info) {
     throw MissingCollection(db, path, name);
   }

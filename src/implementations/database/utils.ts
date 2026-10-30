@@ -42,11 +42,14 @@ export function isDocument<Value>(value: Value): value is Value & Document {
   return typeof value === "object" && value !== null;
 }
 
-/** Tells whether `key` names a property of `table`, own or inherited, as the `in` operator does. */
+/**
+ * Tells whether `table` has the stage handler `key`, a method of its class or a field of its own.
+ * The `stage_` prefix keeps the `Object.prototype` members out of the answer.
+ */
 export function hasKey<Table extends object>(
   table: Table,
-  key: PropertyKey,
-): key is keyof Table {
+  key: `stage_${string}`,
+): key is Extract<keyof Table, `stage_${string}`> {
   return key in table;
 }
 
@@ -62,14 +65,14 @@ export function normalizeInstanceId(
   return id;
 }
 
-export function DefaultExpression(data: any, def: any) {
+export function DefaultExpression(data: string, def: any) {
   if (def) {
     return { $ifNull: [data, def] };
   }
   return data;
 }
 
-export function DefaultConstant(data: any, def: any) {
+export function DefaultConstant(data: string, def: any) {
   return DefaultExpression(data, def && { $literal: def });
 }
 
@@ -90,7 +93,7 @@ function isArgumentProvider(
 }
 
 export class DecodingContext {
-  public args: Record<string, ArgumentProvider | string> = {};
+  public args: Record<number, ArgumentProvider | string> = {};
   public subquery?: ArgumentProvider;
   /**
    * The array expression each `$map` variable (`$$var`) iterates, typed as the `source` an
@@ -133,7 +136,11 @@ export class DecodingContext {
         return remapString(value);
       }
       if (isDocument(value) && "$first" in value) {
-        return { $first: remapValue(value.$first) };
+        const inner: unknown = value.$first;
+        return {
+          $first:
+            isString(inner) || isDocument(inner) ? remapValue(inner) : inner,
+        };
       }
       return value;
     };
@@ -141,12 +148,12 @@ export class DecodingContext {
     const newContext = new DecodingContext();
     for (const [id, arg] of Object.entries(this.args)) {
       if (isArgumentProvider(arg)) {
-        newContext.args[id] = async (subQuery: QueryStage[]) => {
+        newContext.args[Number(id)] = async (subQuery: QueryStage[]) => {
           const result = await arg(subQuery);
           return remapValue(result);
         };
       } else {
-        newContext.args[id] = remapString(arg);
+        newContext.args[Number(id)] = remapString(arg);
       }
     }
     newContext.mapVarSources = { ...this.mapVarSources };

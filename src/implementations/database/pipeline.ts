@@ -102,7 +102,7 @@ export class AggregationPipeline extends PipelineCore {
     };
     try {
       for (const stage of stages) {
-        const stageCallback = `stage_${stage.stage}`;
+        const stageCallback: `stage_${string}` = `stage_${stage.stage}`;
         if (!hasKey(this, stageCallback)) {
           throw new Error(`Unimplemented stage: ${stage.stage}`);
         }
@@ -131,7 +131,7 @@ export class AggregationPipeline extends PipelineCore {
 
   protected stage_key(stage: QueryStage) {
     const fieldName = stage.args[0];
-    const defaultValue = stage.args[1];
+    const defaultValue: unknown = stage.args[1];
 
     this.resultType = "stream";
 
@@ -156,7 +156,7 @@ export class AggregationPipeline extends PipelineCore {
   }
 
   protected async stage_default(stage: QueryStage) {
-    const defaultValue =
+    const defaultValue: unknown =
       stage.args[0] && (await DecodeLiteralValue(stage.args[0], this.context));
     if (this.isChangeStream) {
       this.pipeline.push({
@@ -232,7 +232,7 @@ export class AggregationPipeline extends PipelineCore {
 
   protected async stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, "Join not supported in change streams");
-    const innerOnly = stage.options.innerOnly;
+    const innerOnly: unknown = stage.options.innerOnly;
     const rightStream = await SelectionQuery.decode(
       buildRightStages(stage),
       this.context,
@@ -284,7 +284,7 @@ export class AggregationPipeline extends PipelineCore {
     assert(rightStream instanceof SelectionQuery);
 
     const localField = this.getField(stage.options.localKey);
-    const foreignField = stage.options.otherKey;
+    const foreignField: unknown = stage.options.otherKey;
 
     const tmp = Temporary("lookup");
     this.pipeline.push(
@@ -317,8 +317,9 @@ export class AggregationPipeline extends PipelineCore {
   protected async stage_group(stage: QueryStage) {
     const root = this.getRoot();
     const group = Temporary("group");
-    const index = GetIndex(this.schemaId, this.tableName, stage.options.index);
-    const indexFields = index.fields ?? [stage.options.index];
+    const indexId: string = stage.options.index;
+    const index = GetIndex(this.schemaId, this.tableName, indexId);
+    const indexFields = index.fields ?? [indexId];
 
     let groupKey: string | Record<string, string>;
     if (indexFields.length === 1) {
@@ -347,8 +348,8 @@ export class AggregationPipeline extends PipelineCore {
       _id: groupKey,
       [group]: { $first: `$${group}` },
     };
-    const beforeGroup: any[] = [];
-    const afterGroup: any[] = [];
+    const beforeGroup: Document[] = [];
+    const afterGroup: Document[] = [];
     const pipelineInserter = async (stages: QueryStage[]) => {
       const tmp = Temporary("groupstream");
       const subquery = await AggregationPipeline.decode(

@@ -127,6 +127,14 @@ function Product(index: number): Document {
   };
 }
 
+function OrderedAt(index: number): Date {
+  return new Date(ORDERS_START + (index % 365) * DAY_MS);
+}
+
+function OrderTotal(index: number): Decimal128 {
+  return Decimal128.fromString((((index * 37) % 100000) / 100).toFixed(2));
+}
+
 function Order(index: number): Document {
   const customer = CustomerId((index * 7) % CUSTOMER_COUNT);
   const order: Document = {
@@ -134,8 +142,8 @@ function Order(index: number): Document {
     customerId:
       index % STRING_CUSTOMER_EVERY === 0 ? customer.toHexString() : customer,
     status: STATUSES[index % STATUSES.length],
-    orderedAt: new Date(ORDERS_START + (index % 365) * DAY_MS),
-    total: Decimal128.fromString((((index * 37) % 100000) / 100).toFixed(2)),
+    orderedAt: OrderedAt(index),
+    total: OrderTotal(index),
     lines: [{ sku: ProductId(index % PRODUCT_COUNT), qty: 1 + (index % 5) }],
     note: index % 4 === 0 ? "x".repeat(300 + (index % 500)) : null,
   };
@@ -198,8 +206,8 @@ async function SeedCollections(db: Db) {
     Range<Document>(INVOICE_COUNT, (index) => ({
       _id: 100000 + index,
       orderRef: OrderId(index).toHexString(),
-      amount: Order(index).total,
-      issuedOn: Order(index).orderedAt,
+      amount: OrderTotal(index),
+      issuedOn: OrderedAt(index),
     })),
   );
   await db.collection("order_lines").insertMany(

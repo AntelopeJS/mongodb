@@ -56,7 +56,7 @@ describe("an external instance at startup", () => {
     const commands = await ModuleCommands(admin);
     const offending = commands.filter(
       (entry) =>
-        WRITE_OPERATIONS.includes(entry.op) ||
+        WRITE_OPERATIONS.some((operation) => operation === entry.op) ||
         STRUCTURE_COMMANDS.some((name) => entry.command?.[name] !== undefined),
     );
     expect(profiler.was).to.equal(PROFILE_ALL);
@@ -90,10 +90,9 @@ describe("external configuration", () => {
   }
 
   it("refuses an unknown mode by name", () => {
-    const foreign: Options = {
-      ...configured,
-      ...JSON.parse(UNTYPED_FOREIGN_MODE),
-    };
+    const overrides: unknown = JSON.parse(UNTYPED_FOREIGN_MODE);
+    const foreign: Options = { ...configured };
+    Object.assign(foreign, overrides);
     expect(() => SetOptions(foreign)).to.throw("received foreign");
   });
 

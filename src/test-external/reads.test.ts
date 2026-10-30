@@ -247,7 +247,10 @@ describe("listing an external collection as a TableView does", () => {
       { $limit: 3 },
     ]);
     expect(series).to.deep.equal(
-      expected.map((bucket) => ({ x: Number(bucket._id), y: bucket.y })),
+      expected.map((bucket) => ({
+        x: Number(bucket._id),
+        y: Number(bucket.y),
+      })),
     );
   });
 });

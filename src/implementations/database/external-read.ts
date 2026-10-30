@@ -3,6 +3,8 @@ import {
   BSON,
   Decimal128,
   type Document,
+  Double,
+  Int32,
   Long,
   ObjectId,
   UUID,
@@ -16,11 +18,18 @@ import {
   READS,
 } from "./external-descriptor";
 
+/** A document of BSON values, as a compiled query expression or a document the driver answered. */
+export interface BsonDocument {
+  [field: string]: BsonValue;
+}
+
 /** A value a compiled query expression, or a document the driver answered, can hold. */
 export type BsonValue =
-  | Document
+  | BsonDocument
   | BsonValue[]
   | Binary
+  | Double
+  | Int32
   | ObjectId
   | Long
   | Decimal128
@@ -63,21 +72,17 @@ function ParseDateKey(text: string): KeyValue | undefined {
 }
 
 /** Whether a parsed key holds a `$`-prefixed field at any depth, which MongoDB reads as an operator. */
-function HoldsOperator(value: BsonValue): boolean {
-  return (
-    IsPlainDocument(value) &&
-    Object.entries(value).some(
-      ([field, inner]) => field.startsWith("$") || HoldsOperator(inner),
-    )
+function HoldsOperator(value: Document): boolean {
+  return Object.entries(value).some(
+    ([field, inner]) =>
+      field.startsWith("$") || (isPlainRecord(inner) && HoldsOperator(inner)),
   );
 }
 
 function ParseObjectKey(text: string): KeyValue | undefined {
   try {
-    const parsed: BsonValue = BSON.EJSON.parse(text, CANONICAL);
-    return IsPlainDocument(parsed) && !HoldsOperator(parsed)
-      ? parsed
-      : undefined;
+    const parsed: unknown = BSON.EJSON.parse(text, CANONICAL);
+    return isPlainRecord(parsed) && !HoldsOperator(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -319,14 +324,15 @@ const COMPARISONS = new Map<string, (candidates: BsonValue[]) => Document>([
 
 function NativeComparison(
   collection: ExternalCollection,
-  expression: Document,
+  expression: BsonDocument,
 ): Document | undefined {
-  const [operator, ...rest] = Object.keys(expression);
-  const compare = COMPARISONS.get(operator);
-  const operands = expression[operator];
+  const entries = Object.entries(expression);
+  const [first] = entries;
+  const compare = first && COMPARISONS.get(first[0]);
+  const operands = first?.[1];
   if (
     !compare ||
-    rest.length > 0 ||
+    entries.length > 1 ||
     !Array.isArray(operands) ||
     operands.length !== 2
   ) {
@@ -355,10 +361,9 @@ export function NativeFilter(
   if (!IsPlainDocument(expression)) {
     return undefined;
   }
-  const document: Document = expression;
-  const parts: BsonValue = document.$and;
+  const parts = expression.$and;
   if (!Array.isArray(parts)) {
-    return NativeComparison(collection, document);
+    return NativeComparison(collection, expression);
   }
   const native = parts.map((part) => NativeFilter(collection, part));
   return native.every((part) => part !== undefined)
@@ -424,7 +429,14 @@ export function ComparesNatively(
   );
 }
 
-function IsPlainDocument(value: BsonValue): value is Document {
+/** Whether a parsed value is a plain object; its values are whatever the parser produced. */
+function isPlainRecord(value: unknown): value is Document {
+  return (
+    value instanceof Object && Object.getPrototypeOf(value) === Object.prototype
+  );
+}
+
+function IsPlainDocument<Value>(value: Value): value is Value & BsonDocument {
   return (
     value instanceof Object && Object.getPrototypeOf(value) === Object.prototype
   );
@@ -448,7 +460,7 @@ export function RenderOutput(value: BsonValue): BsonValue {
   if (!IsPlainDocument(value)) {
     return value;
   }
-  const rendered: Document = {};
+  const rendered: BsonDocument = {};
   for (const [key, entry] of Object.entries(value)) {
     rendered[key] =
       key === ID_FIELD && IsPlainDocument(entry)

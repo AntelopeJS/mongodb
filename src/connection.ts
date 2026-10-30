@@ -184,7 +184,10 @@ async function listExistingIndexes(
   const existingIndexes = await collection.indexes();
   return {
     byName: Object.fromEntries(
-      existingIndexes.map((index) => [index.name, index]),
+      existingIndexes.map((index): [string, ExistingIndex] => [
+        String(index.name),
+        index,
+      ]),
     ),
     byFields: Object.fromEntries(
       existingIndexes.map((index) => [

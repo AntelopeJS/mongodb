@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { AnyBulkWriteOperation, Document } from "mongodb";
+import type { AnyBulkWriteOperation, Collection, Document } from "mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 import type { QueryStage } from "@antelopejs/interface-database/common";
@@ -39,25 +39,29 @@ const NO_KEYS_FILTER = { _id: { $in: [] } };
 
 type StageArgument = QueryStage["args"][number];
 
-function toKeyTuple(index: ResolvedIndex, key: unknown): unknown[] {
-  const { fields } = index;
-  assert(
-    Array.isArray(key) && key.length === fields.length,
-    `Index "${index.indexId}" takes keys of ${fields.length} values ([${fields.join(", ")}])`,
-  );
-  return key;
-}
-
 function toKeyTuples(index: ResolvedIndex, decodedKeys: unknown): unknown[][] {
   const keys = Array.isArray(decodedKeys) ? decodedKeys : [decodedKeys];
   const isSingleTuple =
     keys.length > 0 && keys.every((key) => !Array.isArray(key));
   const tuples = isSingleTuple ? [keys] : keys;
-  return tuples.map((key) => toKeyTuple(index, key));
+  const { fields } = index;
+  return tuples.map((key): unknown[] => {
+    assert(
+      Array.isArray(key) && key.length === fields.length,
+      `Index "${index.indexId}" takes keys of ${fields.length} values ([${fields.join(", ")}])`,
+    );
+    return key;
+  });
+}
+
+function identityFilter(doc: Document): Document {
+  const id: unknown = doc._id;
+  const instance: unknown = doc[INSTANCE_FIELD];
+  return { _id: id, [INSTANCE_FIELD]: instance };
 }
 
 export class SelectionQuery extends AggregationPipeline {
-  private _newValue: any;
+  private _newValue!: Document | Document[];
   private _updateValue: unknown;
   private _conflictMode?: "update" | "replace";
   private readonly instance: InstanceContext;
@@ -125,8 +129,8 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private getFilter() {
-    const filters = [];
-    const filterDoc = {};
+    const filters: unknown[] = [];
+    const filterDoc: Document = {};
     for (let i = 0; i < this.pipeline.length; ++i) {
       if ("$match" in this.pipeline[i]) {
         if ("$expr" in this.pipeline[i].$match) {
@@ -162,23 +166,25 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private prepareInsertDocuments() {
-    const documents = Array.isArray(this._newValue)
-      ? this._newValue
-      : [this._newValue];
+    const documents = [this._newValue].flat();
     assert(this.instance.kind === "scoped");
     const instanceId = this.instance.instanceId;
     for (const document of documents) {
-      document._id = document._id ?? uuidv4();
+      const id: unknown = document._id;
+      document._id = id ?? uuidv4();
       document[INSTANCE_FIELD] = instanceId;
     }
     return documents;
   }
 
-  private async insertWithConflict(collection: any, documents: any[]) {
+  private async insertWithConflict(
+    collection: Collection,
+    documents: Document[],
+  ) {
     const CONFLICT_OPERATIONS = {
       update: (doc: Document): AnyBulkWriteOperation => ({
         updateOne: {
-          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
+          filter: identityFilter(doc),
           update: [
             {
               $replaceWith: {
@@ -191,7 +197,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
       replace: (doc: Document): AnyBulkWriteOperation => ({
         replaceOne: {
-          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
+          filter: identityFilter(doc),
           replacement: doc,
           upsert: true,
         },
@@ -199,7 +205,11 @@ export class SelectionQuery extends AggregationPipeline {
     };
     const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
     await collection.bulkWrite(documents.map(buildOp));
-    return documents.map((doc) => doc._id);
+    const ids: unknown[] = [];
+    for (const doc of documents) {
+      ids.push(doc._id);
+    }
+    return ids;
   }
 
   private async update() {
@@ -225,7 +235,9 @@ export class SelectionQuery extends AggregationPipeline {
       );
     }
     const collection = await GetCollection(this.collection);
-    this._newValue[INSTANCE_FIELD] = this.instance.instanceId;
+    Object.assign(this._newValue, {
+      [INSTANCE_FIELD]: this.instance.instanceId,
+    });
     const res = await collection.findOneAndReplace(
       this.getFilter(),
       this._newValue,
@@ -283,7 +295,7 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
-    const key = stage.args[0];
+    const key: unknown = stage.args[0];
     if (this.external) {
       await this.external.get(key);
       return;
@@ -302,7 +314,7 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
-    const rawValue = stage.args[0];
+    const rawValue: unknown = stage.args[0];
     if (this.external?.getAll(index.fields, rawValue)) {
       return;
     }
@@ -466,7 +478,8 @@ export class SelectionQuery extends AggregationPipeline {
         DecodeLiteralValue,
       );
     } else {
-      this._updateValue = { $literal: stage.args[0] };
+      const literal: unknown = stage.args[0];
+      this._updateValue = { $literal: literal };
     }
   }
 

@@ -195,7 +195,10 @@ export function LookupCandidates(
  */
 export function PredicateAfterRows(pipeline: Document[], from: number) {
   const lookup = pipeline.slice(from).find((stage) => "$lookup" in stage);
-  const stages: Document[] = lookup?.$lookup.pipeline ?? [];
+  const pipelineOfLookup: unknown = lookup?.$lookup.pipeline;
+  const stages: unknown[] = Array.isArray(pipelineOfLookup)
+    ? pipelineOfLookup
+    : [];
   const [predicate, ...rows] = stages;
   if (lookup && predicate) {
     lookup.$lookup.pipeline = [...rows, predicate];
