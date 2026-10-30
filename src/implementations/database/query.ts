@@ -49,7 +49,7 @@ function tryHandleLifecycle(
   if (!handler) {
     return undefined;
   }
-  const schemaId = stages[0].options?.id;
+  const schemaId: unknown = stages[0].options?.id;
   assert(isString(schemaId), "Lifecycle query missing schema id");
   return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
 }

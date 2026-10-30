@@ -31,6 +31,13 @@ function Canonical(document: Document | null): string {
   return BSON.EJSON.stringify(document, CANONICAL);
 }
 
+function CanonicalField(
+  document: Document | null | undefined,
+  field: string,
+): string {
+  return BSON.EJSON.stringify(document?.[field], CANONICAL);
+}
+
 async function Refusal<T>(work: () => PromiseLike<T>): Promise<Error> {
   try {
     await work();
@@ -90,7 +97,8 @@ describe("writing back what an external collection answered", () => {
       await Table("orders").get(order.toHexString()).update(edited),
     ).to.equal(1);
     const after = await Stored("orders", order);
-    expect(Canonical({ ...after, status: before?.status })).to.equal(
+    const originalStatus: unknown = before?.status;
+    expect(Canonical({ ...after, status: originalStatus })).to.equal(
       Canonical(before),
     );
     expect(after?.status).to.equal("cancelled");
@@ -100,19 +108,22 @@ describe("writing back what an external collection answered", () => {
       .update({ name: "Renamed 91" });
     const customerAfter = await Stored("customers", customer);
     expect(customerAfter?.phone).to.equal(customerBefore?.phone);
-    expect(Canonical(customerAfter?.points)).to.equal(
-      Canonical(customerBefore?.points),
+    expect(CanonicalField(customerAfter, "points")).to.equal(
+      CanonicalField(customerBefore, "points"),
     );
   });
 
   it("ignores an object field on update, rather than writing back what a read altered", async () => {
-    const before = Canonical((await Stored("customers", customer))?.address);
+    const before = CanonicalField(
+      await Stored("customers", customer),
+      "address",
+    );
     await Table("customers")
       .get(customer.toHexString())
       .update({ address: { city: "Nowhere" } });
-    expect(Canonical((await Stored("customers", customer))?.address)).to.equal(
-      before,
-    );
+    expect(
+      CanonicalField(await Stored("customers", customer), "address"),
+    ).to.equal(before);
   });
 
   it("writes nothing when the payload's _id names another document", async () => {
@@ -149,7 +160,10 @@ describe("inserting into an external collection", () => {
       .find({ _id: { $in: ids.map((id) => new ObjectId(id)) } })
       .toArray();
     const names = new Map(
-      stored.map((document) => [document._id.toHexString(), document.name]),
+      stored.map((document): [string, unknown] => [
+        document._id.toHexString(),
+        document.name,
+      ]),
     );
     expect(ids.map((id) => names.get(id))).to.deep.equal(
       values.map((value) => value.name),
@@ -188,8 +202,11 @@ describe("inserting into an external collection", () => {
     );
     expect(ids).to.deep.equal([customer.toHexString()]);
     const after = await Stored("customers", customer);
-    expect(after).to.include({ name: "Upserted 14", phone: before?.phone });
-    expect(Canonical(after?.points)).to.equal(Canonical(before?.points));
+    expect(after).to.include({ name: "Upserted 14" });
+    expect(after?.phone).to.equal(before?.phone);
+    expect(CanonicalField(after, "points")).to.equal(
+      CanonicalField(before, "points"),
+    );
   });
 
   it("writes a whole number as a double into a field of ints and doubles, which ints would not hold", async () => {
@@ -256,7 +273,9 @@ describe("what an external write refuses", () => {
   it("writes a fraction into a Long field as a double rather than refuse it", async () => {
     await Table("customers").get(customer).update({ points: 1.5 });
     const stored = await Stored("customers", new ObjectId(customer));
-    expect(Canonical(stored?.points)).to.equal('{"$numberDouble":"1.5"}');
+    expect(CanonicalField(stored, "points")).to.equal(
+      '{"$numberDouble":"1.5"}',
+    );
   });
 
   it("names the property a validator refuses", async () => {
@@ -321,7 +340,10 @@ describe("replacing a document of an external collection", () => {
     const after = await Stored("customers", customer);
     expect(after).to.not.have.property("segment");
     expect(after).to.not.have.property("points");
-    expect(after).to.include({ name: "Replaced 11", email: before?.email });
-    expect(Canonical(after?.address)).to.equal(Canonical(before?.address));
+    expect(after).to.include({ name: "Replaced 11" });
+    expect(after?.email).to.equal(before?.email);
+    expect(CanonicalField(after, "address")).to.equal(
+      CanonicalField(before, "address"),
+    );
   });
 });

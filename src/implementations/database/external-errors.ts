@@ -1,6 +1,8 @@
 import { type Document, MongoBulkWriteError, MongoServerError } from "mongodb";
 import { DuplicateKeyError } from "@antelopejs/interface-database";
 
+import { isDocument, isString } from "./utils";
+
 /** What went wrong with a write, in terms a caller can act on without reading MongoDB codes. */
 export type ExternalWriteErrorKind = "invalid" | "forbidden";
 
@@ -59,53 +61,63 @@ const PRIMARY_INDEX = "_id_";
 const PRIMARY_KEY = "_id";
 const DUPLICATE_INDEX_PATTERN = / index: (\S+) dup key/;
 
-interface ValidatorRule {
-  propertyName?: string;
-  missingProperties?: string[];
-}
-
-interface ValidatorDetails {
-  schemaRulesNotSatisfied?: {
-    propertiesNotSatisfied?: ValidatorRule[];
-    missingProperties?: string[];
-  }[];
-}
-
 /** What a refusal says, from the server error or, for a bulk write, its first write error. */
 interface ServerFailure {
   code: number;
   message: string;
   errInfo?: Document;
-  keyPattern?: Document;
+  /** The fields of the index a duplicate key broke. */
+  keyFields: string[];
 }
 
 function FailureOf(error: MongoServerError): ServerFailure {
   const [first] =
     error instanceof MongoBulkWriteError ? [error.writeErrors].flat() : [];
+  // SAFETY: the server's write error carries keyPattern on a duplicate key; the driver's type omits it.
+  const written = first?.err as Document | undefined;
+  const keyPattern: unknown = first ? written?.keyPattern : error.keyPattern;
+  const keyFields = isDocument(keyPattern) ? Object.keys(keyPattern) : [];
   return first
     ? {
         code: Number(first.code),
         message: first.errmsg ?? error.message,
         errInfo: first.errInfo,
-        // SAFETY: the server's write error carries keyPattern on a duplicate key; the driver's type omits it.
-        keyPattern: (first.err as Document | undefined)?.keyPattern,
+        keyFields,
       }
     : {
         code: Number(error.code),
         message: error.message,
         errInfo: error.errInfo,
-        keyPattern: error.keyPattern,
+        keyFields,
       };
 }
 
 function ValidatorFields(error: ServerFailure): string[] {
-  const details: ValidatorDetails | undefined = error.errInfo?.details;
-  return (details?.schemaRulesNotSatisfied ?? []).flatMap((rule) => [
-    ...(rule.propertiesNotSatisfied ?? []).flatMap((property) =>
-      property.propertyName ? [property.propertyName] : [],
-    ),
-    ...(rule.missingProperties ?? []),
-  ]);
+  const details: unknown = error.errInfo?.details;
+  const rules: unknown = isDocument(details)
+    ? details.schemaRulesNotSatisfied
+    : undefined;
+  const ruleList: unknown[] = Array.isArray(rules) ? rules : [];
+  const fields: string[] = [];
+  for (const rule of ruleList) {
+    if (!isDocument(rule)) {
+      continue;
+    }
+    const properties: unknown = rule.propertiesNotSatisfied;
+    const propertyList: unknown[] = Array.isArray(properties) ? properties : [];
+    for (const property of propertyList) {
+      const name: unknown = isDocument(property)
+        ? property.propertyName
+        : undefined;
+      if (isString(name) && name) {
+        fields.push(name);
+      }
+    }
+    const missing: unknown = rule.missingProperties;
+    const missingList: unknown[] = Array.isArray(missing) ? missing : [];
+    fields.push(...missingList.filter(isString));
+  }
+  return fields;
 }
 
 const MAPPINGS = new Map<
@@ -118,7 +130,7 @@ const MAPPINGS = new Map<
       const index = DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1];
       return new DuplicateKeyError(
         index === undefined || index === PRIMARY_INDEX ? PRIMARY_KEY : index,
-        Object.keys(error.keyPattern ?? {}),
+        error.keyFields,
       );
     },
   ],

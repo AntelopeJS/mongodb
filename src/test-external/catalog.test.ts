@@ -233,7 +233,7 @@ describe("what an external MongoDB catalog writes", () => {
         .toArray();
       const offending = entries.filter(
         (entry) =>
-          WRITE_OPERATIONS.includes(entry.op) ||
+          WRITE_OPERATIONS.some((operation) => operation === entry.op) ||
           STRUCTURE_COMMANDS.some(
             (name) => entry.command?.[name] !== undefined,
           ),

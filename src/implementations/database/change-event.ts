@@ -1,5 +1,7 @@
 import type { Document } from "mongodb";
 
+import { isString } from "./utils";
+
 const CHANGE_TYPES = new Map([
   ["insert", "added"],
   ["replace", "modified"],
@@ -9,11 +11,13 @@ const CHANGE_TYPES = new Map([
 
 /** A change stream event in the shape the database interface streams. */
 export function ToChangeEvent(change: Document) {
-  const op = change.operationType;
+  const op: unknown = change.operationType;
+  const before: unknown = change.fullDocumentBeforeChange;
+  const after: unknown = change.fullDocument;
   return {
-    changeType: CHANGE_TYPES.get(op) ?? op,
-    oldValue: op === "insert" ? undefined : change.fullDocumentBeforeChange,
-    newValue: op === "delete" ? undefined : change.fullDocument,
+    changeType: isString(op) ? (CHANGE_TYPES.get(op) ?? op) : op,
+    oldValue: op === "insert" ? undefined : before,
+    newValue: op === "delete" ? undefined : after,
     _mongo: change,
   };
 }

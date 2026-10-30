@@ -16,6 +16,7 @@ import type {
 } from "./external-descriptor";
 import { InvalidValues, type InvalidValue } from "./external-errors";
 import {
+  type BsonDocument,
   type BsonValue,
   ConstantKind,
   KeyText,
@@ -75,6 +76,8 @@ const BSON_TYPE_NAMES: Record<WriteType, string> = {
   date: "date",
   bool: "bool",
 };
+
+const WRITE_TYPE_NAMES = new Set<string>(Object.keys(BSON_TYPE_NAMES));
 
 const EXPECTED: Record<WriteType, string> = {
   objectId: "expects an ObjectId: 24 hexadecimal characters",
@@ -225,7 +228,8 @@ function StoredTypeExpression(
   const fallback =
     converted === undefined ? `$${descriptor.field}` : { $literal: converted };
   const others = descriptor.nativeTypes.filter(
-    (type): type is WriteType => type !== writeType && type in BSON_TYPE_NAMES,
+    (type): type is WriteType =>
+      type !== writeType && WRITE_TYPE_NAMES.has(type),
   );
   return others.reduce<BsonValue>((otherwise, type) => {
     const converted = WRITERS[type](value);
@@ -328,7 +332,7 @@ function WriteField(
 export function SplitPayload(
   collection: ExternalCollection,
   mode: WriteMode,
-  document: Document,
+  document: BsonDocument,
 ): ExternalPayload {
   const walk: Walk = { collection, mode, failures: [], unconverted: [] };
   const payload: ExternalPayload = {
