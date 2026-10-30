@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { AggregateOptions, AggregationCursor } from "mongodb";
+import type { AggregateOptions, AggregationCursor, Document } from "mongodb";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import {
@@ -17,7 +17,7 @@ export interface PipelineSource {
   schemaId: string;
   tableName: string;
   collection: string;
-  initialFilter: any[];
+  initialFilter: Document[];
   isChangeStream: boolean;
   context: DecodingContext;
 }
@@ -57,8 +57,8 @@ export class PipelineCore {
    */
   public inCompoundObject = false;
 
-  public readonly initialFilter: any[];
-  public readonly pipeline: any[];
+  public readonly initialFilter: Document[];
+  public readonly pipeline: Document[];
 
   public constructor(source: PipelineSource) {
     this.schemaId = source.schemaId;
@@ -89,12 +89,13 @@ export class PipelineCore {
 
   public async run(): Promise<any> {
     const collection = await GetCollection(this.collection);
-    let result = await collection
+    const rows = await collection
       .aggregate(this.pipeline, this.options)
       .toArray();
-    if (this.wrappedObject) {
-      const wrappedObject = this.wrappedObject;
-      result = result.map((element: any) => element[wrappedObject]);
+    const wrappedObject = this.wrappedObject;
+    const result: unknown[] = [];
+    for (const element of rows) {
+      result.push(wrappedObject ? element[wrappedObject] : element);
     }
     if (this.singleElement) {
       return result.length > 0 ? result[0] : this.reductionDefault;
@@ -186,7 +187,7 @@ export class PipelineCore {
   }
 
   protected stage_pluck(stage: QueryStage) {
-    const pluckObject: any = {};
+    const pluckObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
     }
@@ -223,7 +224,7 @@ export class PipelineCore {
   }
 
   protected stage_without(stage: QueryStage) {
-    const withoutObject: any = {};
+    const withoutObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       withoutObject[this.getField(field)] = 0;
     }
@@ -246,7 +247,7 @@ export class PipelineCore {
     assert(!this.isChangeStream, "OrderBy not supported in change streams");
     const index = this.resolveQueriedIndex(stage.options.index);
     const direction = stage.options.direction === "desc" ? -1 : 1;
-    const fields = index.fields.map((field) => [
+    const fields = index.fields.map((field): [string, number] => [
       this.getField(field),
       direction,
     ]);

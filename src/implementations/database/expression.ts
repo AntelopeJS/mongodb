@@ -39,19 +39,21 @@ function CondenseValue(
   _key: string,
   desc: PropertyDescriptor,
 ) {
-  const prev = desc.value;
-  if (!prev) return;
-  desc.value = function (this: Expression, ...args: any[]) {
+  const prev: unknown = desc.value;
+  if (!(prev instanceof Function)) return;
+  desc.value = function (this: Expression, ...args: unknown[]) {
     const valueBefore = this.value;
     if (isString(valueBefore)) {
-      return prev.apply(this, args);
+      const result: unknown = prev.apply(this, args);
+      return result;
     }
     const tmp = Temporary();
     this.value = `$$${tmp}`;
+    const body: unknown = prev.apply(this, args);
     return {
       $let: {
         vars: { [tmp]: valueBefore },
-        in: prev.apply(this, args),
+        in: body,
       },
     };
   };
@@ -73,7 +75,7 @@ class Expression {
 
   public async addStages(stages: QueryStage[]) {
     for (const stage of stages) {
-      const stageCallback = `stage_${stage.stage}`;
+      const stageCallback: `stage_${string}` = `stage_${stage.stage}`;
       if (!hasKey(this, stageCallback)) {
         throw new Error(`Unimplemented stage: ${stage.stage}`);
       }
@@ -328,14 +330,9 @@ export async function DecodeValue(
     return undefined;
   }
 
-  return needsLiteral(value) ? { $literal: value } : value;
-}
-
-function needsLiteral(value: unknown): boolean {
-  if (isString(value)) {
-    return value.startsWith(FIELD_PATH_PREFIX);
-  }
-  return isObjectOrNull(value) && !(value instanceof Date);
+  const isFieldPath = isString(value) && value.startsWith(FIELD_PATH_PREFIX);
+  const isObject = isObjectOrNull(value) && !(value instanceof Date);
+  return isFieldPath || isObject ? { $literal: value } : value;
 }
 
 /**

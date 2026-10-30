@@ -36,19 +36,27 @@ const VALIDATION_ERROR_CODES = new Set(
   }),
 );
 
-function validateStages(stages: QueryStage[]): void {
+interface AtomicTarget {
+  schemaId: string;
+  tableName: string;
+}
+
+function validateStages(stages: QueryStage[]): AtomicTarget {
   assert(
     stages.length === ATOMIC_STAGE_PATH.length &&
       stages.every((stage, index) => stage.stage === ATOMIC_STAGE_PATH[index]),
     "atomicMutation requires a direct schema/instance/table target",
   );
-  assert(isString(stages[0].options?.id), "Missing schema id");
-  assert(isString(stages[2].options?.id), "Missing table id");
+  const schemaId: unknown = stages[0].options?.id;
+  assert(isString(schemaId), "Missing schema id");
+  const tableName: unknown = stages[2].options?.id;
+  assert(isString(tableName), "Missing table id");
   ValidateAtomicMutationTable(stages.slice(0, -1));
   assert(
     stages[3].args.length === 2 && stages[3].options === undefined,
     "Invalid atomicMutation arguments",
   );
+  return { schemaId, tableName };
 }
 
 function conditionFilter(mutation: AtomicMutation<Document>): Document {
@@ -75,11 +83,9 @@ function conditionFilter(mutation: AtomicMutation<Document>): Document {
 export async function RunAtomicMutation(
   stages: QueryStage[],
 ): Promise<AtomicMutationOutcome> {
-  validateStages(stages);
+  const { schemaId, tableName } = validateStages(stages);
   const [key, mutation] = stages[3].args;
   ValidateAtomicMutation(key, mutation, [INSTANCE_FIELD]);
-  const schemaId: string = stages[0].options.id;
-  const tableName: string = stages[2].options.id;
   const collection = GetAtomicCollection(collectionName(schemaId, tableName));
   const filter: Document = {
     _id: key,
