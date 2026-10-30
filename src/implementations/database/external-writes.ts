@@ -71,9 +71,14 @@ async function WriteTarget(
   const key = KeyClassOf(collection);
   const matches = pipeline.filter((stage) => "$match" in stage);
   if (matches.length === pipeline.length) {
-    return matches.length === 0
-      ? {}
-      : { $and: matches.map((stage) => stage.$match) };
+    if (matches.length === 0) {
+      return {};
+    }
+    const conditions: unknown[] = [];
+    for (const stage of matches) {
+      conditions.push(stage.$match);
+    }
+    return { $and: conditions };
   }
   const native = (await GetDatabase()).collection(collection.collection);
   const rows = await native
@@ -205,7 +210,7 @@ async function Run(
   write: ExternalWrite,
 ): Promise<number | string[]> {
   if (write.kind === "insert") {
-    const values = Array.isArray(write.value) ? write.value : [write.value];
+    const values = [write.value].flat();
     return Insert(collection, native, values, write.conflict);
   }
   const target = await WriteTarget(collection, write.pipeline);
