@@ -131,7 +131,7 @@ export class AggregationPipeline extends PipelineCore {
 
   protected stage_key(stage: QueryStage) {
     const fieldName = stage.args[0];
-    const defaultValue = stage.args[1];
+    const defaultValue: unknown = stage.args[1];
 
     this.resultType = "stream";
 
@@ -156,7 +156,7 @@ export class AggregationPipeline extends PipelineCore {
   }
 
   protected async stage_default(stage: QueryStage) {
-    const defaultValue =
+    const defaultValue: unknown =
       stage.args[0] && (await DecodeLiteralValue(stage.args[0], this.context));
     if (this.isChangeStream) {
       this.pipeline.push({
@@ -232,7 +232,7 @@ export class AggregationPipeline extends PipelineCore {
 
   protected async stage_join(stage: QueryStage) {
     assert(!this.isChangeStream, "Join not supported in change streams");
-    const innerOnly = stage.options.innerOnly;
+    const innerOnly: unknown = stage.options.innerOnly;
     const rightStream = await SelectionQuery.decode(
       buildRightStages(stage),
       this.context,
@@ -284,7 +284,7 @@ export class AggregationPipeline extends PipelineCore {
     assert(rightStream instanceof SelectionQuery);
 
     const localField = this.getField(stage.options.localKey);
-    const foreignField = stage.options.otherKey;
+    const foreignField: unknown = stage.options.otherKey;
 
     const tmp = Temporary("lookup");
     this.pipeline.push(

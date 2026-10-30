@@ -72,21 +72,17 @@ function ParseDateKey(text: string): KeyValue | undefined {
 }
 
 /** Whether a parsed key holds a `$`-prefixed field at any depth, which MongoDB reads as an operator. */
-function HoldsOperator(value: BsonValue): boolean {
-  return (
-    IsPlainDocument(value) &&
-    Object.entries(value).some(
-      ([field, inner]) => field.startsWith("$") || HoldsOperator(inner),
-    )
+function HoldsOperator(value: Document): boolean {
+  return Object.entries(value).some(
+    ([field, inner]) =>
+      field.startsWith("$") || (isPlainRecord(inner) && HoldsOperator(inner)),
   );
 }
 
 function ParseObjectKey(text: string): KeyValue | undefined {
   try {
     const parsed: unknown = BSON.EJSON.parse(text, CANONICAL);
-    return IsPlainDocument(parsed) && !HoldsOperator(parsed)
-      ? parsed
-      : undefined;
+    return isPlainRecord(parsed) && !HoldsOperator(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -430,6 +426,13 @@ export function ComparesNatively(
   return (
     descriptor !== undefined &&
     descriptor.nativeTypes.every((type) => compared.includes(type))
+  );
+}
+
+/** Whether a parsed value is a plain object; its values are whatever the parser produced. */
+function isPlainRecord(value: unknown): value is Document {
+  return (
+    value instanceof Object && Object.getPrototypeOf(value) === Object.prototype
   );
 }
 

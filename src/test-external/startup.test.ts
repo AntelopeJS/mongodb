@@ -90,10 +90,9 @@ describe("external configuration", () => {
   }
 
   it("refuses an unknown mode by name", () => {
-    const foreign: Options = {
-      ...configured,
-      ...JSON.parse(UNTYPED_FOREIGN_MODE),
-    };
+    const overrides: unknown = JSON.parse(UNTYPED_FOREIGN_MODE);
+    const foreign: Options = { ...configured };
+    Object.assign(foreign, overrides);
     expect(() => SetOptions(foreign)).to.throw("received foreign");
   });
 

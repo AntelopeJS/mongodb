@@ -110,7 +110,7 @@ class Expression {
     return this.context.args[num];
   }
   stage_constant() {
-    const constant = this.currentStage!.args[0];
+    const constant: unknown = this.currentStage!.args[0];
     if (isPlainObject(constant)) {
       return DecodeLiteralValue(constant, this.context);
     }
@@ -189,7 +189,7 @@ class Expression {
   stage_cmp_le = "$lte";
 
   stage_str_split() {
-    const separator = this.options?.separator ?? DEFAULT_SEPARATOR;
+    const separator: unknown = this.options?.separator ?? DEFAULT_SEPARATOR;
     const split = { $split: [this.value, { $literal: separator }] };
     if (this.options?.maxSplits) {
       return { $slice: [split, this.options.maxSplits] };

@@ -295,7 +295,7 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
-    const key = stage.args[0];
+    const key: unknown = stage.args[0];
     if (this.external) {
       await this.external.get(key);
       return;
@@ -314,7 +314,7 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
-    const rawValue = stage.args[0];
+    const rawValue: unknown = stage.args[0];
     if (this.external?.getAll(index.fields, rawValue)) {
       return;
     }
@@ -478,7 +478,8 @@ export class SelectionQuery extends AggregationPipeline {
         DecodeLiteralValue,
       );
     } else {
-      this._updateValue = { $literal: stage.args[0] };
+      const literal: unknown = stage.args[0];
+      this._updateValue = { $literal: literal };
     }
   }
 
