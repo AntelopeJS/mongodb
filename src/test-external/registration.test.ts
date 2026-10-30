@@ -195,7 +195,7 @@ describe("registration of an external schema", () => {
       .toArray();
     const offending = entries.filter(
       (entry) =>
-        WRITE_OPERATIONS.includes(entry.op) ||
+        WRITE_OPERATIONS.some((operation) => operation === entry.op) ||
         STRUCTURE_COMMANDS.some((name) => entry.command?.[name] !== undefined),
     );
     expect(entries.length).to.be.greaterThan(0);

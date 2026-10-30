@@ -213,7 +213,10 @@ describe("duplicate keys: index synchronization", () => {
     );
     const indexes = await collection.indexes();
     return Object.fromEntries(
-      indexes.map((index) => [index.name, index.unique === true]),
+      indexes.map((index): [string, boolean] => [
+        String(index.name),
+        index.unique === true,
+      ]),
     );
   }
 
