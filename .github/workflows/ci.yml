@@ -13,8 +13,12 @@ jobs:
   ci:
     uses: AntelopeJS/.github/.github/workflows/ci-node.yml@v1
     permissions:
-      contents: write
-      actions: write
+      contents: read
+    with:
+      docs-files: |
+        README.md
+        docs
+      renovate-sync: false
 
   checks:
     if: always()
@@ -24,3 +28,10 @@ jobs:
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
         run: exit 1
+  renovate-sync:
+    if: >-
+      github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+      actions: write
+    uses: AntelopeJS/.github/.github/workflows/ci-renovate-sync.yml@v1
