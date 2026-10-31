@@ -111,7 +111,7 @@ Versions before 1.4 created each index as `<name>` only. The module creates the 
 | Package                                  | Supported                                                      | Tested with                                                    |
 | ---------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
 | `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0`                                               | `0.2.4`                                                        |
-| `@antelopejs/interface-database`         | `file:.campaign/tgz/antelopejs-interface-database-beb5f5b.tgz` | `file:.campaign/tgz/antelopejs-interface-database-beb5f5b.tgz` |
+| `@antelopejs/interface-database`         | `file:.campaign/tgz/antelopejs-interface-database-4939b45.tgz` | `file:.campaign/tgz/antelopejs-interface-database-4939b45.tgz` |
 | `@antelopejs/interface-database-catalog` | `>=0.0.3 <0.1.0`                                               | `0.0.3`                                                        |
 | `@antelopejs/interface-mongodb`          | `>=0.0.6 <1.0.0`                                               | `0.0.6`                                                        |
 
