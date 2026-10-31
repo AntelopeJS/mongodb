@@ -3,7 +3,7 @@
     "import/no-cycle": 2,
     "unicorn/no-thenable": 1
   },
-  "tsExpectError": 1,
+  "tsExpectError": 5,
   "tsIgnore": 0,
   "safety": 3,
   "config": {}

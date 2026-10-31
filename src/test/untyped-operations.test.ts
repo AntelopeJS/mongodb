@@ -41,7 +41,7 @@ function TextBound(text: string) {
   return ValueProxy.constant(text).cast<Date>();
 }
 
-describe("the operations a caller reaches past the contract, with cast", () => {
+describe("the operations a caller reaches past the contract, with cast or a JSON stage", () => {
   before(async () => {
     await schema.createInstance(INSTANCE).run();
     await Rows()
@@ -128,6 +128,34 @@ describe("the operations a caller reaches past the contract, with cast", () => {
           hugeFieldOnDate: false,
         },
       ],
+    );
+  });
+
+  it("add sends every operand of a hand-written JSON stage", async () => {
+    assert.deepEqual(
+      await Rows().map((row) => ({
+        two: new ValueProxy<number>(
+          // @ts-expect-error two operands where add takes one, which the driver answers by adding both
+          { stage: "add", args: [1, 2] },
+          row.key("age"),
+        ),
+        none: new ValueProxy<number>(
+          // @ts-expect-error no operand where add takes one, which the driver answers with its receiver
+          { stage: "add", args: [] },
+          row.key("age"),
+        ),
+        thenNull: new ValueProxy<number>(
+          // @ts-expect-error a null after two operands where add takes one, which the driver answers with null
+          { stage: "add", args: [1, 2, null] },
+          row.key("age"),
+        ),
+        text: new ValueProxy<number>(
+          // @ts-expect-error two text operands where add takes one number, which the driver answers by concatenating both
+          { stage: "add", args: ["x", "y"] },
+          row.key("name").cast<number>(),
+        ),
+      })),
+      [{ two: 39, none: 36, thenNull: null, text: "adaxy" }],
     );
   });
 });
