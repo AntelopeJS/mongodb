@@ -3,11 +3,9 @@
   "rules": {
     "antelopejs/no-presence-only-type-guard": 1,
     "anti-slop/no-runtime-typeof": 1,
-    "anti-slop/no-unknown-parameters": 10,
-    "anti-slop/no-unknown-returns": 2,
-    "typescript/no-unsafe-argument": 3,
-    "typescript/no-unsafe-assignment": 6,
-    "typescript/no-unsafe-return": 3
+    "anti-slop/no-unknown-parameters": 1,
+    "typescript/no-unsafe-argument": 1,
+    "typescript/no-unsafe-return": 1
   },
   "oversizeFiles": {}
 }
