@@ -180,25 +180,33 @@ class Expression {
   stage_eq = "$eq";
   stage_ne = "$ne";
   stage_add(...operands: DecodedOperand[]) {
-    return operands.every((operand) => Number.isFinite(operand))
-      ? { $add: [this.value, ...operands] }
-      : this.addByReceiver(operands);
+    if (operands.length === 0) {
+      return { $add: [this.value] };
+    }
+    for (const operand of operands) {
+      this.value = Number.isFinite(operand)
+        ? { $add: [this.value, operand] }
+        : this.addByReceiver(operand);
+    }
+    return this.value;
   }
   /**
    * `$add` reads numbers and dates only, and an expression's type is known only to the server, so
-   * a string or a list goes to its own operator there.
+   * a string or a list goes to its own operator there. Each stage holds one operand: the server
+   * evaluates two constants side by side ahead of the `$cond`, and refuses them on any operator
+   * they do not suit.
    */
   @CondenseValue
-  addByReceiver(operands: DecodedOperand[]) {
+  addByReceiver(operand: DecodedOperand) {
     return {
       $cond: [
         { $eq: [{ $type: this.value }, "string"] },
-        { $concat: [this.value, ...operands] },
+        { $concat: [this.value, operand] },
         {
           $cond: [
             { $isArray: [this.value] },
-            { $concatArrays: [this.value, ...operands] },
-            { $add: [this.value, ...operands] },
+            { $concatArrays: [this.value, operand] },
+            { $add: [this.value, operand] },
           ],
         },
       ],
