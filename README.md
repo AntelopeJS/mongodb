@@ -75,7 +75,7 @@ In the module that stores data, add the database interface:
 pnpm add @antelopejs/interface-database
 ```
 
-Then follow the [database interface guide](https://framework.antelopejs.com/docs/guides/database) to declare a schema and query it. The same code runs on [`@antelopejs/rethinkdb`](https://github.com/AntelopeJS/rethinkdb).
+Then follow the [database interface guide](https://framework.antelopejs.com/docs/guides/database) to declare a schema and query it. The same code runs on [`@antelopejs/postgres`](https://github.com/AntelopeJS/postgres) and [`@antelopejs/rethinkdb`](https://github.com/AntelopeJS/rethinkdb).
 
 To call the driver directly instead, add `@antelopejs/interface-mongodb`:
 
@@ -119,10 +119,10 @@ Versions before 1.4 created each index as `<name>` only. The module creates the 
 
 | Package                                  | Supported range  |
 | ---------------------------------------- | ---------------- |
-| `@antelopejs/interface-database`         | `^0.1.8`         |
-| `@antelopejs/interface-mongodb`          | `>=0.0.5 <1.0.0` |
+| `@antelopejs/interface-database`         | `>=0.2.0 <0.3.0` |
+| `@antelopejs/interface-mongodb`          | `>=0.0.6 <1.0.0` |
 | `@antelopejs/interface-database-catalog` | `>=0.0.3 <0.1.0` |
-| `@antelopejs/interface-core`             | `>=0.1.1 <1.0.0` |
+| `@antelopejs/interface-core`             | `>=0.2.4 <1.0.0` |
 
 The module is developed and tested against `@antelopejs/core` `^1.13.4` on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
 
