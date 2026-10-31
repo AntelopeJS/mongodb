@@ -35,6 +35,7 @@ type ValueDecoder = typeof DecodeValue;
 type DecodedOperand =
   | string
   | number
+  | bigint
   | boolean
   | null
   | undefined
