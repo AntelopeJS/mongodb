@@ -1,12 +1,17 @@
 import type { Document } from "mongodb";
 import type { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
-import type { QueryStage } from "@antelopejs/interface-database/common";
+import type { ValueProxyOrValue } from "@antelopejs/interface-database";
+import type {
+  IndexKeys,
+  QueryStage,
+} from "@antelopejs/interface-database/common";
 
 import { GetExternalCollection } from "./schema";
-import { IsConstantValue } from "./expression";
+import { IsConstantKeys, IsConstantValue } from "./expression";
 import type { ExternalCollection, KeyClass } from "./external-descriptor";
 import {
   type BsonValue,
+  IsKeyScalar,
   KeyExpression,
   KeyMatch,
   KeyValues,
@@ -18,7 +23,7 @@ import {
   RefuseNamedInstance,
 } from "./external-refusals";
 
-type StageArgument = QueryStage["args"][number];
+type RangeBound = QueryStage<"between">["args"][number];
 
 const ID_FIELD = "_id";
 const NOTHING: Document = { _id: { $in: [] } };
@@ -75,11 +80,11 @@ function RequireKey(external: ExternalCollection): KeyClass {
 /** The `$match` of `get`: a constant key parsed once, a runtime one converted on the server. */
 export function KeyGetMatch(
   external: ExternalCollection,
-  key: StageArgument,
+  key: ValueProxyOrValue<string>,
   decoded: BsonValue,
 ): Document {
   const keyClass = RequireKey(external);
-  return IsConstantValue(key)
+  return IsConstantKeys(key)
     ? KeyMatch(keyClass, [key])
     : { $expr: { $eq: ["$_id", KeyExpression(keyClass, decoded)] } };
 }
@@ -91,12 +96,12 @@ export function KeyGetMatch(
 export function KeysFilter(
   external: ExternalCollection,
   field: string,
-  keys: StageArgument,
+  keys: IndexKeys,
 ): Document | undefined {
-  if (!IsConstantValue(keys)) {
+  if (!IsConstantKeys(keys)) {
     return undefined;
   }
-  const values: BsonValue[] = Array.isArray(keys) ? keys : [keys];
+  const values = Array.isArray(keys) ? keys : [keys];
   if (field === ID_FIELD) {
     return KeyMatch(RequireKey(external), values);
   }
@@ -116,15 +121,15 @@ export function KeysFilter(
 export function KeyRange(
   external: ExternalCollection,
   field: string,
-  low: StageArgument,
-  high: StageArgument,
+  low: RangeBound,
+  high: RangeBound,
 ): Document | undefined {
   if (field !== ID_FIELD || !IsConstantValue(low) || !IsConstantValue(high)) {
     return undefined;
   }
   const keyClass = RequireKey(external);
-  const [lowKey] = KeyValues(keyClass, [low]);
-  const [highKey] = KeyValues(keyClass, [high]);
+  const [lowKey] = KeyValues(keyClass, IsKeyScalar(low) ? [low] : []);
+  const [highKey] = KeyValues(keyClass, IsKeyScalar(high) ? [high] : []);
   return lowKey === undefined || highKey === undefined
     ? NOTHING
     : { _id: { $gte: lowKey, $lt: highKey } };

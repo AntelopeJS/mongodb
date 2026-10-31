@@ -1,6 +1,17 @@
 import assert from "node:assert";
-import { Query, ValueProxy } from "@antelopejs/interface-database";
-import type { QueryStage, Value } from "@antelopejs/interface-database/common";
+import {
+  Query,
+  ValueProxy,
+  type ValueProxyOrValue,
+} from "@antelopejs/interface-database";
+import {
+  IsQueryStage,
+  type IndexKeys,
+  type QueryStage,
+  type QueryStageName,
+  type SelectionKey,
+  type Value,
+} from "@antelopejs/interface-database/common";
 
 import {
   type ArgumentProvider,
@@ -60,7 +71,6 @@ function CondenseValue(
 }
 
 class Expression {
-  protected options?: QueryStage["options"];
   protected currentStage?: QueryStage;
 
   public value: unknown;
@@ -93,7 +103,6 @@ class Expression {
                 ],
         };
       } else if (callback instanceof Function) {
-        this.options = stage.options;
         this.currentStage = stage;
         this.value = await callback.apply(
           this,
@@ -103,7 +112,13 @@ class Expression {
         );
       }
     }
-    delete this.options;
+  }
+
+  /** The stage whose handler runs, which `addStages` dispatched by this name. */
+  private stageNamed<Name extends QueryStageName>(name: Name) {
+    const stage = this.currentStage;
+    assert(IsQueryStage(stage, name), `Not in a ${name} stage`);
+    return stage;
   }
 
   async stage_arg(num: number) {
@@ -189,10 +204,11 @@ class Expression {
   stage_cmp_le = "$lte";
 
   stage_str_split() {
-    const separator: unknown = this.options?.separator ?? DEFAULT_SEPARATOR;
+    const { options } = this.stageNamed("str_split");
+    const separator = options?.separator ?? DEFAULT_SEPARATOR;
     const split = { $split: [this.value, { $literal: separator }] };
-    if (this.options?.maxSplits) {
-      return { $slice: [split, this.options.maxSplits] };
+    if (options?.maxSplits) {
+      return { $slice: [split, options.maxSplits] };
     }
     return split;
   }
@@ -222,7 +238,7 @@ class Expression {
     }
   }
   async stage_arr_map() {
-    const func = this.currentStage!.args[0];
+    const [func] = this.stageNamed("arr_map").args;
     const tmp = Temporary();
     this.context.mapVarSources[`$$${tmp}`] = this.value;
     const result = {
@@ -236,7 +252,7 @@ class Expression {
     return result;
   }
   async stage_arr_filter() {
-    const func = this.currentStage!.args[0];
+    const [func] = this.stageNamed("arr_filter").args;
     const tmp = Temporary();
     return {
       $filter: {
@@ -353,6 +369,16 @@ export function IsConstantValue(value: unknown): boolean {
 }
 
 /**
+ * Tells whether `get` or `getAll` keys are plain data, as `IsConstantValue` reads them: no value
+ * proxy or subquery in place of a key.
+ */
+export function IsConstantKeys(
+  keys: IndexKeys | ValueProxyOrValue<string>,
+): keys is SelectionKey | SelectionKey[] | SelectionKey[][] {
+  return IsConstantValue(keys);
+}
+
+/**
  * Decodes a value meant to be written as is: plain data subtrees become
  * `$literal` expressions and objects mixing data and expressions are rebuilt
  * with `$arrayToObject`, so that no data key or value is read as a field path
@@ -381,7 +407,7 @@ export async function DecodeLiteralValue(
 }
 
 export async function DecodeFunction(
-  func: QueryStage,
+  func: QueryStage<"func">,
   context: DecodingContext,
   args: (string | ArgumentProvider)[],
   decode: ValueDecoder = DecodeValue,

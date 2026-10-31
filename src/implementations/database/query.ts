@@ -1,6 +1,7 @@
 import assert from "node:assert";
 
-import { isString, type QueryStage } from "./utils";
+import { isString, StageId, type QueryStage } from "./utils";
+import { IsQueryStage } from "@antelopejs/interface-database/common";
 import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
@@ -18,10 +19,9 @@ type LifecycleHandler = (
 ) => Promise<string | string[] | void>;
 
 const LIFECYCLE_HANDLERS: Record<string, LifecycleHandler> = {
-  createInstance: (schemaId, stage) =>
-    CreateInstance(schemaId, stage.options?.id),
+  createInstance: (schemaId, stage) => CreateInstance(schemaId, StageId(stage)),
   destroyInstance: (schemaId, stage) =>
-    DestroyInstance(schemaId, stage.options?.id),
+    DestroyInstance(schemaId, StageId(stage)),
   listInstances: (schemaId) => ListInstances(schemaId),
 };
 
@@ -64,7 +64,10 @@ export async function RunQuery(stages: QueryStage[]) {
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
     await schemaInitialized(stages);
     if (IsExternal()) {
-      throw ExternalAtomicRefusal(stages[2]?.options?.id);
+      const table = stages[2];
+      throw ExternalAtomicRefusal(
+        IsQueryStage(table, "table") ? table.options?.id : undefined,
+      );
     }
     return RunAtomicMutation(stages);
   }

@@ -175,7 +175,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected async stage_filter(stage: QueryStage) {
+  protected async stage_filter(stage: QueryStage<"filter">) {
     const filterRoot = this.isChangeStream ? "$fullDocument" : this.getRoot();
     const filterResult = await DecodeFunction(stage.args[0], this.context, [
       filterRoot,
@@ -186,7 +186,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_pluck(stage: QueryStage) {
+  protected stage_pluck(stage: QueryStage<"pluck">) {
     const pluckObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
@@ -223,7 +223,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_without(stage: QueryStage) {
+  protected stage_without(stage: QueryStage<"without">) {
     const withoutObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       withoutObject[this.getField(field)] = 0;
@@ -243,7 +243,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_orderBy(stage: QueryStage) {
+  protected stage_orderBy(stage: QueryStage<"orderBy">) {
     assert(!this.isChangeStream, "OrderBy not supported in change streams");
     const index = this.resolveQueriedIndex(stage.options.index);
     const direction = stage.options.direction === "desc" ? -1 : 1;
@@ -257,7 +257,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected async stage_slice(stage: QueryStage) {
+  protected async stage_slice(stage: QueryStage<"slice">) {
     const offset = await DecodeValue(stage.args[0], this.context);
     if (offset !== 0) {
       this.pipeline.push({ $skip: offset });
@@ -269,12 +269,12 @@ export class PipelineCore {
     }
   }
 
-  protected async stage_nth(stage: QueryStage) {
+  protected async stage_nth(stage: QueryStage<"nth">) {
     this.singleElement = true;
     return this.stage_slice({ stage: "slice", args: [stage.args[0], 1] });
   }
 
-  protected stage_count(stage: QueryStage) {
+  protected stage_count(stage: QueryStage<"count">) {
     this.singleElement = true;
     this.reductionDefault = 0;
     if (stage.options.field) {
@@ -303,7 +303,7 @@ export class PipelineCore {
     }
   }
 
-  protected stage_sum(stage: QueryStage) {
+  protected stage_sum(stage: QueryStage<"sum">) {
     this.singleElement = true;
     this.reductionDefault = 0;
     assert(stage.options.field || this.wrappedObject);
@@ -317,7 +317,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_avg(stage: QueryStage) {
+  protected stage_avg(stage: QueryStage<"avg">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -330,7 +330,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_min(stage: QueryStage) {
+  protected stage_min(stage: QueryStage<"min">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -343,7 +343,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_max(stage: QueryStage) {
+  protected stage_max(stage: QueryStage<"max">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -356,7 +356,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_distinct(stage: QueryStage) {
+  protected stage_distinct(stage: QueryStage<"distinct">) {
     const field = this.getField(stage.options.field);
     const wrapped = this.makeWrapped();
     this.pipeline.push({

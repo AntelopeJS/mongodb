@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
 import { generate as randomstring } from "randomstring";
-import type { StagedObject } from "@antelopejs/interface-database/common";
+import type { QueryStage } from "@antelopejs/interface-database/common";
 import type { InstanceId } from "@antelopejs/interface-database/schema";
 
 export const INSTANCE_FIELD = "_instance";
@@ -53,6 +53,28 @@ export function hasKey<Table extends object>(
   return key in table;
 }
 
+/**
+ * The `id` option a stage records, read as `stage?.options?.id` reads it, whatever
+ * the stage's name: the schema, instance, table and instance lifecycle stages
+ * record one.
+ */
+export function StageId(stage: QueryStage | undefined): InstanceId | undefined {
+  const options = stage?.options;
+  return isObjectOrNull(options) && options !== null && "id" in options
+    ? options.id
+    : undefined;
+}
+
+/**
+ * Tells whether an `update` argument records a function of the row rather than a document: an
+ * object whose `stage` reads "func", which is how the adapter tells them apart.
+ */
+export function IsUpdateFunction(
+  value: QueryStage<"update">["args"][0],
+): value is QueryStage<"func"> {
+  return value instanceof Object && "stage" in value && value.stage === "func";
+}
+
 export function normalizeInstanceId(
   id: InstanceId | null | undefined,
 ): string | null {
@@ -72,7 +94,10 @@ export function DefaultExpression(data: string, def: any) {
   return data;
 }
 
-export function DefaultConstant(data: string, def: any) {
+export function DefaultConstant(
+  data: string,
+  def: QueryStage<"key">["args"][1],
+) {
   return DefaultExpression(data, def && { $literal: def });
 }
 
@@ -80,7 +105,7 @@ export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
 }
 
-export type QueryStage = StagedObject["stages"][number];
+export type { QueryStage };
 
 export type ArgumentProvider = (
   subQuery: QueryStage[],
