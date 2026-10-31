@@ -27,6 +27,7 @@ import {
 
 const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
+const MAX_DATE_MILLISECONDS = 8.64e15;
 
 type ValueDecoder = typeof DecodeValue;
 
@@ -83,13 +84,30 @@ function CondenseValue(
   };
 }
 
-/** A bound of `during` as a date: a number is milliseconds since the UNIX epoch, as `new Date(n)` reads it. */
-function DuringBound(bound: DecodedOperand) {
+/**
+ * A bound of `during`. On a date, a number is milliseconds since the UNIX epoch, as `new Date(n)`
+ * reads it. Every other receiver or bound compares as sent.
+ *
+ * `$add` holds only a number `new Date` can read: the server evaluates it ahead of the `$cond` when
+ * the bound is a constant, and refuses the whole pipeline on anything else.
+ */
+function DuringBound(receiverIsDate: Document, bound: DecodedOperand) {
   if (bound instanceof Date) {
     return bound;
   }
+  const readable = {
+    $and: [
+      { $isNumber: [bound] },
+      { $gte: [bound, -MAX_DATE_MILLISECONDS] },
+      { $lte: [bound, MAX_DATE_MILLISECONDS] },
+    ],
+  };
   return {
-    $cond: [{ $isNumber: bound }, { $add: [new Date(0), bound] }, bound],
+    $cond: [
+      { $and: [receiverIsDate, readable] },
+      { $add: [new Date(0), { $cond: [readable, bound, 0] }] },
+      bound,
+    ],
   };
 }
 
@@ -161,26 +179,26 @@ class Expression {
   stage_not = "$not";
   stage_eq = "$eq";
   stage_ne = "$ne";
-  stage_add(operand: DecodedOperand) {
-    return Number.isFinite(operand)
-      ? { $add: [this.value, operand] }
-      : this.addByReceiver(operand);
+  stage_add(...operands: DecodedOperand[]) {
+    return operands.every((operand) => Number.isFinite(operand))
+      ? { $add: [this.value, ...operands] }
+      : this.addByReceiver(operands);
   }
   /**
    * `$add` reads numbers and dates only, and an expression's type is known only to the server, so
    * a string or a list goes to its own operator there.
    */
   @CondenseValue
-  addByReceiver(operand: DecodedOperand) {
+  addByReceiver(operands: DecodedOperand[]) {
     return {
       $cond: [
         { $eq: [{ $type: this.value }, "string"] },
-        { $concat: [this.value, operand] },
+        { $concat: [this.value, ...operands] },
         {
           $cond: [
             { $isArray: [this.value] },
-            { $concatArrays: [this.value, operand] },
-            { $add: [this.value, operand] },
+            { $concatArrays: [this.value, ...operands] },
+            { $add: [this.value, ...operands] },
           ],
         },
       ],
@@ -190,10 +208,11 @@ class Expression {
 
   @CondenseValue
   stage_date_during(low: DecodedOperand, high: DecodedOperand) {
+    const receiverIsDate = { $eq: [{ $type: this.value }, "date"] };
     return {
       $and: [
-        { $gte: [this.value, DuringBound(low)] },
-        { $lt: [this.value, DuringBound(high)] },
+        { $gte: [this.value, DuringBound(receiverIsDate, low)] },
+        { $lt: [this.value, DuringBound(receiverIsDate, high)] },
       ],
     };
   }
