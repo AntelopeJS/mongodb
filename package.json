@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
-    "@antelopejs/interface-database": ">=0.2.0 <0.3.0",
+    "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz",
     "@antelopejs/interface-database-catalog": ">=0.0.3 <0.1.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
@@ -84,6 +84,11 @@
     "@antelopejs/interface-mongodb": ">=0.0.6 <1.0.0"
   },
   "packageManager": "pnpm@10.6.5",
+  "pnpm": {
+    "overrides": {
+      "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz"
+    }
+  },
   "antelopeJs": {
     "implements": [
       "@antelopejs/interface-database",

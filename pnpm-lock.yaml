@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@antelopejs/interface-database': file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz
+
 importers:
 
   .:
@@ -12,8 +15,8 @@ importers:
         specifier: '>=0.2.4 <1.0.0'
         version: 0.2.4
       '@antelopejs/interface-database':
-        specifier: '>=0.2.0 <0.3.0'
-        version: 0.2.0(@antelopejs/interface-core@0.2.4)
+        specifier: file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz
+        version: file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz(@antelopejs/interface-core@0.2.4)
       '@antelopejs/interface-database-catalog':
         specifier: '>=0.0.3 <0.1.0'
         version: 0.0.3(@antelopejs/interface-core@0.2.4)
@@ -113,8 +116,9 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
-  '@antelopejs/interface-database@0.2.0':
-    resolution: {integrity: sha512-ls+z8LNsoE01YzFZLEIvrhF/LHFVrntlfxZm30cVnT4Rcm5NsdCBxthHJNjkLdYRB3Ex71IFWSa1Q6O8oRDZ+A==}
+  '@antelopejs/interface-database@file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz':
+    resolution: {integrity: sha512-dfgWj8oDE6XiqlgCEKzBefrx94yJwIgjBZ1KeFuiIsVd0hCzXExEsoZIEibWGPQkyUZudqITrYsmhSEguaXchg==, tarball: file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz}
+    version: 0.3.0
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
@@ -2821,7 +2825,7 @@ snapshots:
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
-  '@antelopejs/interface-database@0.2.0(@antelopejs/interface-core@0.2.4)':
+  '@antelopejs/interface-database@file:.campaign/tgz/antelopejs-interface-database-beec46b.tgz(@antelopejs/interface-core@0.2.4)':
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
