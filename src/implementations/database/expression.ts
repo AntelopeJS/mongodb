@@ -163,7 +163,8 @@ class Expression {
     return stage;
   }
 
-  async stage_arg(num: number) {
+  async stage_arg() {
+    const [num] = this.stageNamed("arg").args;
     return this.context.args[num];
   }
   stage_constant() {
