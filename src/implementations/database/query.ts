@@ -118,7 +118,10 @@ async function openQuery(
   }
 }
 
-export async function ReadCursor(reqId: number, stages: QueryStage[]) {
+export async function ReadCursor(
+  reqId: number,
+  stages: QueryStage[],
+): Promise<{ done: boolean; value: any }> {
   assert(
     !stages.some((stage) => stage.stage === "atomicMutation"),
     "atomicMutation cannot be read as a cursor",
