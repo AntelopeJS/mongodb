@@ -22,6 +22,7 @@ import {
 } from "./instance-scope";
 // oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
+import type { QueryAnswer } from "./pipeline-core";
 import {
   DecodeFunction,
   DecodeLiteralValue,
@@ -262,8 +263,8 @@ export class SelectionQuery extends AggregationPipeline {
     return res.deletedCount;
   }
 
-  public async run(): Promise<any> {
-    const RUNNERS = new Map<string, () => Promise<any>>([
+  public async run(): Promise<QueryAnswer> {
+    const RUNNERS = new Map<string, () => Promise<QueryAnswer>>([
       ["insert", () => this.insert()],
       ["update", () => this.update()],
       ["replace", () => this.replace()],
@@ -283,13 +284,16 @@ export class SelectionQuery extends AggregationPipeline {
         throw TypedWriteError(this.schemaId, this.tableName, error);
       });
     }
-    const result = await super.run();
+    const result = await this.readRows();
     return this.external ? RenderOutput(result) : result;
   }
 
   public override async readCursor() {
-    const next = await super.readCursor();
-    return this.external ? RenderOutput(next) : next;
+    if (!this.external) {
+      return super.readCursor();
+    }
+    const row = await this.nextRow();
+    return RenderOutput(row && this.rowValue(row));
   }
 
   public override async addStages(stages: QueryStage[]) {
