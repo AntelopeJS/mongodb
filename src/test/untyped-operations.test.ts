@@ -42,7 +42,10 @@ function TextBound(text: string) {
 }
 
 /** An `add` stage as a route rebuilds it from a request's JSON: any number of operands, read after `receiver`. */
-function JsonAdd(receiver: ValueProxy<number>, args: number[]) {
+function JsonAdd(
+  receiver: ValueProxy<number>,
+  args: (number | string | null)[],
+) {
   const rebuilt: unknown = JSON.parse(JSON.stringify({ stage: "add", args }));
   return Object.assign(receiver.add(0), {
     stages: [...receiver.build(), rebuilt],
@@ -144,8 +147,10 @@ describe("the operations a caller reaches past the contract, with cast or a JSON
       await Rows().map((row) => ({
         two: JsonAdd(row.key("age"), [1, 2]),
         none: JsonAdd(row.key("age"), []),
+        thenNull: JsonAdd(row.key("age"), [1, 2, null]),
+        text: JsonAdd(row.key("name").cast<number>(), ["x", "y"]),
       })),
-      [{ two: 39, none: 36 }],
+      [{ two: 39, none: 36, thenNull: null, text: "adaxy" }],
     );
   });
 });
