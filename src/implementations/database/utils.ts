@@ -87,7 +87,7 @@ export function normalizeInstanceId(
   return id;
 }
 
-export function DefaultExpression(data: string, def: any) {
+export function DefaultExpression(data: string | Document, def: any) {
   if (def) {
     return { $ifNull: [data, def] };
   }
@@ -95,7 +95,7 @@ export function DefaultExpression(data: string, def: any) {
 }
 
 export function DefaultConstant(
-  data: string,
+  data: string | Document,
   def: QueryStage<"key">["args"][1],
 ) {
   return DefaultExpression(data, def && { $literal: def });

@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
+import { ValueProxy } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
@@ -134,28 +135,32 @@ export class AggregationPipeline extends PipelineCore {
     }
   }
 
-  protected stage_key(stage: QueryStage<"key">) {
-    const fieldName = stage.args[0];
+  protected async stage_key(stage: QueryStage<"key">) {
+    const name: unknown = stage.args[0];
+    const field =
+      name instanceof ValueProxy
+        ? await DecodeValue(name, this.context)
+        : undefined;
     const defaultValue: unknown = stage.args[1];
+    const read = (root: string) =>
+      DefaultConstant(
+        name instanceof ValueProxy
+          ? { $getField: { field, input: root } }
+          : `${root}.${String(name)}`,
+        defaultValue,
+      );
 
     this.resultType = "stream";
 
     if (this.isChangeStream) {
       this.pipeline.push({
         $addFields: {
-          fullDocument: DefaultConstant(
-            `$fullDocument.${fieldName}`,
-            defaultValue,
-          ),
-          fullDocumentBeforeChange: DefaultConstant(
-            `$fullDocumentBeforeChange.${fieldName}`,
-            defaultValue,
-          ),
+          fullDocument: read("$fullDocument"),
+          fullDocumentBeforeChange: read("$fullDocumentBeforeChange"),
         },
       });
     } else {
-      const root = this.getRoot();
-      this.setRoot(DefaultConstant(`${root}.${fieldName}`, defaultValue));
+      this.setRoot(read(this.getRoot()));
     }
     return this;
   }

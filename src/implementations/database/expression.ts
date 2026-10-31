@@ -13,6 +13,8 @@ import {
   type Value,
 } from "@antelopejs/interface-database/common";
 
+import type { Document } from "mongodb";
+
 import {
   type ArgumentProvider,
   type DecodingContext,
@@ -27,6 +29,17 @@ const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
 
 type ValueDecoder = typeof DecodeValue;
+
+/** An operand as {@link DecodeValue} answers it: a literal, or an aggregation expression. */
+type DecodedOperand =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | Document
+  | DecodedOperand[];
 
 function isPlainObject<Value>(value: Value): value is Value & object {
   return (
@@ -67,6 +80,16 @@ function CondenseValue(
         in: body,
       },
     };
+  };
+}
+
+/** A bound of `during` as a date: a number is milliseconds since the UNIX epoch, as `new Date(n)` reads it. */
+function DuringBound(bound: DecodedOperand) {
+  if (bound instanceof Date) {
+    return bound;
+  }
+  return {
+    $cond: [{ $isNumber: bound }, { $add: [new Date(0), bound] }, bound],
   };
 }
 
@@ -138,13 +161,40 @@ class Expression {
   stage_not = "$not";
   stage_eq = "$eq";
   stage_ne = "$ne";
-  stage_add = "$add";
+  stage_add(operand: DecodedOperand) {
+    return Number.isFinite(operand)
+      ? { $add: [this.value, operand] }
+      : this.addByReceiver(operand);
+  }
+  /**
+   * `$add` reads numbers and dates only, and an expression's type is known only to the server, so
+   * a string or a list goes to its own operator there.
+   */
+  @CondenseValue
+  addByReceiver(operand: DecodedOperand) {
+    return {
+      $cond: [
+        { $eq: [{ $type: this.value }, "string"] },
+        { $concat: [this.value, operand] },
+        {
+          $cond: [
+            { $isArray: [this.value] },
+            { $concatArrays: [this.value, operand] },
+            { $add: [this.value, operand] },
+          ],
+        },
+      ],
+    };
+  }
   stage_sub = "$subtract";
 
   @CondenseValue
-  stage_date_during(low: unknown, high: unknown) {
+  stage_date_during(low: DecodedOperand, high: DecodedOperand) {
     return {
-      $and: [{ $gte: [this.value, low] }, { $lt: [this.value, high] }],
+      $and: [
+        { $gte: [this.value, DuringBound(low)] },
+        { $lt: [this.value, DuringBound(high)] },
+      ],
     };
   }
   stage_date_with_timezone(timezone?: unknown) {
