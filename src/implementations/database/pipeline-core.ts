@@ -127,6 +127,9 @@ export class PipelineCore {
       this.cursor = collection.aggregate(this.pipeline, this.options);
     }
     const change = await this.cursor.next();
+    if (change === null) {
+      return null;
+    }
     if (this.isChangeStream) {
       return ToChangeEvent(change);
     }
