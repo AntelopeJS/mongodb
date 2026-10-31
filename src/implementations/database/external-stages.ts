@@ -1,9 +1,12 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
-import type { Stream } from "@antelopejs/interface-database";
-import type { QueryStage } from "@antelopejs/interface-database/common";
+import type { ValueProxyOrValue } from "@antelopejs/interface-database";
+import type {
+  IndexKeys,
+  QueryStage,
+} from "@antelopejs/interface-database/common";
 
-import type { DecodingContext } from "./utils";
+import { type DecodingContext, IsUpdateFunction, Temporary } from "./utils";
 import type { ExternalCollection } from "./external-descriptor";
 import { DecodeFunction, DecodeValue, IsConstantValue } from "./expression";
 import {
@@ -21,10 +24,7 @@ import {
   NumericReduction,
   RunsOnRawDocuments,
 } from "./external-selection";
-import { Temporary } from "./utils";
 import { ExternalMapperRefusal } from "./external-refusals";
-
-type StageArgument = QueryStage["args"][number];
 
 /** What a lookup needs of the read on the other side. */
 interface ExternalRead {
@@ -62,8 +62,8 @@ export class ExternalStages {
   }
 
   /** The values an update writes; an update computed from the row is refused. */
-  public updateValue(value: StageArgument): StageArgument {
-    if (value?.stage === "func") {
+  public updateValue(value: QueryStage<"update">["args"][0]): object {
+    if (IsUpdateFunction(value)) {
       throw ExternalMapperRefusal(this.collection);
     }
     return value;
@@ -87,7 +87,7 @@ export class ExternalStages {
     }
   }
 
-  public async get(key: StageArgument) {
+  public async get(key: ValueProxyOrValue<string>) {
     const decoded = IsConstantValue(key)
       ? undefined
       : await DecodeValue(key, this.context);
@@ -98,7 +98,7 @@ export class ExternalStages {
   }
 
   /** Pushes `getAll`'s native match and answers true, or normalizes and answers false. */
-  public getAll(fields: string[], keys: StageArgument): boolean {
+  public getAll(fields: string[], keys: IndexKeys): boolean {
     const native =
       fields.length === SINGLE_FIELD
         ? KeysFilter(this.collection, fields[0], keys)
@@ -112,7 +112,7 @@ export class ExternalStages {
   }
 
   /** Pushes `between`'s native match and answers true, or leaves the range to the owned stage. */
-  public between(field: string, stage: QueryStage): boolean {
+  public between(field: string, stage: QueryStage<"between">): boolean {
     const range = KeyRange(
       this.collection,
       field,
@@ -130,7 +130,7 @@ export class ExternalStages {
   }
 
   private async nativeFilter(
-    predicate: QueryStage,
+    predicate: QueryStage<"func">,
   ): Promise<Document | undefined> {
     const subquery = this.context.subquery;
     this.context.subquery = () => {
@@ -153,7 +153,7 @@ export class ExternalStages {
   }
 
   /** Pushes a filter's native match and answers true, or normalizes and answers false. */
-  public async filter(predicate: QueryStage): Promise<boolean> {
+  public async filter(predicate: QueryStage<"func">): Promise<boolean> {
     if (this.isRaw) {
       const native = await this.nativeFilter(predicate);
       if (native) {
@@ -171,7 +171,7 @@ export class ExternalStages {
     }
   }
 
-  public count(stage: QueryStage) {
+  public count(stage: QueryStage<"count">) {
     if (stage.options.field) {
       this.normalize();
     }
@@ -182,11 +182,11 @@ export class ExternalStages {
    * answers true; a sum of Decimal128 stays exact until then. Anything else normalizes first.
    */
   public reduce(
-    stage: QueryStage,
+    stage: QueryStage<"sum" | "avg" | "min" | "max">,
     operator: string,
     wrapped: () => string,
   ): boolean {
-    const field: string | undefined = stage.options.field;
+    const { field } = stage.options;
     const isNumberField =
       field !== undefined && this.collection.fields[field]?.kind === "number";
     if (!this.isRaw || !isNumberField) {
@@ -203,18 +203,16 @@ export class ExternalStages {
    * the way the other side stores it, matched natively, then the other side's rows.
    */
   public async lookup(
-    stage: QueryStage,
+    stage: QueryStage<"lookup">,
     localField: string,
     decode: (stages: QueryStage[]) => Promise<ExternalRead>,
   ) {
-    // SAFETY: lookup's first argument is the stream the interface built it from.
-    const stream = stage.args[0] as Stream<unknown>;
-    const other = await decode(stream.build());
+    const other = await decode(stage.args[0].build());
     assert(
       other.external,
       "lookup reads another collection of the same external instance",
     );
-    const otherKey: string = stage.options.otherKey;
+    const { otherKey } = stage.options;
     const candidates = Temporary("candidates");
     const matches = Temporary("lookup");
     this.pipeline.push(

@@ -98,7 +98,19 @@ const KEY_PARSERS: Record<KeyClass, (text: string) => KeyValue | undefined> = {
   date: ParseDateKey,
 };
 
-export function KeyText(value: BsonValue): string | undefined {
+/** Tells whether a key bound is a scalar, the only kind of value `KeyText` renders. */
+export function IsKeyScalar(
+  value: unknown,
+): value is string | number | boolean | bigint {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  );
+}
+
+export function KeyText(value: BsonValue | bigint): string | undefined {
   if (value instanceof Object || value === null || value === undefined) {
     return undefined;
   }
@@ -109,7 +121,10 @@ export function KeyText(value: BsonValue): string | undefined {
  * The native values a rendered key addresses: at most one, of the collection's key type class.
  * Text that does not parse as that class addresses nothing, rather than raising.
  */
-export function KeyValues(key: KeyClass, keys: BsonValue[]): KeyValue[] {
+export function KeyValues(
+  key: KeyClass,
+  keys: (BsonValue | bigint)[],
+): KeyValue[] {
   return keys
     .map((value) => KeyText(value))
     .filter((text): text is string => text !== undefined)

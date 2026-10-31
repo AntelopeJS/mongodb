@@ -21,6 +21,7 @@ describe("lifecycle stage dispatch", () => {
       await assert.rejects(
         RunQuery([
           { stage: "schema", options: { id: SCHEMA_ID }, args: [] },
+          // @ts-expect-error a stage name outside the union, which RunQuery refuses as an invalid request
           { stage: name, args: [] },
         ]),
         /Invalid request/,

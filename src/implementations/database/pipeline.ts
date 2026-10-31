@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
-import type { Stream } from "@antelopejs/interface-database";
+import { ValueProxy } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
@@ -18,8 +18,10 @@ import {
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
 import { PipelineCore } from "./pipeline-core";
 
-function buildRightStages(stage: QueryStage): QueryStage[] {
-  return (stage.args[0] as Stream<any>).build();
+function buildRightStages(
+  stage: QueryStage<"union" | "join" | "lookup">,
+): QueryStage[] {
+  return stage.args[0].build();
 }
 
 /** The stages that rewrite the root of a pipeline, including those that decode another stream into it. */
@@ -33,7 +35,7 @@ export class AggregationPipeline extends PipelineCore {
   ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === "arg") {
       assert(context, "Arg query without context?");
-      const argRef = stages[0].args[0];
+      const argRef = String(stages[0].args[0]);
       const query = new AggregationPipeline({
         schemaId: "",
         tableName: argRef,
@@ -59,6 +61,10 @@ export class AggregationPipeline extends PipelineCore {
       const rightStream = await SelectionQuery.decode(
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
+      );
+      assert(
+        rightStream instanceof SelectionQuery,
+        "Subquery must read a table",
       );
 
       const getStage = subQuery.find(
@@ -129,33 +135,37 @@ export class AggregationPipeline extends PipelineCore {
     }
   }
 
-  protected stage_key(stage: QueryStage) {
-    const fieldName = stage.args[0];
+  protected async stage_key(stage: QueryStage<"key">) {
+    const name: unknown = stage.args[0];
+    const field =
+      name instanceof ValueProxy
+        ? await DecodeValue(name, this.context)
+        : undefined;
     const defaultValue: unknown = stage.args[1];
+    const read = (root: string) =>
+      DefaultConstant(
+        name instanceof ValueProxy
+          ? { $getField: { field, input: root } }
+          : `${root}.${String(name)}`,
+        defaultValue,
+      );
 
     this.resultType = "stream";
 
     if (this.isChangeStream) {
       this.pipeline.push({
         $addFields: {
-          fullDocument: DefaultConstant(
-            `$fullDocument.${fieldName}`,
-            defaultValue,
-          ),
-          fullDocumentBeforeChange: DefaultConstant(
-            `$fullDocumentBeforeChange.${fieldName}`,
-            defaultValue,
-          ),
+          fullDocument: read("$fullDocument"),
+          fullDocumentBeforeChange: read("$fullDocumentBeforeChange"),
         },
       });
     } else {
-      const root = this.getRoot();
-      this.setRoot(DefaultConstant(`${root}.${fieldName}`, defaultValue));
+      this.setRoot(read(this.getRoot()));
     }
     return this;
   }
 
-  protected async stage_default(stage: QueryStage) {
+  protected async stage_default(stage: QueryStage<"default">) {
     const defaultValue: unknown =
       stage.args[0] && (await DecodeLiteralValue(stage.args[0], this.context));
     if (this.isChangeStream) {
@@ -184,7 +194,7 @@ export class AggregationPipeline extends PipelineCore {
     }
   }
 
-  protected async stage_map(stage: QueryStage) {
+  protected async stage_map(stage: QueryStage<"map">) {
     const runmap = (root: string) =>
       DecodeFunction(stage.args[0], this.context, [root]);
 
@@ -203,13 +213,13 @@ export class AggregationPipeline extends PipelineCore {
     return this;
   }
 
-  protected async stage_union(stage: QueryStage) {
+  protected async stage_union(stage: QueryStage<"union">) {
     assert(!this.isChangeStream, "Union not supported in change streams");
     const rightStream = await SelectionQuery.decode(
       buildRightStages(stage),
       this.context,
     );
-    assert(rightStream instanceof AggregationPipeline);
+    assert(rightStream instanceof SelectionQuery, "Union must read a table");
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -230,16 +240,15 @@ export class AggregationPipeline extends PipelineCore {
     });
   }
 
-  protected async stage_join(stage: QueryStage) {
+  protected async stage_join(stage: QueryStage<"join">) {
     assert(!this.isChangeStream, "Join not supported in change streams");
-    const innerOnly: unknown = stage.options.innerOnly;
+    const { innerOnly } = stage.options;
     const rightStream = await SelectionQuery.decode(
       buildRightStages(stage),
       this.context,
     );
-    const predicate = stage.args[1];
-    const mapper = stage.args[2];
-    assert(rightStream instanceof AggregationPipeline);
+    const [, predicate, mapper] = stage.args;
+    assert(rightStream instanceof SelectionQuery, "Join must read a table");
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -275,7 +284,7 @@ export class AggregationPipeline extends PipelineCore {
     return this;
   }
 
-  protected async stage_lookup(stage: QueryStage) {
+  protected async stage_lookup(stage: QueryStage<"lookup">) {
     assert(!this.isChangeStream, "Lookup not supported in change streams");
     const rightStream = await SelectionQuery.decode(
       buildRightStages(stage),
@@ -284,7 +293,7 @@ export class AggregationPipeline extends PipelineCore {
     assert(rightStream instanceof SelectionQuery);
 
     const localField = this.getField(stage.options.localKey);
-    const foreignField: unknown = stage.options.otherKey;
+    const foreignField = stage.options.otherKey;
 
     const tmp = Temporary("lookup");
     this.pipeline.push(
@@ -314,10 +323,10 @@ export class AggregationPipeline extends PipelineCore {
     return this;
   }
 
-  protected async stage_group(stage: QueryStage) {
+  protected async stage_group(stage: QueryStage<"group">) {
     const root = this.getRoot();
     const group = Temporary("group");
-    const indexId: string = stage.options.index;
+    const indexId = stage.options.index;
     const index = GetIndex(this.schemaId, this.tableName, indexId);
     const indexFields = index.fields ?? [indexId];
 

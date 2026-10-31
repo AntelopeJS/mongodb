@@ -27,7 +27,7 @@ export interface ArrayLookupPlan {
  */
 export function ArrayLookup(
   right: ArrayLookupSide,
-  getStage: QueryStage,
+  getStage: QueryStage<"get" | "getAll">,
   key: Document[keyof Document],
   source: Document[keyof Document],
   as: string,

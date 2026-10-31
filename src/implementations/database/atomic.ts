@@ -10,6 +10,7 @@ import type {
   AtomicMutationOutcome,
   AtomicUpdate,
 } from "@antelopejs/interface-database/atomic";
+import { IsQueryStage } from "@antelopejs/interface-database/common";
 
 import { GetAtomicCollection } from "../../connection";
 import { TypedWriteError } from "./indexes";
@@ -39,24 +40,30 @@ const VALIDATION_ERROR_CODES = new Set(
 interface AtomicTarget {
   schemaId: string;
   tableName: string;
+  instance: QueryStage<"instance">;
+  mutation: QueryStage<"atomicMutation">;
 }
 
 function validateStages(stages: QueryStage[]): AtomicTarget {
+  const [schema, instance, table, mutation] = stages;
   assert(
     stages.length === ATOMIC_STAGE_PATH.length &&
-      stages.every((stage, index) => stage.stage === ATOMIC_STAGE_PATH[index]),
+      IsQueryStage(schema, "schema") &&
+      IsQueryStage(instance, "instance") &&
+      IsQueryStage(table, "table") &&
+      IsQueryStage(mutation, "atomicMutation"),
     "atomicMutation requires a direct schema/instance/table target",
   );
-  const schemaId: unknown = stages[0].options?.id;
+  const schemaId: unknown = schema.options?.id;
   assert(isString(schemaId), "Missing schema id");
-  const tableName: unknown = stages[2].options?.id;
+  const tableName: unknown = table.options?.id;
   assert(isString(tableName), "Missing table id");
   ValidateAtomicMutationTable(stages.slice(0, -1));
   assert(
-    stages[3].args.length === 2 && stages[3].options === undefined,
+    mutation.args.length === 2 && mutation.options === undefined,
     "Invalid atomicMutation arguments",
   );
-  return { schemaId, tableName };
+  return { schemaId, tableName, instance, mutation };
 }
 
 function conditionFilter(mutation: AtomicMutation<Document>): Document {
@@ -83,13 +90,18 @@ function conditionFilter(mutation: AtomicMutation<Document>): Document {
 export async function RunAtomicMutation(
   stages: QueryStage[],
 ): Promise<AtomicMutationOutcome> {
-  const { schemaId, tableName } = validateStages(stages);
-  const [key, mutation] = stages[3].args;
+  const {
+    schemaId,
+    tableName,
+    instance,
+    mutation: stage,
+  } = validateStages(stages);
+  const [key, mutation] = stage.args;
   ValidateAtomicMutation(key, mutation, [INSTANCE_FIELD]);
   const collection = GetAtomicCollection(collectionName(schemaId, tableName));
   const filter: Document = {
     _id: key,
-    [INSTANCE_FIELD]: normalizeInstanceId(stages[1].options?.id),
+    [INSTANCE_FIELD]: normalizeInstanceId(instance.options?.id),
     ...conditionFilter(mutation),
   };
   return executeMutation(collection, filter, mutation).catch(

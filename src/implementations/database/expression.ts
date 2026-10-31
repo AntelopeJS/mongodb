@@ -1,6 +1,19 @@
 import assert from "node:assert";
-import { Query, ValueProxy } from "@antelopejs/interface-database";
-import type { QueryStage, Value } from "@antelopejs/interface-database/common";
+import {
+  Query,
+  ValueProxy,
+  type ValueProxyOrValue,
+} from "@antelopejs/interface-database";
+import {
+  IsQueryStage,
+  type IndexKeys,
+  type QueryStage,
+  type QueryStageName,
+  type SelectionKey,
+  type Value,
+} from "@antelopejs/interface-database/common";
+
+import type { Document } from "mongodb";
 
 import {
   type ArgumentProvider,
@@ -14,8 +27,20 @@ import {
 
 const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
+const MAX_DATE_MILLISECONDS = 8.64e15;
 
 type ValueDecoder = typeof DecodeValue;
+
+/** An operand as {@link DecodeValue} answers it: a literal, or an aggregation expression. */
+type DecodedOperand =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | Document
+  | DecodedOperand[];
 
 function isPlainObject<Value>(value: Value): value is Value & object {
   return (
@@ -59,8 +84,34 @@ function CondenseValue(
   };
 }
 
+/**
+ * A bound of `during`. On a date, a number is milliseconds since the UNIX epoch, as `new Date(n)`
+ * reads it. Every other receiver or bound compares as sent.
+ *
+ * `$add` holds only a number `new Date` can read: the server evaluates it ahead of the `$cond` when
+ * the bound is a constant, and refuses the whole pipeline on anything else.
+ */
+function DuringBound(receiverIsDate: Document, bound: DecodedOperand) {
+  if (bound instanceof Date) {
+    return bound;
+  }
+  const readable = {
+    $and: [
+      { $isNumber: [bound] },
+      { $gte: [bound, -MAX_DATE_MILLISECONDS] },
+      { $lte: [bound, MAX_DATE_MILLISECONDS] },
+    ],
+  };
+  return {
+    $cond: [
+      { $and: [receiverIsDate, readable] },
+      { $add: [new Date(0), { $cond: [readable, bound, 0] }] },
+      bound,
+    ],
+  };
+}
+
 class Expression {
-  protected options?: QueryStage["options"];
   protected currentStage?: QueryStage;
 
   public value: unknown;
@@ -93,7 +144,6 @@ class Expression {
                 ],
         };
       } else if (callback instanceof Function) {
-        this.options = stage.options;
         this.currentStage = stage;
         this.value = await callback.apply(
           this,
@@ -103,7 +153,13 @@ class Expression {
         );
       }
     }
-    delete this.options;
+  }
+
+  /** The stage whose handler runs, which `addStages` dispatched by this name. */
+  private stageNamed<Name extends QueryStageName>(name: Name) {
+    const stage = this.currentStage;
+    assert(IsQueryStage(stage, name), `Not in a ${name} stage`);
+    return stage;
   }
 
   async stage_arg(num: number) {
@@ -123,13 +179,49 @@ class Expression {
   stage_not = "$not";
   stage_eq = "$eq";
   stage_ne = "$ne";
-  stage_add = "$add";
+  stage_add(...operands: DecodedOperand[]) {
+    if (operands.length === 0) {
+      return { $add: [this.value] };
+    }
+    for (const operand of operands) {
+      this.value = Number.isFinite(operand)
+        ? { $add: [this.value, operand] }
+        : this.addByReceiver(operand);
+    }
+    return this.value;
+  }
+  /**
+   * `$add` reads numbers and dates only, and an expression's type is known only to the server, so
+   * a string or a list goes to its own operator there. Each stage holds one operand: the server
+   * evaluates two constants side by side ahead of the `$cond`, and refuses them on any operator
+   * they do not suit.
+   */
+  @CondenseValue
+  addByReceiver(operand: DecodedOperand) {
+    return {
+      $cond: [
+        { $eq: [{ $type: this.value }, "string"] },
+        { $concat: [this.value, operand] },
+        {
+          $cond: [
+            { $isArray: [this.value] },
+            { $concatArrays: [this.value, operand] },
+            { $add: [this.value, operand] },
+          ],
+        },
+      ],
+    };
+  }
   stage_sub = "$subtract";
 
   @CondenseValue
-  stage_date_during(low: unknown, high: unknown) {
+  stage_date_during(low: DecodedOperand, high: DecodedOperand) {
+    const receiverIsDate = { $eq: [{ $type: this.value }, "date"] };
     return {
-      $and: [{ $gte: [this.value, low] }, { $lt: [this.value, high] }],
+      $and: [
+        { $gte: [this.value, DuringBound(receiverIsDate, low)] },
+        { $lt: [this.value, DuringBound(receiverIsDate, high)] },
+      ],
     };
   }
   stage_date_with_timezone(timezone?: unknown) {
@@ -189,10 +281,11 @@ class Expression {
   stage_cmp_le = "$lte";
 
   stage_str_split() {
-    const separator: unknown = this.options?.separator ?? DEFAULT_SEPARATOR;
+    const { options } = this.stageNamed("str_split");
+    const separator = options?.separator ?? DEFAULT_SEPARATOR;
     const split = { $split: [this.value, { $literal: separator }] };
-    if (this.options?.maxSplits) {
-      return { $slice: [split, this.options.maxSplits] };
+    if (options?.maxSplits) {
+      return { $slice: [split, options.maxSplits] };
     }
     return split;
   }
@@ -222,7 +315,7 @@ class Expression {
     }
   }
   async stage_arr_map() {
-    const func = this.currentStage!.args[0];
+    const [func] = this.stageNamed("arr_map").args;
     const tmp = Temporary();
     this.context.mapVarSources.set(`$$${tmp}`, this.value);
     const result = {
@@ -236,7 +329,7 @@ class Expression {
     return result;
   }
   async stage_arr_filter() {
-    const func = this.currentStage!.args[0];
+    const [func] = this.stageNamed("arr_filter").args;
     const tmp = Temporary();
     return {
       $filter: {
@@ -353,6 +446,16 @@ export function IsConstantValue(value: unknown): boolean {
 }
 
 /**
+ * Tells whether `get` or `getAll` keys are plain data, as `IsConstantValue` reads them: no value
+ * proxy or subquery in place of a key.
+ */
+export function IsConstantKeys(
+  keys: IndexKeys | ValueProxyOrValue<string>,
+): keys is SelectionKey | SelectionKey[] | SelectionKey[][] {
+  return IsConstantValue(keys);
+}
+
+/**
  * Decodes a value meant to be written as is: plain data subtrees become
  * `$literal` expressions and objects mixing data and expressions are rebuilt
  * with `$arrayToObject`, so that no data key or value is read as a field path
@@ -381,7 +484,7 @@ export async function DecodeLiteralValue(
 }
 
 export async function DecodeFunction(
-  func: QueryStage,
+  func: QueryStage<"func">,
   context: DecodingContext,
   args: (string | ArgumentProvider)[],
   decode: ValueDecoder = DecodeValue,
