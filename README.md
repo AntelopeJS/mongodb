@@ -117,14 +117,7 @@ Versions before 1.4 created each index as `<name>` only. The module creates the 
 
 <!-- antelopejs-docs-compat:end -->
 
-| Package                                  | Supported range  |
-| ---------------------------------------- | ---------------- |
-| `@antelopejs/interface-database`         | `^0.1.8`         |
-| `@antelopejs/interface-mongodb`          | `>=0.0.5 <1.0.0` |
-| `@antelopejs/interface-database-catalog` | `>=0.0.3 <0.1.0` |
-| `@antelopejs/interface-core`             | `>=0.1.1 <1.0.0` |
-
-The module is developed and tested against `@antelopejs/core` `^1.13.4` on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
+The module is developed and tested on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
 
 ## Contributing
 
