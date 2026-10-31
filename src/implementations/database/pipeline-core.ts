@@ -9,6 +9,7 @@ import {
 } from "./indexes";
 import { GetCollection } from "../../connection";
 import { ToChangeEvent } from "./change-event";
+import type { BsonValue } from "./external-read";
 import type { DecodingContext } from "./utils";
 import { DecodeFunction, DecodeValue } from "./expression";
 
@@ -21,6 +22,12 @@ export interface PipelineSource {
   isChangeStream: boolean;
   context: DecodingContext;
 }
+
+/**
+ * What a query answers: the server's rows, one value of them or a count, or the ids an insert wrote,
+ * which are the caller's own values.
+ */
+export type QueryAnswer = BsonValue | unknown[];
 
 /**
  * The aggregation pipeline of one stream: its state, how it runs, and the stages that filter,
@@ -87,15 +94,24 @@ export class PipelineCore {
     }
   }
 
-  public async run(): Promise<any> {
+  public async run(): Promise<QueryAnswer> {
+    return this.readRows();
+  }
+
+  /** The value a row of the pipeline holds: its wrapped field, or the whole row. */
+  protected rowValue(row: Document): BsonValue {
+    return this.wrappedObject ? row[this.wrappedObject] : row;
+  }
+
+  /** The values of the pipeline's rows, or its one element. */
+  protected async readRows(): Promise<BsonValue> {
     const collection = await GetCollection(this.collection);
     const rows = await collection
       .aggregate(this.pipeline, this.options)
       .toArray();
-    const wrappedObject = this.wrappedObject;
-    const result: unknown[] = [];
+    const result: BsonValue[] = [];
     for (const element of rows) {
-      result.push(wrappedObject ? element[wrappedObject] : element);
+      result.push(this.rowValue(element));
     }
     if (this.singleElement) {
       return result.length > 0 ? result[0] : this.reductionDefault;
@@ -119,6 +135,18 @@ export class PipelineCore {
   }
 
   public async readCursor() {
+    const change = await this.nextRow();
+    if (change === null) {
+      return null;
+    }
+    if (this.isChangeStream) {
+      return ToChangeEvent(change);
+    }
+    return this.rowValue(change);
+  }
+
+  /** The cursor's next row, or `null` past the last one or once closed. */
+  protected async nextRow(): Promise<Document | null> {
     if (!this.cursor) {
       const collection = await GetCollection(this.collection);
       if (this.isClosed) {
@@ -126,14 +154,7 @@ export class PipelineCore {
       }
       this.cursor = collection.aggregate(this.pipeline, this.options);
     }
-    const change = await this.cursor.next();
-    if (change === null) {
-      return null;
-    }
-    if (this.isChangeStream) {
-      return ToChangeEvent(change);
-    }
-    return this.wrappedObject ? change[this.wrappedObject] : change;
+    return this.cursor.next();
   }
 
   public async closeCursor() {

@@ -1,12 +1,17 @@
 import {
   Binary,
   BSON,
+  type Code,
+  type DBRef,
   Decimal128,
   type Document,
   Double,
   Int32,
   Long,
+  type MaxKey,
+  type MinKey,
   ObjectId,
+  type Timestamp,
   UUID,
 } from "mongodb";
 
@@ -33,6 +38,12 @@ export type BsonValue =
   | ObjectId
   | Long
   | Decimal128
+  | Timestamp
+  | MinKey
+  | MaxKey
+  | Code
+  | DBRef
+  | RegExp
   | Date
   | string
   | number
