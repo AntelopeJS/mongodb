@@ -37,6 +37,7 @@ import {
 } from "./indexes";
 import {
   collectionName,
+  type DecodedOperand,
   DecodingContext,
   INSTANCE_FIELD,
   IsUpdateFunction,
@@ -47,7 +48,10 @@ const SINGLE_FIELD = 1;
 const SINGLE_KEY = 1;
 const NO_KEYS_FILTER = { _id: { $in: [] } };
 
-function toKeyTuples(index: ResolvedIndex, decodedKeys: unknown): unknown[][] {
+function toKeyTuples(
+  index: ResolvedIndex,
+  decodedKeys: DecodedOperand,
+): unknown[][] {
   const keys = Array.isArray(decodedKeys) ? decodedKeys : [decodedKeys];
   const isSingleTuple =
     keys.length > 0 && keys.every((key) => !Array.isArray(key));
