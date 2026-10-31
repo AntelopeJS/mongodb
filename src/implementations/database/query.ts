@@ -18,24 +18,33 @@ type LifecycleHandler = (
   stage: QueryStage,
 ) => Promise<string | string[] | void>;
 
-const LIFECYCLE_HANDLERS: Record<string, LifecycleHandler> = {
-  createInstance: (schemaId, stage) => CreateInstance(schemaId, StageId(stage)),
-  destroyInstance: (schemaId, stage) =>
-    DestroyInstance(schemaId, StageId(stage)),
-  listInstances: (schemaId) => ListInstances(schemaId),
-};
+const LIFECYCLE_HANDLERS = new Map<string, LifecycleHandler>([
+  [
+    "createInstance",
+    (schemaId, stage) => CreateInstance(schemaId, StageId(stage)),
+  ],
+  [
+    "destroyInstance",
+    (schemaId, stage) => DestroyInstance(schemaId, StageId(stage)),
+  ],
+  ["listInstances", (schemaId) => ListInstances(schemaId)],
+]);
 
 /**
  * The lifecycle stages on an external instance, whose collections have no instances: creating or
  * destroying one is refused rather than recorded nowhere, and the list of them is empty.
  */
-const EXTERNAL_LIFECYCLE_HANDLERS: typeof LIFECYCLE_HANDLERS = {
-  createInstance: (_schemaId, stage) =>
-    Promise.reject(ExternalInstanceRefusal(stage.stage)),
-  destroyInstance: (_schemaId, stage) =>
-    Promise.reject(ExternalInstanceRefusal(stage.stage)),
-  listInstances: () => Promise.resolve([]),
-};
+const EXTERNAL_LIFECYCLE_HANDLERS = new Map<string, LifecycleHandler>([
+  [
+    "createInstance",
+    (_schemaId, stage) => Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  ],
+  [
+    "destroyInstance",
+    (_schemaId, stage) => Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  ],
+  ["listInstances", () => Promise.resolve([])],
+]);
 
 function tryHandleLifecycle(
   stages: QueryStage[],
@@ -45,7 +54,7 @@ function tryHandleLifecycle(
   }
   const handler = (
     IsExternal() ? EXTERNAL_LIFECYCLE_HANDLERS : LIFECYCLE_HANDLERS
-  )[stages[1].stage];
+  ).get(stages[1].stage);
   if (!handler) {
     return undefined;
   }

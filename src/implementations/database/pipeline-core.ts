@@ -34,7 +34,7 @@ export class PipelineCore {
   public readonly context: DecodingContext;
   public resultType = "stream";
 
-  private cursor?: AggregationCursor;
+  private cursor?: AggregationCursor<Document>;
   protected options: AggregateOptions = {};
   private isClosed = false;
 
@@ -127,6 +127,9 @@ export class PipelineCore {
       this.cursor = collection.aggregate(this.pipeline, this.options);
     }
     const change = await this.cursor.next();
+    if (change === null) {
+      return null;
+    }
     if (this.isChangeStream) {
       return ToChangeEvent(change);
     }

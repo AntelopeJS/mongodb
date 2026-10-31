@@ -73,7 +73,7 @@ export class AggregationPipeline extends PipelineCore {
         ? await DecodeValue(getStage.args[0], this.context)
         : null;
       const arraySource = isString(fkExpr)
-        ? this.context.mapVarSources[fkExpr]
+        ? this.context.mapVarSources.get(fkExpr)
         : undefined;
 
       if (arraySource) {

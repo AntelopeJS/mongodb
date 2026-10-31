@@ -240,7 +240,7 @@ class Expression {
   async stage_arr_map() {
     const [func] = this.stageNamed("arr_map").args;
     const tmp = Temporary();
-    this.context.mapVarSources[`$$${tmp}`] = this.value;
+    this.context.mapVarSources.set(`$$${tmp}`, this.value);
     const result = {
       $map: {
         input: this.value,
@@ -248,7 +248,7 @@ class Expression {
         in: await DecodeFunction(func, this.context, [`$$${tmp}`]),
       },
     };
-    delete this.context.mapVarSources[`$$${tmp}`];
+    this.context.mapVarSources.delete(`$$${tmp}`);
     return result;
   }
   async stage_arr_filter() {
