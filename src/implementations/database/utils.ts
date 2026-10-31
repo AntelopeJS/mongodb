@@ -107,6 +107,18 @@ export function Temporary(name?: string) {
 
 export type { QueryStage };
 
+/** An operand as `DecodeValue` answers it: a literal, or an aggregation expression. */
+export type DecodedOperand =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | Date
+  | Document
+  | DecodedOperand[];
+
 export type ArgumentProvider = (
   subQuery: QueryStage[],
 ) => Document | string | Promise<Document | string>;
@@ -125,7 +137,7 @@ export class DecodingContext {
    * `ArrayLookup` takes. A `$lookup` pipeline cannot read `$map` variables, so a join keyed on one
    * is planned from this source instead.
    */
-  public mapVarSources = new Map<string, Document[keyof Document]>();
+  public mapVarSources = new Map<string, DecodedOperand>();
 
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {

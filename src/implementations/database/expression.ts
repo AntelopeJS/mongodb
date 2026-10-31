@@ -17,6 +17,7 @@ import type { Document } from "mongodb";
 
 import {
   type ArgumentProvider,
+  type DecodedOperand,
   type DecodingContext,
   hasKey,
   isDocument,
@@ -31,16 +32,11 @@ const MAX_DATE_MILLISECONDS = 8.64e15;
 
 type ValueDecoder = typeof DecodeValue;
 
-/** An operand as {@link DecodeValue} answers it: a literal, or an aggregation expression. */
-type DecodedOperand =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Date
-  | Document
-  | DecodedOperand[];
+/** A stage handler of {@link Expression}: it takes its stage's operands as {@link DecodeValue} answers them. */
+type StageHandler = (
+  this: Expression,
+  ...operands: DecodedOperand[]
+) => DecodedOperand | Promise<DecodedOperand>;
 
 function isPlainObject<Value>(value: Value): value is Value & object {
   return (
@@ -114,7 +110,7 @@ function DuringBound(receiverIsDate: Document, bound: DecodedOperand) {
 class Expression {
   protected currentStage?: QueryStage;
 
-  public value: unknown;
+  public value: DecodedOperand;
 
   public constructor(public readonly context: DecodingContext) {}
 
@@ -127,10 +123,10 @@ class Expression {
   public async addStages(stages: QueryStage[]) {
     for (const stage of stages) {
       const stageCallback: `stage_${string}` = `stage_${stage.stage}`;
-      if (!hasKey(this, stageCallback)) {
+      if (!hasKey<Expression>(this, stageCallback)) {
         throw new Error(`Unimplemented stage: ${stage.stage}`);
       }
-      const callback = this[stageCallback];
+      const callback: string | StageHandler = this[stageCallback];
       if (isString(callback)) {
         this.value = {
           [callback]:
@@ -162,7 +158,8 @@ class Expression {
     return stage;
   }
 
-  async stage_arg(num: number) {
+  async stage_arg() {
+    const [num] = this.stageNamed("arg").args;
     return this.context.args[num];
   }
   stage_constant() {
@@ -224,7 +221,7 @@ class Expression {
       ],
     };
   }
-  stage_date_with_timezone(timezone?: unknown) {
+  stage_date_with_timezone(timezone?: DecodedOperand) {
     return {
       date: this.value,
       timezone,
@@ -262,12 +259,12 @@ class Expression {
   stage_bit_or = "$bitOr";
   stage_bit_xor = "$bitXor";
   stage_bit_not = "$bitNot";
-  stage_bit_lshift(shift: unknown) {
+  stage_bit_lshift(shift: DecodedOperand) {
     return {
       $multiply: [this.value, { $pow: [2, shift] }],
     };
   }
-  stage_bit_rshift(shift: unknown) {
+  stage_bit_rshift(shift: DecodedOperand) {
     return {
       $floor: {
         $divide: [this.value, { $pow: [2, shift] }],
@@ -293,7 +290,7 @@ class Expression {
   stage_str_upcase = "$toUpper";
   stage_str_downcase = "$toLower";
   stage_str_len = "$strLenCP";
-  stage_str_match(regex: unknown) {
+  stage_str_match(regex: DecodedOperand) {
     return {
       $regexMatch: {
         input: this.value,
@@ -303,11 +300,11 @@ class Expression {
   }
 
   stage_arr_index = "$arrayElemAt";
-  stage_arr_includes(val: unknown) {
+  stage_arr_includes(val: DecodedOperand) {
     return { $in: [val, this.value] };
   }
   @CondenseValue
-  stage_arr_slice(start: number, end?: number) {
+  stage_arr_slice(start: DecodedOperand, end?: DecodedOperand) {
     if (end) {
       return { $slice: [this.value, start, { $subtract: [end, start] }] };
     } else {
@@ -348,7 +345,7 @@ class Expression {
   stage_arr_min = "$min";
   stage_arr_max = "$max";
 
-  stage_obj_index(key: string, def: unknown) {
+  stage_obj_index(key: DecodedOperand, def: DecodedOperand) {
     const index =
       isString(this.value) &&
       isString(key) &&
@@ -380,7 +377,7 @@ class Expression {
       },
     };
   }
-  stage_obj_has(fields: unknown) {
+  stage_obj_has(fields: DecodedOperand) {
     const keys = {
       $map: {
         input: { $objectToArray: this.value },
@@ -395,7 +392,7 @@ class Expression {
 export async function DecodeValue(
   value: Value<unknown>,
   context: DecodingContext,
-): Promise<unknown> {
+): Promise<DecodedOperand> {
   if (value instanceof ValueProxy) {
     return Expression.decode(value.build(), context);
   }
@@ -410,10 +407,12 @@ export async function DecodeValue(
     } else if (Object.getPrototypeOf(value) === Object.prototype) {
       return Object.fromEntries(
         await Promise.all(
-          Object.entries(value).map(async ([key, val]) => [
-            key,
-            await DecodeValue(val, context),
-          ]),
+          Object.entries(value).map(
+            async ([key, val]): Promise<[string, DecodedOperand]> => [
+              key,
+              await DecodeValue(val, context),
+            ],
+          ),
         ),
       );
     }
@@ -464,7 +463,7 @@ export function IsConstantKeys(
 export async function DecodeLiteralValue(
   value: Value<unknown>,
   context: DecodingContext,
-): Promise<unknown> {
+): Promise<DecodedOperand> {
   if (IsConstantValue(value)) {
     return { $literal: value };
   }

@@ -8,6 +8,7 @@ import { GetIndex } from "./schema";
 import { SelectionQuery } from "./selection";
 import { ArrayLookup } from "./array-lookup";
 import {
+  type DecodedOperand,
   type DecodingContext,
   DefaultConstant,
   DefaultExpression,
@@ -123,7 +124,7 @@ export class AggregationPipeline extends PipelineCore {
     }
   }
 
-  private setRoot(val: unknown) {
+  private setRoot(val: DecodedOperand) {
     if (this.wrappedObject) {
       this.pipeline.push({
         $addFields: { [this.wrappedObject]: val },
