@@ -34,7 +34,7 @@ export class PipelineCore {
   public readonly context: DecodingContext;
   public resultType = "stream";
 
-  private cursor?: AggregationCursor;
+  private cursor?: AggregationCursor<Document>;
   protected options: AggregateOptions = {};
   private isClosed = false;
 
