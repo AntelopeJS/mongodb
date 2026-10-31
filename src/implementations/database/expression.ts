@@ -224,7 +224,7 @@ class Expression {
       ],
     };
   }
-  stage_date_with_timezone(timezone?: unknown) {
+  stage_date_with_timezone(timezone?: DecodedOperand) {
     return {
       date: this.value,
       timezone,
@@ -262,12 +262,12 @@ class Expression {
   stage_bit_or = "$bitOr";
   stage_bit_xor = "$bitXor";
   stage_bit_not = "$bitNot";
-  stage_bit_lshift(shift: unknown) {
+  stage_bit_lshift(shift: DecodedOperand) {
     return {
       $multiply: [this.value, { $pow: [2, shift] }],
     };
   }
-  stage_bit_rshift(shift: unknown) {
+  stage_bit_rshift(shift: DecodedOperand) {
     return {
       $floor: {
         $divide: [this.value, { $pow: [2, shift] }],
@@ -293,7 +293,7 @@ class Expression {
   stage_str_upcase = "$toUpper";
   stage_str_downcase = "$toLower";
   stage_str_len = "$strLenCP";
-  stage_str_match(regex: unknown) {
+  stage_str_match(regex: DecodedOperand) {
     return {
       $regexMatch: {
         input: this.value,
@@ -303,7 +303,7 @@ class Expression {
   }
 
   stage_arr_index = "$arrayElemAt";
-  stage_arr_includes(val: unknown) {
+  stage_arr_includes(val: DecodedOperand) {
     return { $in: [val, this.value] };
   }
   @CondenseValue
@@ -348,7 +348,7 @@ class Expression {
   stage_arr_min = "$min";
   stage_arr_max = "$max";
 
-  stage_obj_index(key: string, def: unknown) {
+  stage_obj_index(key: string, def: DecodedOperand) {
     const index =
       isString(this.value) &&
       isString(key) &&
@@ -380,7 +380,7 @@ class Expression {
       },
     };
   }
-  stage_obj_has(fields: unknown) {
+  stage_obj_has(fields: DecodedOperand) {
     const keys = {
       $map: {
         input: { $objectToArray: this.value },
