@@ -100,7 +100,7 @@ export class DecodingContext {
    * `ArrayLookup` takes. A `$lookup` pipeline cannot read `$map` variables, so a join keyed on one
    * is planned from this source instead.
    */
-  public mapVarSources: Record<string, Document[keyof Document]> = {};
+  public mapVarSources = new Map<string, Document[keyof Document]>();
 
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {
@@ -156,7 +156,7 @@ export class DecodingContext {
         newContext.args[Number(id)] = remapString(arg);
       }
     }
-    newContext.mapVarSources = { ...this.mapVarSources };
+    newContext.mapVarSources = new Map(this.mapVarSources);
     return newContext;
   }
 }
