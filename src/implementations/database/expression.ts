@@ -8,7 +8,9 @@ import {
   IsQueryStage,
   type IndexKeys,
   type QueryStage,
+  type QueryRecord,
   type QueryStageName,
+  type QueryValue,
   type SelectionKey,
   type Value,
 } from "@antelopejs/interface-database/common";
@@ -30,7 +32,10 @@ const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
 const MAX_DATE_MILLISECONDS = 8.64e15;
 
-type ValueDecoder = typeof DecodeValue;
+type ValueDecoder = (
+  value: QueryValue,
+  context: DecodingContext,
+) => Promise<DecodedOperand>;
 
 /** A stage handler of {@link Expression}: it takes its stage's operands as {@link DecodeValue} answers them. */
 type StageHandler = (
@@ -38,7 +43,7 @@ type StageHandler = (
   ...operands: DecodedOperand[]
 ) => DecodedOperand | Promise<DecodedOperand>;
 
-function isPlainObject<Value>(value: Value): value is Value & object {
+function isPlainObject(value: QueryValue): value is QueryRecord {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -46,8 +51,12 @@ function isPlainObject<Value>(value: Value): value is Value & object {
   );
 }
 
+function isList(value: QueryValue): value is readonly QueryValue[] {
+  return Array.isArray(value);
+}
+
 function isExpressionMarker(
-  value: unknown,
+  value: QueryValue,
 ): value is ValueProxy<unknown> | Query<unknown> {
   return value instanceof ValueProxy || value instanceof Query;
 }
@@ -163,7 +172,7 @@ class Expression {
     return this.context.args[num];
   }
   stage_constant() {
-    const constant: unknown = this.currentStage!.args[0];
+    const constant = this.stageNamed("constant").args[0];
     if (isPlainObject(constant)) {
       return DecodeLiteralValue(constant, this.context);
     }
@@ -431,11 +440,11 @@ export async function DecodeValue(
  * Tells whether a query value is plain data, i.e. holds no value proxy or
  * subquery anywhere in its tree.
  */
-export function IsConstantValue(value: unknown): boolean {
+export function IsConstantValue(value: QueryValue): boolean {
   if (isExpressionMarker(value)) {
     return false;
   }
-  if (Array.isArray(value)) {
+  if (isList(value)) {
     return value.every(IsConstantValue);
   }
   if (isPlainObject(value)) {
@@ -461,13 +470,13 @@ export function IsConstantKeys(
  * or an operator.
  */
 export async function DecodeLiteralValue(
-  value: Value<unknown>,
+  value: QueryValue,
   context: DecodingContext,
 ): Promise<DecodedOperand> {
   if (IsConstantValue(value)) {
     return { $literal: value };
   }
-  if (Array.isArray(value)) {
+  if (isList(value)) {
     return Promise.all(value.map((val) => DecodeLiteralValue(val, context)));
   }
   if (!isPlainObject(value)) {

@@ -142,7 +142,7 @@ export class AggregationPipeline extends PipelineCore {
       name instanceof ValueProxy
         ? await DecodeValue(name, this.context)
         : undefined;
-    const defaultValue: unknown = stage.args[1];
+    const defaultValue = stage.args[1];
     const read = (root: string) =>
       DefaultConstant(
         name instanceof ValueProxy
