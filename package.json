@@ -40,9 +40,7 @@
     "prepare": "if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && command -v lefthook >/dev/null 2>&1; then lefthook install; fi",
     "checks": "antelopejs-checks",
     "size": "antelopejs-check-size",
-    "ratchet": "antelopejs-ratchet",
     "sync": "antelopejs-sync",
-    "ratchet:update": "antelopejs-ratchet --update",
     "sync:check": "antelopejs-sync --check",
     "typecheck": "tsc --noEmit",
     "suppressions": "antelopejs-suppressions",
@@ -60,7 +58,7 @@
   },
   "devDependencies": {
     "@antelopejs/core": "^1.16.0",
-    "@antelopejs/tooling-configs": "^0.2.17",
+    "@antelopejs/tooling-configs": "file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.15",
@@ -86,7 +84,8 @@
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
     "overrides": {
-      "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz"
+      "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz",
+      "@antelopejs/tooling-configs": "file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz"
     }
   },
   "antelopeJs": {

@@ -84,7 +84,14 @@ async function WriteTarget(
   const rows = await native
     .aggregate([...pipeline, { $project: { _id: 1 } }], TimeLimit())
     .toArray();
-  return { _id: { $in: rows.map((row) => NativeKey(key, row._id)) } };
+  return {
+    _id: {
+      $in: rows.map((row) =>
+        // oxlint-disable-next-line typescript/no-unsafe-argument -- row is a driver Document, so row._id is the any of mongodb's Document type; the pipeline ends in { $project: { _id: 1 } }, so it holds the stored _id, and naming that type through aggregate<T> or a typed local would only assert it
+        NativeKey(key, row._id),
+      ),
+    },
+  };
 }
 
 function KeyFilter(key: BsonValue): Document {
