@@ -3,3 +3,4 @@ packages:
   - "playground"
 overrides:
   "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz"
+  "@antelopejs/tooling-configs": "file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz"
