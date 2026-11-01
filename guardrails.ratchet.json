@@ -3,7 +3,6 @@
   "rules": {
     "antelopejs/no-presence-only-type-guard": 1,
     "anti-slop/no-runtime-typeof": 1,
-    "anti-slop/no-unknown-parameters": 1,
     "typescript/no-unsafe-argument": 1,
     "typescript/no-unsafe-return": 1
   },

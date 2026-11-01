@@ -2,4 +2,4 @@ packages:
   - "./"
   - "playground"
 overrides:
-  "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-6bef278.tgz"
+  "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-99f3127.tgz"
