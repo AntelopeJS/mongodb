@@ -1,6 +1,8 @@
 {
   "rules": {
     "import/no-cycle": 2,
+    "typescript/no-unsafe-argument": 1,
+    "typescript/no-unsafe-return": 1,
     "unicorn/no-thenable": 1
   },
   "tsExpectError": 6,
