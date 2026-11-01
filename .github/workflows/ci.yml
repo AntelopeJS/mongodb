@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   ci:
-    uses: AntelopeJS/.github/.github/workflows/ci-node.yml@v1-campaign
+    uses: AntelopeJS/.github/.github/workflows/ci-node.yml@e8a218ac9736e355c5b8c0b2a6bc1e4cbae80d14
     permissions:
       contents: read
     with:
