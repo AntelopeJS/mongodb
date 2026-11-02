@@ -99,8 +99,6 @@
       "database": "antelopejs"
     },
     "test": "src/test/antelope.test.ts",
-    "docs": {
-      "standard": true
-    }
+    "docs": {}
   }
 }
