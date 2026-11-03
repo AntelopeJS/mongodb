@@ -1,13 +1,13 @@
-# @antelopejs/mongodb
+# `@antelopejs/mongodb`
 
 <div align="center">
-<a href="https://www.npmjs.com/package/@antelopejs/mongodb"><img alt="npm" src="https://img.shields.io/npm/v/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
-<a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
-<a href="https://discord.gg/g4pFt6eXqu"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000" alt="Discord"></a>
-<a href="https://interfaces.antelopejs.com/docs/database"><img src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000" alt="Documentation"></a>
+<a href="https://www.npmjs.com/package/@antelopejs/mongodb"><img data-illustration alt="npm" src="https://img.shields.io/npm/v/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
+<a href="./LICENSE"><img data-illustration alt="License" src="https://img.shields.io/npm/l/@antelopejs/mongodb?style=for-the-badge&labelColor=000000&color=000000"></a>
+<a href="https://discord.gg/g4pFt6eXqu"><img data-illustration alt="Discord" src="https://img.shields.io/badge/Discord-18181B?logo=discord&style=for-the-badge&color=000000"></a>
+<a href="https://interfaces.antelopejs.com/docs/database"><img data-illustration alt="Documentation" src="https://img.shields.io/badge/Docs-18181B?style=for-the-badge&color=000000"></a>
 </div>
 
-The MongoDB backend of AntelopeJS: it runs the database interface's queries on MongoDB with the official [`mongodb`](https://github.com/mongodb/node-mongodb-native) driver, and exposes that client to modules that need it directly.
+The MongoDB backend of AntelopeJS. It runs the queries of the database interface on MongoDB with the official [`mongodb`](https://github.com/mongodb/node-mongodb-native) driver, and gives that driver's client to modules that need it directly.
 
 ## Interfaces
 
@@ -17,7 +17,7 @@ The MongoDB backend of AntelopeJS: it runs the database interface's queries on M
 | [`@antelopejs/interface-mongodb`](https://github.com/AntelopeJS/interface-mongodb)                   | [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction) |
 | [`@antelopejs/interface-database-catalog`](https://github.com/AntelopeJS/interface-database-catalog) | [External mode](docs/external-mode.md#the-catalog)                     |
 
-Schemas, tables, queries, change feeds and atomic mutations are documented on the database interface pages.
+The database interface pages document schemas, tables, queries, change feeds, and atomic mutations.
 
 ## Install
 
@@ -25,7 +25,7 @@ Schemas, tables, queries, change feeds and atomic mutations are documented on th
 ajs project modules add @antelopejs/mongodb
 ```
 
-The command writes the module's default configuration: `mongodb://localhost:27017`, database `antelopejs`.
+The command writes the default configuration of the module. It connects to `mongodb://localhost:27017` and uses the database `antelopejs`.
 
 ## Configuration
 
@@ -54,18 +54,18 @@ export default defineConfig({
 });
 ```
 
-| Key                  | Description                                                                                                                                                           |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`                | MongoDB connection string.                                                                                                                                            |
-| `database`           | Database that holds every schema's collections.                                                                                                                       |
-| `options`            | Optional [`MongoClientOptions`](https://mongodb.github.io/node-mongodb-native/6.21/interfaces/MongoClientOptions.html) passed to the driver.                          |
-| `mode`               | `owned` (default): the module creates and scopes its own collections. `external`: it serves a database it did not create, see [External mode](docs/external-mode.md). |
-| `statementTimeoutMs` | Optional server-side time limit of each read and write of an external instance, sent as `maxTimeMS`.                                                                  |
-| `catalog`            | `{ enabled?: boolean }`: whether an external instance answers the catalog outside development.                                                                        |
+| Key                  | Description                                                                                                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`                | MongoDB connection string.                                                                                                                                                                                             |
+| `database`           | The database that holds the collections of every schema.                                                                                                                                                               |
+| `options`            | Optional [`MongoClientOptions`](https://mongodb.github.io/node-mongodb-native/6.21/interfaces/MongoClientOptions.html) that the module passes to the driver.                                                           |
+| `mode`               | `owned` (the default) or `external`. An owned instance creates its own collections and scopes them to instances. An external instance serves a database it did not create. See [External mode](docs/external-mode.md). |
+| `statementTimeoutMs` | Optional server-side time limit of each read and write of an external instance, sent as `maxTimeMS`. It must be a positive safe integer.                                                                               |
+| `catalog`            | `{ enabled?: boolean }`. Sets whether an external instance answers the catalog outside development.                                                                                                                    |
 
-An external instance requires `url` and `database`, and reads and writes the client's own collections without changing their structure: see [External mode](docs/external-mode.md).
+An external instance requires a non-empty `url` and `database`. It reads and writes the documents of the client's own collections and never changes their structure. See [External mode](docs/external-mode.md).
 
-Change feeds rely on MongoDB change streams, which need a replica set. A single-node replica set is enough in development.
+Change feeds use MongoDB change streams, which need a replica set. A single-node replica set is enough in development.
 
 ## Quick start
 
@@ -88,21 +88,21 @@ const users = client.db("my-project").collection("users");
 
 ## Storage layout
 
-- Each schema table is one collection, `<schemaId>__<table>`, shared by every instance of the schema. Each document stores its instance in `_instance`.
-- `_id` stays unique across instances: use globally unique record identities.
-- Each declared index `<name>` becomes a `<name>__i` MongoDB index led by `_instance`. An index declared with `crossInstance: true` also gets an unprefixed `<name>` index for `CROSS_INSTANCE` queries; without it, those queries still work but log a one-time warning and cannot use an index.
-- An index declared with `unique: true` makes its `<name>__i` index unique, so a key is unique per instance; the unprefixed cross-instance index never is. Changing the flag rebuilds the index. Creating a unique index fails while the instance already holds duplicates: schema initialization logs the error and retries until they are removed.
-- A write refused for a duplicate key (MongoDB code 11000), on `_id` or on a unique index, throws the interface's `DuplicateKeyError` with the declared index name and fields.
-- Atomic mutations use a second client with `retryWrites` and `retryReads` disabled.
+- Each schema table is one collection, `<schemaId>__<table>`, that every instance of the schema shares. Each document stores its instance in `_instance`.
+- `_id` is unique across instances, so use globally unique record identities.
+- Each declared index `<name>` becomes a MongoDB index `<name>__i` whose first field is `_instance`. An index declared with `crossInstance: true` also gets an index `<name>` without the prefix, for `CROSS_INSTANCE` queries. Without it, those queries still work, but they cannot use an index and log a warning once per index.
+- An index declared with `unique: true` makes its `<name>__i` index unique, so a key is unique per instance. The cross-instance index is never unique. A change of the flag rebuilds the index. The creation of a unique index fails while the instance holds duplicates. Schema initialization then logs the error and retries until you remove them.
+- When MongoDB refuses a write for a duplicate key (code 11000), on `_id` or on a unique index, the module throws the `DuplicateKeyError` of the interface with the declared index name and fields.
+- Atomic mutations use a second client with `retryWrites` and `retryReads` turned off.
 
-Versions before 1.4 created each index as `<name>` only. The module creates the `<name>__i` indexes next to them and never drops an index: drop the old ones you no longer need by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
+Schema initialization drops an index only when the index has the name of a declared index but other fields or another uniqueness, or the fields of a declared index but another uniqueness. Any other index stays, such as an index `<name>` that leads with the declared field instead of `_instance`. To remove an index that no schema declares, drop it by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
 
 ## Documentation
 
-- [Database](https://interfaces.antelopejs.com/docs/database): the `@antelopejs/interface-database` contract this module implements
-- [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction): the `@antelopejs/interface-mongodb` contract this module implements
-- [External mode](docs/external-mode.md): serving a database the module did not create, and its catalog
-- [Configuration](https://framework.antelopejs.com/docs/concepts/configuration): module sources, `config` blocks and config variables in `antelope.config.ts`
+- [Database](https://interfaces.antelopejs.com/docs/database) documents the `@antelopejs/interface-database` contract that this module implements.
+- [MongoDB](https://interfaces.antelopejs.com/docs/mongodb/introduction) documents the `@antelopejs/interface-mongodb` contract that this module implements.
+- [External mode](docs/external-mode.md) explains how the module serves a database it did not create, and its catalog.
+- [Configuration](https://framework.antelopejs.com/docs/concepts/configuration) documents module sources, `config` blocks, and config variables in `antelope.config.ts`.
 
 ## Compatibility
 
@@ -117,7 +117,7 @@ Versions before 1.4 created each index as `<name>` only. The module creates the 
 
 <!-- antelopejs-docs-compat:end -->
 
-The module is developed and tested on Node.js 24, with the `mongodb` driver `^6.21.0` and a MongoDB 8.0 replica set.
+`.nvmrc` sets the Node.js release for development. The `dependencies` of `package.json` set the range of the `mongodb` driver. `MONGODB_VERSION` in `src/test/antelope.test.ts` sets the MongoDB server release of the test replica set.
 
 ## Contributing
 
@@ -126,12 +126,12 @@ pnpm install
 pnpm lint
 pnpm format:check
 pnpm knip
-pnpm test           # build, then ajs module test against an in-memory replica set
+pnpm test           # build, then run the owned and external suites against an in-memory replica set
 ```
 
 The tests start MongoDB with `mongodb-memory-server`, which downloads the server binary on the first run. They also run the shared conformance suite of `@antelopejs/interface-database`.
 
-Read the [contribution guidelines](CONTRIBUTING.md) before opening a pull request.
+Read the [contribution guidelines](CONTRIBUTING.md) before you open a pull request.
 
 ## License
 
