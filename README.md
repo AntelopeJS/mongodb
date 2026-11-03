@@ -95,7 +95,7 @@ const users = client.db("my-project").collection("users");
 - When MongoDB refuses a write for a duplicate key (code 11000), on `_id` or on a unique index, the module throws the `DuplicateKeyError` of the interface with the declared index name and fields.
 - Atomic mutations use a second client with `retryWrites` and `retryReads` turned off.
 
-Schema initialization drops an index only when the index has the name of a declared index but other fields or another uniqueness, or the fields of a declared index but another uniqueness. Any other index stays, such as an index `<name>` that leads with the declared field instead of `_instance`. To remove an index that no schema declares, drop it by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
+Schema initialization drops an index only in two cases. The index has the name the module gives a declared index in MongoDB (`<name>__i`, or `<name>` for a cross-instance index) but other fields or another uniqueness. Or the index has the fields of such an index but another uniqueness. Any other index stays, such as an index `<name>` that leads with the declared field instead of `_instance`. To remove an index that no schema declares, drop it by hand, for example `db.getCollection("<schemaId>__<table>").dropIndex("<name>")`.
 
 ## Documentation
 
