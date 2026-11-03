@@ -98,6 +98,9 @@
       "url": "mongodb://localhost:27017",
       "database": "antelopejs"
     },
-    "test": "src/test/antelope.test.ts"
+    "test": "src/test/antelope.test.ts",
+    "docs": {
+      "standard": true
+    }
   }
 }
