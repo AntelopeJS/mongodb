@@ -71,15 +71,27 @@ async function WriteTarget(
   const key = KeyClassOf(collection);
   const matches = pipeline.filter((stage) => "$match" in stage);
   if (matches.length === pipeline.length) {
-    return matches.length === 0
-      ? {}
-      : { $and: matches.map((stage) => stage.$match) };
+    if (matches.length === 0) {
+      return {};
+    }
+    const conditions: unknown[] = [];
+    for (const stage of matches) {
+      conditions.push(stage.$match);
+    }
+    return { $and: conditions };
   }
   const native = (await GetDatabase()).collection(collection.collection);
   const rows = await native
     .aggregate([...pipeline, { $project: { _id: 1 } }], TimeLimit())
     .toArray();
-  return { _id: { $in: rows.map((row) => NativeKey(key, row._id)) } };
+  return {
+    _id: {
+      $in: rows.map((row) =>
+        // oxlint-disable-next-line typescript/no-unsafe-argument -- row is a driver Document, so row._id is the any of mongodb's Document type; the pipeline ends in { $project: { _id: 1 } }, so it holds the stored _id, and naming that type through aggregate<T> or a typed local would only assert it
+        NativeKey(key, row._id),
+      ),
+    },
+  };
 }
 
 function KeyFilter(key: BsonValue): Document {
@@ -205,7 +217,7 @@ async function Run(
   write: ExternalWrite,
 ): Promise<number | string[]> {
   if (write.kind === "insert") {
-    const values = Array.isArray(write.value) ? write.value : [write.value];
+    const values = [write.value].flat();
     return Insert(collection, native, values, write.conflict);
   }
   const target = await WriteTarget(collection, write.pipeline);

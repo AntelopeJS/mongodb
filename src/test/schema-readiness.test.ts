@@ -77,9 +77,13 @@ function race(schema: Schema<AccountTables>, email: string) {
 }
 
 function refusals(outcomes: PromiseSettledResult<unknown>[]): unknown[] {
-  return outcomes.flatMap((outcome) =>
-    outcome.status === "rejected" ? [outcome.reason] : [],
-  );
+  const reasons: unknown[] = [];
+  for (const outcome of outcomes) {
+    if (outcome.status === "rejected") {
+      reasons.push(outcome.reason);
+    }
+  }
+  return reasons;
 }
 
 async function expectOneRow(schema: Schema<AccountTables>, email: string) {

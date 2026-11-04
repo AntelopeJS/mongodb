@@ -1,3 +1,4 @@
+import type { Document } from "mongodb";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
 
 import { INSTANCE_FIELD, normalizeInstanceId } from "./utils";
@@ -18,7 +19,7 @@ export function resolveInstanceContext(
 export function buildInitialPipeline(
   instance: InstanceContext,
   isChangeStream: boolean,
-): any[] {
+): Document[] {
   if (instance.kind !== "scoped") {
     return [];
   }

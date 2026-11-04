@@ -3,7 +3,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { ResolveIndex, SingleIndexField } from "./indexes";
 import { RefuseExternalArrayLookup } from "./external-refusals";
-import { Temporary } from "./utils";
+import { type DecodedOperand, Temporary } from "./utils";
 
 /** The other side of a `get` or `getAll` inside a `map` over an array. */
 interface ArrayLookupSide {
@@ -27,9 +27,9 @@ export interface ArrayLookupPlan {
  */
 export function ArrayLookup(
   right: ArrayLookupSide,
-  getStage: QueryStage,
-  key: Document[keyof Document],
-  source: Document[keyof Document],
+  getStage: QueryStage<"get" | "getAll">,
+  key: DecodedOperand,
+  source: DecodedOperand,
   as: string,
 ): ArrayLookupPlan {
   RefuseExternalArrayLookup(right);

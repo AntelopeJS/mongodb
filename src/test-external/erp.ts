@@ -147,5 +147,5 @@ export async function NativeCount(
     { $match: filter },
     { $count: "n" },
   ]);
-  return counted?.n ?? 0;
+  return Number(counted?.n ?? 0);
 }

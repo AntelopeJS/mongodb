@@ -168,7 +168,20 @@ function runAttempt(task: InitializationTask): void {
     .then(() => task.initialize(controller.signal))
     .then(
       () => handleSuccess(task),
-      (error: unknown) => handleFailure(task, error, controller.signal),
+      (error: unknown) => {
+        task.runningAttempt = undefined;
+        if (!isCurrentTask(task)) {
+          return;
+        }
+        if (controller.signal.aborted && error === controller.signal.reason) {
+          resumeIfAccepting(task);
+          return;
+        }
+        task.failedAttempts++;
+        const message = error instanceof Error ? error.message : String(error);
+        refuseQueries(task, "failed", message);
+        retryAfterFailure(task, message);
+      },
     )
     .finally(() => {
       runningAttempts.delete(attempt);
@@ -194,22 +207,7 @@ function handleSuccess(task: InitializationTask): void {
   }
 }
 
-function handleFailure(
-  task: InitializationTask,
-  error: unknown,
-  signal: AbortSignal,
-): void {
-  task.runningAttempt = undefined;
-  if (!isCurrentTask(task)) {
-    return;
-  }
-  if (isInterruption(error, signal)) {
-    resumeIfAccepting(task);
-    return;
-  }
-  task.failedAttempts++;
-  const message = error instanceof Error ? error.message : String(error);
-  refuseQueries(task, "failed", message);
+function retryAfterFailure(task: InitializationTask, message: string): void {
   const failure = `Schema "${task.schemaId}" initialization attempt ${task.failedAttempts} failed: ${message}`;
   if (!isAcceptingInitializations) {
     Logging.Warn(`${failure}. Retrying when the module starts again`);
@@ -218,10 +216,6 @@ function handleFailure(
   const delay = getRetryDelay(task.failedAttempts);
   Logging.Warn(`${failure}. Retrying in ${delay}ms`);
   scheduleRetry(task, delay);
-}
-
-function isInterruption(error: unknown, signal: AbortSignal): boolean {
-  return signal.aborted && error === signal.reason;
 }
 
 function resumeIfAccepting(task: InitializationTask): void {

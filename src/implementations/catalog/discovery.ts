@@ -5,18 +5,15 @@ import type {
   RelationSummary,
   RelationWrites,
 } from "@antelopejs/interface-database-catalog";
-import type { Db, Document } from "mongodb";
+import type { CollectionInfo, Db, Document } from "mongodb";
 
 import { GetDatabase } from "../../connection";
 import {
   type KeyFinding as Finding,
   KeyOf,
 } from "../database/external-descriptor";
-import {
-  KindOf,
-  ReadEnds,
-  type ValidatorSchema,
-} from "../database/external-probe";
+import { KindOf, ReadEnds, ValidatorOf } from "../database/external-probe";
+import { isDocument, isString } from "../database/utils";
 import { DescribeColumns } from "./columns";
 import { EstimatedRows, MeasuredCollection } from "./measures";
 
@@ -35,20 +32,47 @@ interface Privilege {
 /** A collection or view of the configured database, as `listCollections` answers it. */
 export interface ListedRelation {
   db: Db;
-  info: Document;
+  info: CollectionInfo;
   privileges: Privilege[];
+}
+
+/** The name of the first user the connection authenticated as, or none. */
+function AuthenticatedRole(status: Document): string {
+  const users: unknown = status.authInfo?.authenticatedUsers;
+  const user: unknown = Array.isArray(users) ? users.at(0) : undefined;
+  const name: unknown = isDocument(user) ? user.user : undefined;
+  return isString(name) ? name : "";
+}
+
+function isPrivilege(value: unknown): value is Privilege {
+  if (!isDocument(value)) {
+    return false;
+  }
+  const resource: unknown = value.resource;
+  const actions: unknown = value.actions;
+  if (!isDocument(resource) || !Array.isArray(actions)) {
+    return false;
+  }
+  const db: unknown = resource.db;
+  const collection: unknown = resource.collection;
+  const anyResource: unknown = resource.anyResource;
+  return (
+    actions.every(isString) &&
+    (db === undefined || isString(db)) &&
+    (collection === undefined || isString(collection)) &&
+    (anyResource === undefined || typeof anyResource === "boolean")
+  );
 }
 
 export async function ReadInfo(): Promise<CatalogInfo> {
   const db = await GetDatabase();
   const build = await db.admin().command({ buildInfo: 1 });
   const status = await db.command({ connectionStatus: 1 });
-  const [user] = status.authInfo?.authenticatedUsers ?? [];
   return {
     engine: "mongodb",
     version: String(build.version),
     database: db.databaseName,
-    role: user?.user ?? "",
+    role: AuthenticatedRole(status),
   };
 }
 
@@ -57,7 +81,8 @@ async function Privileges(db: Db): Promise<Privilege[]> {
     connectionStatus: 1,
     showPrivileges: true,
   });
-  return status.authInfo?.authenticatedUserPrivileges ?? [];
+  const privileges: unknown = status.authInfo?.authenticatedUserPrivileges;
+  return Array.isArray(privileges) ? privileges.filter(isPrivilege) : [];
 }
 
 /** Every collection and view the connection lists, `system.*` left out, in name order. */
@@ -100,10 +125,6 @@ function Writes(relation: ListedRelation): RelationWrites {
   };
 }
 
-function ValidatorOf(relation: ListedRelation): ValidatorSchema | undefined {
-  return relation.info.options?.validator?.$jsonSchema;
-}
-
 /** The key type class of a listed relation, or why it has none. */
 export async function KeyFinding(relation: ListedRelation): Promise<Finding> {
   const kind = KindOf(relation.info);
@@ -137,7 +158,7 @@ export async function Summarize(
     estimate: estimatedRows === null ? null : "statistics",
     key: finding.key ? PRIMARY_KEY : null,
     writes: Writes(relation),
-    comment: ValidatorOf(relation)?.description ?? null,
+    comment: ValidatorOf(relation.info)?.description ?? null,
   };
 }
 
@@ -163,7 +184,7 @@ export async function DescribeRelation(
     ...summary,
     columns: await DescribeColumns(
       relation.info.name,
-      ValidatorOf(relation),
+      ValidatorOf(relation.info),
       finding,
     ),
     indexes: await Indexes(relation),

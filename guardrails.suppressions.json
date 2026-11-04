@@ -1,10 +1,13 @@
 {
   "rules": {
     "import/no-cycle": 2,
+    "typescript/no-unsafe-argument": 1,
+    "typescript/no-unsafe-return": 1,
     "unicorn/no-thenable": 1
   },
-  "tsExpectError": 0,
+  "tsExpectError": 6,
   "tsIgnore": 0,
-  "safety": 4,
-  "config": {}
+  "safety": 3,
+  "config": {},
+  "agentFiles": true
 }

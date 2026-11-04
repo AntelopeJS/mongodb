@@ -13,7 +13,7 @@ const UNSCOPED_INSTANCES: readonly (string | symbol | null | undefined)[] = [
  * Refuses `atomicMutation`, whose contract needs a revision field the client's documents do not
  * have, and writes the adapter does not guard.
  */
-export function ExternalAtomicRefusal(table: string): Error {
+export function ExternalAtomicRefusal(table: string | undefined): Error {
   return new Error(
     `The 'atomicMutation' stage is not supported on collection ${table}, an external collection: its contract writes revision fields the client's documents do not have`,
   );

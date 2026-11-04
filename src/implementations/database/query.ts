@@ -1,6 +1,7 @@
 import assert from "node:assert";
 
-import { isString, type QueryStage } from "./utils";
+import { isString, StageId, type QueryStage } from "./utils";
+import { IsQueryStage } from "@antelopejs/interface-database/common";
 import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
@@ -17,25 +18,33 @@ type LifecycleHandler = (
   stage: QueryStage,
 ) => Promise<string | string[] | void>;
 
-const LIFECYCLE_HANDLERS: Record<string, LifecycleHandler> = {
-  createInstance: (schemaId, stage) =>
-    CreateInstance(schemaId, stage.options?.id),
-  destroyInstance: (schemaId, stage) =>
-    DestroyInstance(schemaId, stage.options?.id),
-  listInstances: (schemaId) => ListInstances(schemaId),
-};
+const LIFECYCLE_HANDLERS = new Map<string, LifecycleHandler>([
+  [
+    "createInstance",
+    (schemaId, stage) => CreateInstance(schemaId, StageId(stage)),
+  ],
+  [
+    "destroyInstance",
+    (schemaId, stage) => DestroyInstance(schemaId, StageId(stage)),
+  ],
+  ["listInstances", (schemaId) => ListInstances(schemaId)],
+]);
 
 /**
  * The lifecycle stages on an external instance, whose collections have no instances: creating or
  * destroying one is refused rather than recorded nowhere, and the list of them is empty.
  */
-const EXTERNAL_LIFECYCLE_HANDLERS: typeof LIFECYCLE_HANDLERS = {
-  createInstance: (_schemaId, stage) =>
-    Promise.reject(ExternalInstanceRefusal(stage.stage)),
-  destroyInstance: (_schemaId, stage) =>
-    Promise.reject(ExternalInstanceRefusal(stage.stage)),
-  listInstances: () => Promise.resolve([]),
-};
+const EXTERNAL_LIFECYCLE_HANDLERS = new Map<string, LifecycleHandler>([
+  [
+    "createInstance",
+    (_schemaId, stage) => Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  ],
+  [
+    "destroyInstance",
+    (_schemaId, stage) => Promise.reject(ExternalInstanceRefusal(stage.stage)),
+  ],
+  ["listInstances", () => Promise.resolve([])],
+]);
 
 function tryHandleLifecycle(
   stages: QueryStage[],
@@ -45,11 +54,11 @@ function tryHandleLifecycle(
   }
   const handler = (
     IsExternal() ? EXTERNAL_LIFECYCLE_HANDLERS : LIFECYCLE_HANDLERS
-  )[stages[1].stage];
+  ).get(stages[1].stage);
   if (!handler) {
     return undefined;
   }
-  const schemaId = stages[0].options?.id;
+  const schemaId: unknown = stages[0].options?.id;
   assert(isString(schemaId), "Lifecycle query missing schema id");
   return SchemaInitialized(schemaId).then(() => handler(schemaId, stages[1]));
 }
@@ -64,7 +73,10 @@ export async function RunQuery(stages: QueryStage[]) {
   if (stages.some((stage) => stage.stage === "atomicMutation")) {
     await schemaInitialized(stages);
     if (IsExternal()) {
-      throw ExternalAtomicRefusal(stages[2]?.options?.id);
+      const table = stages[2];
+      throw ExternalAtomicRefusal(
+        IsQueryStage(table, "table") ? table.options?.id : undefined,
+      );
     }
     return RunAtomicMutation(stages);
   }
@@ -106,7 +118,10 @@ async function openQuery(
   }
 }
 
-export async function ReadCursor(reqId: number, stages: QueryStage[]) {
+export async function ReadCursor(
+  reqId: number,
+  stages: QueryStage[],
+): Promise<{ done: boolean; value: any }> {
   assert(
     !stages.some((stage) => stage.stage === "atomicMutation"),
     "atomicMutation cannot be read as a cursor",

@@ -1,8 +1,11 @@
 import assert from "node:assert";
-import type { AnyBulkWriteOperation, Document } from "mongodb";
+import type { AnyBulkWriteOperation, Collection, Document } from "mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
-import type { QueryStage } from "@antelopejs/interface-database/common";
+import type {
+  IndexKeys,
+  QueryStage,
+} from "@antelopejs/interface-database/common";
 
 import { IsExternal } from "../../config";
 import { GetCollection } from "../../connection";
@@ -19,6 +22,7 @@ import {
 } from "./instance-scope";
 // oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
+import type { QueryAnswer } from "./pipeline-core";
 import {
   DecodeFunction,
   DecodeLiteralValue,
@@ -31,33 +35,45 @@ import {
   SingleIndexField,
   TypedWriteError,
 } from "./indexes";
-import { collectionName, DecodingContext, INSTANCE_FIELD } from "./utils";
+import {
+  collectionName,
+  type DecodedOperand,
+  DecodingContext,
+  INSTANCE_FIELD,
+  IsUpdateFunction,
+  StageId,
+} from "./utils";
 
 const SINGLE_FIELD = 1;
 const SINGLE_KEY = 1;
 const NO_KEYS_FILTER = { _id: { $in: [] } };
 
-type StageArgument = QueryStage["args"][number];
-
-function toKeyTuple(index: ResolvedIndex, key: unknown): unknown[] {
-  const { fields } = index;
-  assert(
-    Array.isArray(key) && key.length === fields.length,
-    `Index "${index.indexId}" takes keys of ${fields.length} values ([${fields.join(", ")}])`,
-  );
-  return key;
-}
-
-function toKeyTuples(index: ResolvedIndex, decodedKeys: unknown): unknown[][] {
+function toKeyTuples(
+  index: ResolvedIndex,
+  decodedKeys: DecodedOperand,
+): unknown[][] {
   const keys = Array.isArray(decodedKeys) ? decodedKeys : [decodedKeys];
   const isSingleTuple =
     keys.length > 0 && keys.every((key) => !Array.isArray(key));
   const tuples = isSingleTuple ? [keys] : keys;
-  return tuples.map((key) => toKeyTuple(index, key));
+  const { fields } = index;
+  return tuples.map((key): unknown[] => {
+    assert(
+      Array.isArray(key) && key.length === fields.length,
+      `Index "${index.indexId}" takes keys of ${fields.length} values ([${fields.join(", ")}])`,
+    );
+    return key;
+  });
+}
+
+function identityFilter(doc: Document): Document {
+  const id: unknown = doc._id;
+  const instance: unknown = doc[INSTANCE_FIELD];
+  return { _id: id, [INSTANCE_FIELD]: instance };
 }
 
 export class SelectionQuery extends AggregationPipeline {
-  private _newValue: any;
+  private _newValue!: Document | Document[];
   private _updateValue: unknown;
   private _conflictMode?: "update" | "replace";
   private readonly instance: InstanceContext;
@@ -102,7 +118,7 @@ export class SelectionQuery extends AggregationPipeline {
   ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === "schema") {
       const schemaId = stages[0]?.options?.id;
-      const instanceId = stages[1]?.options?.id;
+      const instanceId = StageId(stages[1]);
       assert(stages[0]?.stage === "schema" && schemaId, "Unknown schema");
       await SchemaInitialized(schemaId);
       assert(
@@ -125,8 +141,8 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private getFilter() {
-    const filters = [];
-    const filterDoc = {};
+    const filters: unknown[] = [];
+    const filterDoc: Document = {};
     for (let i = 0; i < this.pipeline.length; ++i) {
       if ("$match" in this.pipeline[i]) {
         if ("$expr" in this.pipeline[i].$match) {
@@ -162,23 +178,25 @@ export class SelectionQuery extends AggregationPipeline {
   }
 
   private prepareInsertDocuments() {
-    const documents = Array.isArray(this._newValue)
-      ? this._newValue
-      : [this._newValue];
+    const documents = [this._newValue].flat();
     assert(this.instance.kind === "scoped");
     const instanceId = this.instance.instanceId;
     for (const document of documents) {
-      document._id = document._id ?? uuidv4();
+      const id: unknown = document._id;
+      document._id = id ?? uuidv4();
       document[INSTANCE_FIELD] = instanceId;
     }
     return documents;
   }
 
-  private async insertWithConflict(collection: any, documents: any[]) {
+  private async insertWithConflict(
+    collection: Collection,
+    documents: Document[],
+  ) {
     const CONFLICT_OPERATIONS = {
       update: (doc: Document): AnyBulkWriteOperation => ({
         updateOne: {
-          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
+          filter: identityFilter(doc),
           update: [
             {
               $replaceWith: {
@@ -191,7 +209,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
       replace: (doc: Document): AnyBulkWriteOperation => ({
         replaceOne: {
-          filter: { _id: doc._id, [INSTANCE_FIELD]: doc[INSTANCE_FIELD] },
+          filter: identityFilter(doc),
           replacement: doc,
           upsert: true,
         },
@@ -199,7 +217,11 @@ export class SelectionQuery extends AggregationPipeline {
     };
     const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
     await collection.bulkWrite(documents.map(buildOp));
-    return documents.map((doc) => doc._id);
+    const ids: unknown[] = [];
+    for (const doc of documents) {
+      ids.push(doc._id);
+    }
+    return ids;
   }
 
   private async update() {
@@ -225,7 +247,9 @@ export class SelectionQuery extends AggregationPipeline {
       );
     }
     const collection = await GetCollection(this.collection);
-    this._newValue[INSTANCE_FIELD] = this.instance.instanceId;
+    Object.assign(this._newValue, {
+      [INSTANCE_FIELD]: this.instance.instanceId,
+    });
     const res = await collection.findOneAndReplace(
       this.getFilter(),
       this._newValue,
@@ -239,8 +263,8 @@ export class SelectionQuery extends AggregationPipeline {
     return res.deletedCount;
   }
 
-  public async run(): Promise<any> {
-    const RUNNERS = new Map<string, () => Promise<any>>([
+  public async run(): Promise<QueryAnswer> {
+    const RUNNERS = new Map<string, () => Promise<QueryAnswer>>([
       ["insert", () => this.insert()],
       ["update", () => this.update()],
       ["replace", () => this.replace()],
@@ -260,13 +284,16 @@ export class SelectionQuery extends AggregationPipeline {
         throw TypedWriteError(this.schemaId, this.tableName, error);
       });
     }
-    const result = await super.run();
+    const result = await this.readRows();
     return this.external ? RenderOutput(result) : result;
   }
 
   public override async readCursor() {
-    const next = await super.readCursor();
-    return this.external ? RenderOutput(next) : next;
+    if (!this.external) {
+      return super.readCursor();
+    }
+    const row = await this.nextRow();
+    return RenderOutput(row && this.rowValue(row));
   }
 
   public override async addStages(stages: QueryStage[]) {
@@ -279,11 +306,11 @@ export class SelectionQuery extends AggregationPipeline {
     }
   }
 
-  protected async stage_get(stage: QueryStage) {
+  protected async stage_get(stage: QueryStage<"get">) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     this.singleElement = true;
-    const key = stage.args[0];
+    const [key] = stage.args;
     if (this.external) {
       await this.external.get(key);
       return;
@@ -298,11 +325,11 @@ export class SelectionQuery extends AggregationPipeline {
     });
   }
 
-  protected async stage_getAll(stage: QueryStage) {
+  protected async stage_getAll(stage: QueryStage<"getAll">) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
-    const rawValue = stage.args[0];
+    const [rawValue] = stage.args;
     if (this.external?.getAll(index.fields, rawValue)) {
       return;
     }
@@ -325,7 +352,7 @@ export class SelectionQuery extends AggregationPipeline {
     });
   }
 
-  private async singleFieldKeysFilter(field: string, rawValue: StageArgument) {
+  private async singleFieldKeysFilter(field: string, rawValue: IndexKeys) {
     const isList = Array.isArray(rawValue);
     if (IsConstantValue(rawValue)) {
       return { [field]: isList ? { $in: rawValue } : rawValue };
@@ -355,7 +382,7 @@ export class SelectionQuery extends AggregationPipeline {
     return documents.length === SINGLE_KEY ? documents[0] : { $or: documents };
   }
 
-  protected async stage_between(stage: QueryStage) {
+  protected async stage_between(stage: QueryStage<"between">) {
     assert(this.resultType === "table");
     this.resultType = "selection";
     const index = this.resolveQueriedIndex(stage.options?.index);
@@ -376,34 +403,37 @@ export class SelectionQuery extends AggregationPipeline {
     return !this.external && this.instance.kind === "cross";
   }
 
-  protected override async stage_filter(stage: QueryStage) {
+  protected override async stage_filter(stage: QueryStage<"filter">) {
     if (await this.external?.filter(stage.args[0])) {
       return this;
     }
     return super.stage_filter(stage);
   }
 
-  protected override stage_orderBy(stage: QueryStage) {
+  protected override stage_orderBy(stage: QueryStage<"orderBy">) {
     this.external?.orderBy(
       ResolveIndex(this.schemaId, this.tableName, stage.options.index).fields,
     );
     return super.stage_orderBy(stage);
   }
 
-  protected override stage_count(stage: QueryStage) {
+  protected override stage_count(stage: QueryStage<"count">) {
     this.external?.count(stage);
     super.stage_count(stage);
     this.external?.reduced();
   }
 
-  private reduceNatively(stage: QueryStage, operator: string): boolean {
+  private reduceNatively(
+    stage: QueryStage<"sum" | "avg" | "min" | "max">,
+    operator: string,
+  ): boolean {
     const reduced =
       this.external?.reduce(stage, operator, () => this.makeWrapped()) ?? false;
     this.singleElement ||= reduced;
     return reduced;
   }
 
-  protected override stage_sum(stage: QueryStage) {
+  protected override stage_sum(stage: QueryStage<"sum">) {
     if (!this.reduceNatively(stage, "$sum")) {
       return super.stage_sum(stage);
     }
@@ -411,19 +441,19 @@ export class SelectionQuery extends AggregationPipeline {
     return this;
   }
 
-  protected override stage_avg(stage: QueryStage) {
+  protected override stage_avg(stage: QueryStage<"avg">) {
     return this.reduceNatively(stage, "$avg") ? this : super.stage_avg(stage);
   }
 
-  protected override stage_min(stage: QueryStage) {
+  protected override stage_min(stage: QueryStage<"min">) {
     return this.reduceNatively(stage, "$min") ? this : super.stage_min(stage);
   }
 
-  protected override stage_max(stage: QueryStage) {
+  protected override stage_max(stage: QueryStage<"max">) {
     return this.reduceNatively(stage, "$max") ? this : super.stage_max(stage);
   }
 
-  protected override async stage_join(stage: QueryStage) {
+  protected override async stage_join(stage: QueryStage<"join">) {
     const from = this.pipeline.length;
     const joined = await super.stage_join(stage);
     if (this.external) {
@@ -432,7 +462,7 @@ export class SelectionQuery extends AggregationPipeline {
     return joined;
   }
 
-  protected override async stage_lookup(stage: QueryStage) {
+  protected override async stage_lookup(stage: QueryStage<"lookup">) {
     if (!this.external) {
       return super.stage_lookup(stage);
     }
@@ -444,33 +474,34 @@ export class SelectionQuery extends AggregationPipeline {
     return this;
   }
 
-  protected async stage_insert(stage: QueryStage) {
+  protected async stage_insert(stage: QueryStage<"insert">) {
     assert(this.resultType === "table");
     this.resultType = "insert";
     this._newValue = stage.args[0];
     this._conflictMode = stage.options?.conflict;
   }
 
-  protected async stage_update(stage: QueryStage) {
+  protected async stage_update(stage: QueryStage<"update">) {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "update";
+    const [document] = stage.args;
     if (this.external) {
-      this._newValue = this.external.updateValue(stage.args[0]);
+      this._newValue = this.external.updateValue(document);
       return;
     }
-    if (stage.args[0]?.stage === "func") {
+    if (IsUpdateFunction(document)) {
       this._updateValue = await DecodeFunction(
-        stage.args[0],
+        document,
         this.context,
         ["$$ROOT"],
         DecodeLiteralValue,
       );
     } else {
-      this._updateValue = { $literal: stage.args[0] };
+      this._updateValue = { $literal: document };
     }
   }
 
-  protected async stage_replace(stage: QueryStage) {
+  protected async stage_replace(stage: QueryStage<"replace">) {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "replace";
     this._newValue = stage.args[0];

@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import type { AggregateOptions, AggregationCursor } from "mongodb";
+import type { AggregateOptions, AggregationCursor, Document } from "mongodb";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import {
@@ -9,6 +9,7 @@ import {
 } from "./indexes";
 import { GetCollection } from "../../connection";
 import { ToChangeEvent } from "./change-event";
+import type { BsonValue } from "./external-read";
 import type { DecodingContext } from "./utils";
 import { DecodeFunction, DecodeValue } from "./expression";
 
@@ -17,10 +18,16 @@ export interface PipelineSource {
   schemaId: string;
   tableName: string;
   collection: string;
-  initialFilter: any[];
+  initialFilter: Document[];
   isChangeStream: boolean;
   context: DecodingContext;
 }
+
+/**
+ * What a query answers: the server's rows, one value of them or a count, or the ids an insert wrote,
+ * which are the caller's own values.
+ */
+export type QueryAnswer = BsonValue | unknown[];
 
 /**
  * The aggregation pipeline of one stream: its state, how it runs, and the stages that filter,
@@ -34,7 +41,7 @@ export class PipelineCore {
   public readonly context: DecodingContext;
   public resultType = "stream";
 
-  private cursor?: AggregationCursor;
+  private cursor?: AggregationCursor<Document>;
   protected options: AggregateOptions = {};
   private isClosed = false;
 
@@ -57,8 +64,8 @@ export class PipelineCore {
    */
   public inCompoundObject = false;
 
-  public readonly initialFilter: any[];
-  public readonly pipeline: any[];
+  public readonly initialFilter: Document[];
+  public readonly pipeline: Document[];
 
   public constructor(source: PipelineSource) {
     this.schemaId = source.schemaId;
@@ -87,14 +94,25 @@ export class PipelineCore {
     }
   }
 
-  public async run(): Promise<any> {
+  public async run(): Promise<QueryAnswer> {
+    return this.readRows();
+  }
+
+  /** The value a row of the pipeline holds: its wrapped field, or the whole row. */
+  protected rowValue(row: Document): BsonValue {
+    // oxlint-disable-next-line typescript/no-unsafe-return -- row is a driver Document, so row[wrappedObject] is the any of mongodb's Document type; the pipeline stores the value under wrappedObject, and naming that type through aggregate<T> or a typed local would only assert it
+    return this.wrappedObject ? row[this.wrappedObject] : row;
+  }
+
+  /** The values of the pipeline's rows, or its one element. */
+  protected async readRows(): Promise<BsonValue> {
     const collection = await GetCollection(this.collection);
-    let result = await collection
+    const rows = await collection
       .aggregate(this.pipeline, this.options)
       .toArray();
-    if (this.wrappedObject) {
-      const wrappedObject = this.wrappedObject;
-      result = result.map((element: any) => element[wrappedObject]);
+    const result: BsonValue[] = [];
+    for (const element of rows) {
+      result.push(this.rowValue(element));
     }
     if (this.singleElement) {
       return result.length > 0 ? result[0] : this.reductionDefault;
@@ -118,6 +136,18 @@ export class PipelineCore {
   }
 
   public async readCursor() {
+    const change = await this.nextRow();
+    if (change === null) {
+      return null;
+    }
+    if (this.isChangeStream) {
+      return ToChangeEvent(change);
+    }
+    return this.rowValue(change);
+  }
+
+  /** The cursor's next row, or `null` past the last one or once closed. */
+  protected async nextRow(): Promise<Document | null> {
     if (!this.cursor) {
       const collection = await GetCollection(this.collection);
       if (this.isClosed) {
@@ -125,11 +155,7 @@ export class PipelineCore {
       }
       this.cursor = collection.aggregate(this.pipeline, this.options);
     }
-    const change = await this.cursor.next();
-    if (this.isChangeStream) {
-      return ToChangeEvent(change);
-    }
-    return this.wrappedObject ? change[this.wrappedObject] : change;
+    return this.cursor.next();
   }
 
   public async closeCursor() {
@@ -174,7 +200,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected async stage_filter(stage: QueryStage) {
+  protected async stage_filter(stage: QueryStage<"filter">) {
     const filterRoot = this.isChangeStream ? "$fullDocument" : this.getRoot();
     const filterResult = await DecodeFunction(stage.args[0], this.context, [
       filterRoot,
@@ -185,8 +211,8 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_pluck(stage: QueryStage) {
-    const pluckObject: any = {};
+  protected stage_pluck(stage: QueryStage<"pluck">) {
+    const pluckObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       pluckObject[this.getField(field)] = 1;
     }
@@ -222,8 +248,8 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_without(stage: QueryStage) {
-    const withoutObject: any = {};
+  protected stage_without(stage: QueryStage<"without">) {
+    const withoutObject: Record<string, number> = {};
     for (const field of stage.args[0]) {
       withoutObject[this.getField(field)] = 0;
     }
@@ -242,11 +268,11 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_orderBy(stage: QueryStage) {
+  protected stage_orderBy(stage: QueryStage<"orderBy">) {
     assert(!this.isChangeStream, "OrderBy not supported in change streams");
     const index = this.resolveQueriedIndex(stage.options.index);
     const direction = stage.options.direction === "desc" ? -1 : 1;
-    const fields = index.fields.map((field) => [
+    const fields = index.fields.map((field): [string, number] => [
       this.getField(field),
       direction,
     ]);
@@ -256,7 +282,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected async stage_slice(stage: QueryStage) {
+  protected async stage_slice(stage: QueryStage<"slice">) {
     const offset = await DecodeValue(stage.args[0], this.context);
     if (offset !== 0) {
       this.pipeline.push({ $skip: offset });
@@ -268,12 +294,12 @@ export class PipelineCore {
     }
   }
 
-  protected async stage_nth(stage: QueryStage) {
+  protected async stage_nth(stage: QueryStage<"nth">) {
     this.singleElement = true;
     return this.stage_slice({ stage: "slice", args: [stage.args[0], 1] });
   }
 
-  protected stage_count(stage: QueryStage) {
+  protected stage_count(stage: QueryStage<"count">) {
     this.singleElement = true;
     this.reductionDefault = 0;
     if (stage.options.field) {
@@ -302,7 +328,7 @@ export class PipelineCore {
     }
   }
 
-  protected stage_sum(stage: QueryStage) {
+  protected stage_sum(stage: QueryStage<"sum">) {
     this.singleElement = true;
     this.reductionDefault = 0;
     assert(stage.options.field || this.wrappedObject);
@@ -316,7 +342,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_avg(stage: QueryStage) {
+  protected stage_avg(stage: QueryStage<"avg">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -329,7 +355,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_min(stage: QueryStage) {
+  protected stage_min(stage: QueryStage<"min">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -342,7 +368,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_max(stage: QueryStage) {
+  protected stage_max(stage: QueryStage<"max">) {
     this.singleElement = true;
     assert(stage.options.field || this.wrappedObject);
     const field = this.getField(stage.options.field);
@@ -355,7 +381,7 @@ export class PipelineCore {
     return this;
   }
 
-  protected stage_distinct(stage: QueryStage) {
+  protected stage_distinct(stage: QueryStage<"distinct">) {
     const field = this.getField(stage.options.field);
     const wrapped = this.makeWrapped();
     this.pipeline.push({

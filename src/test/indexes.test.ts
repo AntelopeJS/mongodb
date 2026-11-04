@@ -99,7 +99,9 @@ async function indexKeysByName(
 ): Promise<Record<string, Document>> {
   const collection = await peopleCollection(schemaId);
   const indexes = await collection.indexes();
-  return Object.fromEntries(indexes.map((index) => [index.name, index.key]));
+  return Object.fromEntries(
+    indexes.map((index): [string, Document] => [String(index.name), index.key]),
+  );
 }
 
 function isPlanNode(value: unknown): value is Document {

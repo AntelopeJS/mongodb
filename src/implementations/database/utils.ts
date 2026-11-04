@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
 import { generate as randomstring } from "randomstring";
-import type { StagedObject } from "@antelopejs/interface-database/common";
+import type { QueryStage } from "@antelopejs/interface-database/common";
 import type { InstanceId } from "@antelopejs/interface-database/schema";
 
 export const INSTANCE_FIELD = "_instance";
@@ -42,12 +42,37 @@ export function isDocument<Value>(value: Value): value is Value & Document {
   return typeof value === "object" && value !== null;
 }
 
-/** Tells whether `key` names a property of `table`, own or inherited, as the `in` operator does. */
+/**
+ * Tells whether `table` has the stage handler `key`, a method of its class or a field of its own.
+ * The `stage_` prefix keeps the `Object.prototype` members out of the answer.
+ */
 export function hasKey<Table extends object>(
   table: Table,
-  key: PropertyKey,
-): key is keyof Table {
+  key: `stage_${string}`,
+): key is Extract<keyof Table, `stage_${string}`> {
   return key in table;
+}
+
+/**
+ * The `id` option a stage records, read as `stage?.options?.id` reads it, whatever
+ * the stage's name: the schema, instance, table and instance lifecycle stages
+ * record one.
+ */
+export function StageId(stage: QueryStage | undefined): InstanceId | undefined {
+  const options = stage?.options;
+  return isObjectOrNull(options) && options !== null && "id" in options
+    ? options.id
+    : undefined;
+}
+
+/**
+ * Tells whether an `update` argument records a function of the row rather than a document: an
+ * object whose `stage` reads "func", which is how the adapter tells them apart.
+ */
+export function IsUpdateFunction(
+  value: QueryStage<"update">["args"][0],
+): value is QueryStage<"func"> {
+  return value instanceof Object && "stage" in value && value.stage === "func";
 }
 
 export function normalizeInstanceId(
@@ -62,14 +87,17 @@ export function normalizeInstanceId(
   return id;
 }
 
-export function DefaultExpression(data: any, def: any) {
+export function DefaultExpression(data: string | Document, def: any) {
   if (def) {
     return { $ifNull: [data, def] };
   }
   return data;
 }
 
-export function DefaultConstant(data: any, def: any) {
+export function DefaultConstant(
+  data: string | Document,
+  def: QueryStage<"key">["args"][1],
+) {
   return DefaultExpression(data, def && { $literal: def });
 }
 
@@ -77,7 +105,19 @@ export function Temporary(name?: string) {
   return `temporary_${name ? `${name}_` : ""}${randomstring({ capitalization: "lowercase", length: 16 })}`;
 }
 
-export type QueryStage = StagedObject["stages"][number];
+export type { QueryStage };
+
+/** An operand as `DecodeValue` answers it: a literal, or an aggregation expression. */
+export type DecodedOperand =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | Date
+  | Document
+  | DecodedOperand[];
 
 export type ArgumentProvider = (
   subQuery: QueryStage[],
@@ -90,14 +130,14 @@ function isArgumentProvider(
 }
 
 export class DecodingContext {
-  public args: Record<string, ArgumentProvider | string> = {};
+  public args: Record<number, ArgumentProvider | string> = {};
   public subquery?: ArgumentProvider;
   /**
    * The array expression each `$map` variable (`$$var`) iterates, typed as the `source` an
    * `ArrayLookup` takes. A `$lookup` pipeline cannot read `$map` variables, so a join keyed on one
    * is planned from this source instead.
    */
-  public mapVarSources: Record<string, Document[keyof Document]> = {};
+  public mapVarSources = new Map<string, DecodedOperand>();
 
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {
@@ -133,7 +173,11 @@ export class DecodingContext {
         return remapString(value);
       }
       if (isDocument(value) && "$first" in value) {
-        return { $first: remapValue(value.$first) };
+        const inner: unknown = value.$first;
+        return {
+          $first:
+            isString(inner) || isDocument(inner) ? remapValue(inner) : inner,
+        };
       }
       return value;
     };
@@ -141,15 +185,15 @@ export class DecodingContext {
     const newContext = new DecodingContext();
     for (const [id, arg] of Object.entries(this.args)) {
       if (isArgumentProvider(arg)) {
-        newContext.args[id] = async (subQuery: QueryStage[]) => {
+        newContext.args[Number(id)] = async (subQuery: QueryStage[]) => {
           const result = await arg(subQuery);
           return remapValue(result);
         };
       } else {
-        newContext.args[id] = remapString(arg);
+        newContext.args[Number(id)] = remapString(arg);
       }
     }
-    newContext.mapVarSources = { ...this.mapVarSources };
+    newContext.mapVarSources = new Map(this.mapVarSources);
     return newContext;
   }
 }
