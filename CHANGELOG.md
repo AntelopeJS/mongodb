@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.6.2
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.1...v1.6.2)
+
+### 🏡 Chore
+
+- Land the cleanup campaign on main ([#105](https://github.com/AntelopeJS/mongodb/pull/105))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.6.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.0...v1.6.1)
