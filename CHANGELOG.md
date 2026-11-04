@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.6.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.0...v1.6.1)
+
+### 💅 Refactors
+
+- Clear the residual ratchet findings ([#67](https://github.com/AntelopeJS/mongodb/pull/67))
+
+### 📖 Documentation
+
+- **readme:** Sync the compatibility table and list PostgreSQL ([#92](https://github.com/AntelopeJS/mongodb/pull/92))
+- **readme:** Use one Discord invite ([#90](https://github.com/AntelopeJS/mongodb/pull/90))
+- **github:** Send questions and ideas to Discord ([#96](https://github.com/AntelopeJS/mongodb/pull/96))
+- **readme:** Link the package to AntelopeJS and AntelopeJS DMS ([cc4fac9](https://github.com/AntelopeJS/mongodb/commit/cc4fac9))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs/tooling-configs to 0.2.17 ([#69](https://github.com/AntelopeJS/mongodb/pull/69))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.6.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.5.1...v1.6.0)
