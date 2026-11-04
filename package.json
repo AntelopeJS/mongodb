@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
-    "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz",
+    "@antelopejs/interface-database": ">=0.3.0 <0.4.0",
     "@antelopejs/interface-database-catalog": ">=0.0.3 <0.1.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@antelopejs/core": "^1.16.0",
-    "@antelopejs/tooling-configs": "file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz",
+    "@antelopejs/tooling-configs": "^0.2.18",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.15",
@@ -82,12 +82,6 @@
     "@antelopejs/interface-mongodb": ">=0.0.6 <1.0.0"
   },
   "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "overrides": {
-      "@antelopejs/interface-database": "file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz",
-      "@antelopejs/tooling-configs": "file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz"
-    }
-  },
   "antelopeJs": {
     "implements": [
       "@antelopejs/interface-database",

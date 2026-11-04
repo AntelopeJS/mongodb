@@ -4,10 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@antelopejs/interface-database': file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz
-  '@antelopejs/tooling-configs': file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz
-
 importers:
 
   .:
@@ -16,8 +12,8 @@ importers:
         specifier: '>=0.2.4 <1.0.0'
         version: 0.2.4
       '@antelopejs/interface-database':
-        specifier: file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz
-        version: file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz(@antelopejs/interface-core@0.2.4)
+        specifier: '>=0.3.0 <0.4.0'
+        version: 0.3.0(@antelopejs/interface-core@0.2.4)
       '@antelopejs/interface-database-catalog':
         specifier: '>=0.0.3 <0.1.0'
         version: 0.0.3(@antelopejs/interface-core@0.2.4)
@@ -41,8 +37,8 @@ importers:
         specifier: ^1.16.0
         version: 1.16.0
       '@antelopejs/tooling-configs':
-        specifier: file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz
-        version: file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
+        specifier: ^0.2.18
+        version: 0.2.18(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
       '@types/chai':
         specifier: ^4.3.20
         version: 4.3.20
@@ -117,18 +113,16 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
-  '@antelopejs/interface-database@file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz':
-    resolution: {integrity: sha512-rn+0+nTMBje0Wo4Ysg5/HGm/gqreLSyMkuXrsKF+2kAxrNx+5WEzmJHqy3CwJ1SOZr65lb3Yhb/M3CrmXCVYqQ==, tarball: file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz}
-    version: 0.3.0
+  '@antelopejs/interface-database@0.3.0':
+    resolution: {integrity: sha512-sPs/EROiuRgFr8r3SGrvO+9b8ZzBNkuwanN3rZbMfLQyQQ42CnULLkLG2JjE9/tRnbvGjgebJlU/VxhGrHBaoA==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.2.4 <1.0.0'
 
   '@antelopejs/interface-mongodb@0.0.6':
     resolution: {integrity: sha512-jNb6fVIMQFFTkUnaY4KrSdA5JknmUCpnjIMC6/GuN8wEoUbo/LBZGq7q1Kz1IGcNpiByRbWHvDVW9J693i1kFw==}
 
-  '@antelopejs/tooling-configs@file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz':
-    resolution: {integrity: sha512-QfhlLga353+OolT4PpYHawrSwecx+FmHg0AR3bxEF/R4t2ea6l87n2IAiNcjnLDQQlv2SfWaBhaszDkH8AnmWQ==, tarball: file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz}
-    version: 0.2.17
+  '@antelopejs/tooling-configs@0.2.18':
+    resolution: {integrity: sha512-bLZ5u4GQUdatgN0+9tJjwv2WXUBApPslgBKb3h98GYK34U1Potxrv5VVldLwmx54+Ldu8EPOp4PShLZqw+SkJw==}
     engines: {node: '>=22.18.0'}
     hasBin: true
     peerDependencies:
@@ -2871,7 +2865,7 @@ snapshots:
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
-  '@antelopejs/interface-database@file:.campaign/tgz/antelopejs-interface-database-724ff72.tgz(@antelopejs/interface-core@0.2.4)':
+  '@antelopejs/interface-database@0.3.0(@antelopejs/interface-core@0.2.4)':
     dependencies:
       '@antelopejs/interface-core': 0.2.4
 
@@ -2888,7 +2882,7 @@ snapshots:
       - socks
     optional: true
 
-  '@antelopejs/tooling-configs@file:.campaign/tgz/antelopejs-tooling-configs-6b759e6.tgz(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
+  '@antelopejs/tooling-configs@0.2.18(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
     dependencies:
       '@oxlint/plugins': 1.81.0
       dts-bundle-generator: 9.5.1
