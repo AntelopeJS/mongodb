@@ -9,6 +9,8 @@
 
 The MongoDB backend of AntelopeJS: it runs the database interface's queries on MongoDB with the official [`mongodb`](https://github.com/mongodb/node-mongodb-native) driver, and exposes that client to modules that need it directly.
 
+Part of [AntelopeJS](https://github.com/AntelopeJS/antelopejs). Used by [AntelopeJS DMS](https://github.com/AntelopeJS/dms), the open-source back office for your PostgreSQL, MongoDB or RethinkDB database.
+
 ## Interfaces
 
 | Interface                                                                                            | Documentation                                                          |
