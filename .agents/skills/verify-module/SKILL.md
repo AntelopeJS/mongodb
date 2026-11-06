@@ -1,6 +1,6 @@
 ---
 name: verify-module
-description: "Drive this AntelopeJS implementation module the way an app developer does: install it as `local` in a fixture project, run its backing services in Docker on free ports, call its interfaces from a consumer module and read stored state back with the service's native client. Use to prove a change to the module works before merge, to verify a PR, or to check that a seeded break is caught."
+description: "Drive this AntelopeJS implementation module the way an app developer does: install it as `local` in a fixture project, run its backing services in Docker on free ports, call its interfaces from a consumer module and read stored state back with the service's native client. Use to prove a change to the module works before merge, or to verify a PR."
 ---
 
 # Verify module
@@ -51,27 +51,26 @@ pnpm exec antelopejs-verify clean <run>
 ## The repository's own layer
 
 - `verify.config.ts` default-exports a `VerifyConfig` from `@antelopejs/tooling-configs/verify`:
-  - `doors`: one entry per door kind (`data`, `format`, `contract`, `outbound`, `exposure`, `publish`), each `null` when it cannot apply or `{ globs, funnels, containments, why }`. `containments` names the `feature/journey` journeys that contain a Data or Format door. Each must fail with that kind's seeded door applied and pass without it: write the journey so one of its checks reads the state the door corrupts.
-  - `journeys`: the repository's journeys by id, each `{ title, entryPoint, run(context) }`, using the check helpers the same import exports. A check states what the product must do; an environment that went away is never a failing check. When a journey fails, the harness reruns each service's readiness command, up to four times over about 3.5 s, and looks at every `ajs project dev` the journey started, its own readiness probe included. The journey ends NOT VERIFIED, not FAIL, when a service still fails every rerun, an app was killed by SIGKILL, SIGTERM, SIGHUP or SIGINT that the harness did not send, or the app the harness started failed to bind the port the harness gave it (`EADDRINUSE` naming that port). An app that exits on its own with an exit code, one that crashes by another signal such as SIGABRT or SIGSEGV, and one that logs `EADDRINUSE` for any other port are the product's failure. A break that takes its own service down still reads as an outage: the service stays down, so the journey is NOT VERIFIED and `seeded` does not count it. For anything else the journey depends on, such as a process it started with `context.command` or an outside endpoint, probe it when a check fails and call `context.notVerified(reason)` when it no longer answers.
+  - `doors`: one entry per door kind (`data`, `format`, `contract`, `outbound`, `exposure`, `publish`), each `null` when it cannot apply or `{ globs, funnels, why }`.
+  - `journeys`: the repository's journeys by id, each `{ title, entryPoint, run(context) }`, using the check helpers the same import exports. A check states what the product must do; an environment that went away is never a failing check. When a journey fails, the harness reruns each service's readiness command, up to four times over about 3.5 s, and looks at every `ajs project dev` the journey started, its own readiness probe included. The journey ends NOT VERIFIED, not FAIL, when a service still fails every rerun, an app was killed by SIGKILL, SIGTERM, SIGHUP or SIGINT that the harness did not send, or the app the harness started failed to bind the port the harness gave it (`EADDRINUSE` naming that port). An app that exits on its own with an exit code, one that crashes by another signal such as SIGABRT or SIGSEGV, and one that logs `EADDRINUSE` for any other port are the product's failure. A change that takes its own service down still reads as an outage: the service stays down, so the journey is NOT VERIFIED. For anything else the journey depends on, such as a process it started with `context.command` or an outside endpoint, probe it when a check fails and call `context.notVerified(reason)` when it no longer answers.
   - `env`, `setup` (commands replacing the build), `userFacing` (globs replacing the kind's default) and `formal` (formal checks: `name`, `covers`, `command`, `violation`, and optionally `behaviour` and `baseCommand`).
 - `services`: image, port, readiness command and a `reset` command run before every journey, so each starts from a clean state.
 - `moduleConfig(services)`: the module's configuration, pointing at the run's containers.
 - `saas: { env, sandbox }`: a SaaS module runs against the provider's sandbox with keys from these environment variables. Without every key, each journey is NOT VERIFIED and so is the verdict, never PASS or PASS+NOTES.
 - `journeys`: the module's own journeys. Each writes through the module with `context.call(...)` and reads the result back with `context.native(...)` (`redis-cli`, `mongosh`, `psql`, the Mailpit API) inside the service container.
+- `features/README.md`: the index of the features; `map` does not read it as a feature.
 - `features/<feature>.md`: frontmatter lists `covers:` (source globs), `docs:` (pages a verdict judges) and `journeys:`, then the sections Sub-features, How to get to it (user POV), Driving it with antelopejs-verify, and Gotchas. `features/smoke.md` covers nothing and runs on every verdict; here it runs `module-dev` and one write read back through the native client.
-- `seeded-breaks/<feature>.patch`: one minimal product bug per feature that its journeys must catch.
-- `seeded-doors/<kind>.patch`: one change per door kind that applies. A Data or Format door's patch must break what its containment journeys check.
 
 ```bash
 pnpm exec antelopejs-verify map
 ```
 
-`map` fails on a user-facing file no feature covers, a feature without journeys, docs or seeded break, an unknown journey, an applicable door kind without its seeded door, and a Data or Format door whose `containments` name no journey a feature registers. `containments` (below) then runs those journeys against the seeded doors.
+`map` fails on a user-facing file no feature covers, a feature without journeys or docs, an unknown journey, and a `verify.config.ts` journey no feature names.
 
 ## Verdict rules
 
 1. **Run every feature whose `covers:` globs the diff touches, plus `smoke`.** `plan` prints that list as `run`.
-2. **An unmapped surface fails the verdict.** A changed user-facing file no feature covers needs a feature entry, its journeys and its seeded break in the same PR.
+2. **An unmapped surface fails the verdict.** A changed user-facing file no feature covers needs a feature entry and its journeys in the same PR.
 3. **Every registered journey of a feature in `run` must have run and passed.** Run whole features. A journey that could not reach the product, or whose environment went away during it, is NOT VERIFIED, and so is the verdict, whatever else passed: never PASS and never PASS+NOTES. Every journey result in the run's evidence counts, also for a feature outside `run`: a failed one fails the verdict, because it shows a `covers:` glob that misses what the diff broke. A NOT VERIFIED one outside `run` is listed under Not verified and caps the result at PASS+NOTES. A journey outside `run` that never ran is not required.
 4. **Docs.** Judge every `docs:` page of a touched feature against what the journeys showed. A stale page fails the verdict.
 5. **Formal checks.** `pnpm exec antelopejs-verify formal <run>` runs every formal check of `verify.config.ts` that covers the diff, or whose own `files` the diff changes, and records it under `evidence/formal/<name>/`. For each one it decides, without judgement, whether the diff changed what the covered code does. `emit` (the default) compares the structure of the covered files' JavaScript on the base and on HEAD: node kinds, names and literal values, leaving out types, comments, formatting, parentheses and `export` keywords. Each use of an imported binding stands for its origin (the resolved module and the imported name), so an import retargeted to another module or alias counts as changed; a function declaration refers to the top-level variables and classes of its own file by file and name, so moving it next to a different variable of the same name counts as changed. Exports are keyed by the origin they export, so a re-export or an `export { f as run }` retargeted to another binding counts as changed. Each file must keep its top-level statements and its side-effect imports in order; function declarations, which are hoisted, may move between covered files with their imports. So a type-only edit, a reformat or a moved function declaration counts as unchanged, while reordering statements or moving any other statement counts as changed. `emit` judges behaviour, not the public surface: exports are the api-diff's job. `probe` runs the check's `behaviour.command` with a worktree of each commit and compares what it prints. Then:
@@ -80,7 +79,7 @@ pnpm exec antelopejs-verify map
    - when the covered behaviour changed, or the diff changed the check's own `files`, `formal` also runs the check on the base (`baseCommand` when set). A rule the base broke counts as fixed only when HEAD reports it passing (`passing`); a rule the base broke that HEAD does not report at all fails the verdict. A change that leaves no violated rule passes.
 
    The decision never reads the check's output, so a model whose rule names stay the same still fails on a changed behaviour. It is conservative: a local rename or an extracted helper counts as changed, and code outside `covers` is invisible to it. `--all` also runs the checks that do not cover the diff, without gating.
-6. **One-way doors.** The section comes right after the result line and is mandatory. `pnpm exec antelopejs-verify doors` prints the `One-way-door:` line of the diff. Every file the path rules flag needs a door row or a false positive with its reason. A Data or Format row names a `containments` journey that passed in this run, and that journey is proven by `pnpm exec antelopejs-verify containments`: it fails with the kind's seeded door applied. A containment that passes with its door contains nothing, so a Data or Format door without one that fails with its door is not contained.
+6. **One-way doors.** The section comes right after the result line and is mandatory. `pnpm exec antelopejs-verify doors` prints the `One-way-door:` line of the diff. Every file the path rules flag needs a door row or a false positive with its reason.
 7. **Result.** FAIL if any rule fails. NOT VERIFIED when any journey of a required feature is NOT VERIFIED, for example a SaaS module run without its sandbox keys, however many other journeys passed. PASS+NOTES when everything required ran and passed but the judgement lists something no journey reached or something the owner should look at. PASS otherwise.
 
 Write your judgement to `<run>/evidence/judgement.json`:
@@ -99,7 +98,7 @@ Write your judgement to `<run>/evidence/judgement.json`:
 }
 ```
 
-A door row is `{ "kind", "location", "irreversible", "containment", "containmentJourney" }`. Then render and publish:
+A door row is `{ "kind", "location", "irreversible", "containment" }`, where `containment` says what limits the damage. Then render and publish:
 
 ```bash
 pnpm exec antelopejs-verify verdict <run> --pr <n>
@@ -110,22 +109,11 @@ pnpm exec antelopejs-verify publish <run> --pr <n>
 
 ## Trust
 
-The skill is not Trusted yet. It becomes Trusted when it catches every seeded break, flags every seeded door, fails every Data and Format containment with its door, passes a shadow run of 10 consecutive agent PRs, and its last maintain pass is newer than the last change to the repository or its `@antelopejs` dependencies and at most 30 days old.
-
-## Seeded breaks and doors
-
-```bash
-pnpm exec antelopejs-verify seeded <feature...>
-pnpm exec antelopejs-verify seeded-doors
-pnpm exec antelopejs-verify containments
-```
-
-`seeded` runs each feature's journeys in a scratch worktree of HEAD without the patch, as the control, and with `seeded-breaks/<feature>.patch` applied. It prints `CAUGHT` only when a journey that passes in the control fails one of its checks with the patch. Journeys failing in the control, failures without a failing check and NOT VERIFIED journeys do not count. A break no journey caught is `NOT VERIFIED` when a journey could not reach the product in either run, for example because a service went away, and `MISSED` otherwise. The command exits 1 on anything but `CAUGHT`. `seeded-doors` prints `FLAGGED` when the path rules flag each patch with its own kind. `containments` runs every Data and Format containment journey in a scratch worktree of HEAD without the door, as the control, and with `seeded-doors/<kind>.patch` applied. It prints `CONTAINED` only when the journey passes in the control and fails one of its checks with the door. `MISSED` means it passes with its door, `UNPROVEN` that it fails in the control or ends without a failing check, and `NO-DOOR` that the kind has no seeded door; the command exits 1 on anything but `CONTAINED`.
+The skill is not Trusted yet. It becomes Trusted when it passes a shadow run of 10 consecutive agent PRs and its last maintain pass is newer than the last change to the repository or its `@antelopejs` dependencies and at most 30 days old.
 
 ## Gotchas
 
 - Every container is the run's own. Never point a journey at a shared instance such as a developer's local database.
 - A sandbox key missing from the environment is a NOT VERIFIED verdict, which sets status `verify` to `error`.
-- A containment journey of a Data or Format door must read back, through the native client, the state that door's seeded patch corrupts. `containments` reports one that still passes with its door as `MISSED`.
 - Runs live under the system temp folder (`TMPDIR`), and the shared caches under `~/.cache/antelopejs-verify`.
 - A repository that outgrows this skill runs `antelopejs-sync --verify custom` and keeps its own `.agents/skills/verify-<repo>/`.
