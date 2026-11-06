@@ -22,12 +22,12 @@ node .agents/skills/formal-query-index-rebuild/check.mjs          # CI bounds
 node .agents/skills/formal-query-index-rebuild/check.mjs --full   # full bounds
 ```
 
-`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. No service is needed. SIGINT and SIGTERM stop the check and remove its scratch folder.
+`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. No service is needed. SIGINT and SIGTERM stop the compile or the check and remove the scratch folder.
 
 | Bounds | Scenarios | Orders per scenario, at most | Orders run | Scenarios cut short | Wall time |
 | --- | --- | --- | --- | --- | --- |
 | CI (default) | 1,000 | 5,000 | 143,048 | 0 | 14 s |
-| Full (`--full`) | 3,000 | 20,000 | 421,956 | 0 | 33 s |
+| Full (`--full`) | 3,000 | 20,000 | 421,956 | 0 | 35 s |
 
 Times are one run each on a shared 16-core machine, `tsc` included. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
 
@@ -51,10 +51,11 @@ A query is superseded when the schema is registered again while the query still 
 | `QueryNeverFails` | A query that is neither superseded nor in flight runs; it is never refused. | A caller gets an error from a schema whose declaration is valid. | holds |
 | `ReadSeesDeclaredIndexes` | Every read of a query that is not in flight is consistent. | A write lands before its unique index exists, or a stale unique index refuses writes the declaration allows. | holds |
 | `SettledMatchesLatest` | Once every step has run, the barrier is open and the collection holds the indexes of the latest registration. | The schema refuses queries until a retry, or keeps the wrong uniqueness for good. | holds |
+| `InFlightReadKeepsUnchangedIndexes` | An in-flight read sees every index that all declarations between the query's issue and its read agree on. | A build drops an index nobody changed, so a query that passed the barrier loses it on every module start. | holds |
 | `SupersededQueryWaits` | A superseded query is not refused. | A query refused for a re-registration it had no part in. | finding F1 |
-| `InFlightReadSeesDeclaredIndexes` | Every read of an in-flight query is consistent. | A query that passed the barrier runs while the replacement build has dropped an index, so a write can land without its unique index. | finding F2 |
+| `InFlightReadSeesDeclaredIndexes` | Every read of an in-flight query is consistent. | A query that passed the barrier runs while the replacement build has dropped an index the new declaration changes, so a write can land without its unique index. | finding F2 |
 
-The read of a query is its `aggregate` or `find` step, so the read rules judge the indexes at the moment the query reaches the database. A finding is judged by its rule name alone, so a finding that gets worse in the same rule stays green: F1 turning into a hang breaks `QuerySettles`, but a different rejection message does not change the result.
+The read of a query is its `aggregate` or `find` step, so the read rules judge the indexes at the moment the query reaches the database. A finding is judged by its rule name alone, so a finding that gets worse in the same rule stays green. The other rules bound each finding: F1 turning into a hang breaks `QuerySettles`, and F2 reaching an index the declarations did not change breaks `InFlightReadKeepsUnchangedIndexes`. A different rejection message, or another changed index dropped in the same window, does not change the result.
 
 ## Findings at 2a777b1
 
@@ -116,5 +117,6 @@ Each scratch change was applied to `src/` in a scratch worktree at the sync comm
 | `ensurePhysicalIndex` returns instead of dropping a same-key index under another name (connection.ts:256) | `BROKEN SettledMatchesLatest` |
 | `StartSchemaInitialization` resolves the old readiness promise before it cancels the task, so waiting queries run during the replacement build | `BROKEN ReadSeesDeclaredIndexes` |
 | `StartSchemaInitialization` drops the old task without rejecting its readiness promise, so waiting queries hang | `BROKEN QuerySettles` |
+| `ensurePhysicalIndex` drops and recreates an index that already serves the declaration (connection.ts:246-248) | `BROKEN InFlightReadKeepsUnchangedIndexes` |
 
 Before the check stopped at the first broken rule, the #61 revert also broke `QueryNeverFails` and `ReadSeesDeclaredIndexes` under the CI bounds. Its counterexample under the full bounds: build 2 and build 3 read the same indexes, build 2 creates `email__i` unique, and build 3, which declares `email` not unique, gets error 86 creating `email__i`. The barrier rejects with `An existing index has the same name as the requested index`, and the collection keeps build 2's indexes. Through the verification skill, `pnpm exec antelopejs-verify formal <run>` on a scratch commit reverting #61 prints `FAIL formal-query-index-rebuild`.

@@ -81,35 +81,63 @@ function wantedIndexes(indexes: Record<string, IndexDefinition>): WantedIndex[] 
   });
 }
 
+function sameIndex(left: WantedIndex, right: WantedIndex): boolean {
+  return keyOf(left.key) === keyOf(right.key) && left.unique === right.unique;
+}
+
 /**
- * What a query on `declaration` would get wrong from `indexes`: a wanted
- * index that is missing, or another index on its key that enforces the
- * other uniqueness.
+ * What a query expecting the `wanted` indexes on `collection` would get
+ * wrong from `indexes`: a wanted index that is missing, or another index on
+ * its key that enforces the other uniqueness.
  */
-function mismatches(
-  indexes: Snapshot,
-  declaration: SchemaDefinition,
-  schemaId: string,
-): string[] {
-  return Object.entries(declaration).flatMap(([tableId, table]) => {
-    const collection = `${schemaId}__${tableId}`;
-    const present = indexes.get(collection);
-    if (!present) {
-      return [`${collection}: no collection`];
+function missing(indexes: Snapshot, collection: string, wanted: WantedIndex[]): string[] {
+  const present = indexes.get(collection);
+  if (!present) {
+    return [`${collection}: no collection`];
+  }
+  return wanted.flatMap((index) => {
+    const sameKey = present.filter((each) => keyOf(each.key) === keyOf(index.key));
+    const kind = `{${keyOf(index.key)}}${index.unique ? " unique" : ""}`;
+    if (!sameKey.some((each) => each.unique === index.unique)) {
+      return [`${collection}: no index ${kind}`];
     }
-    return wantedIndexes(table.indexes).flatMap((wanted) => {
-      const sameKey = present.filter(
-        (index) => keyOf(index.key) === keyOf(wanted.key),
-      );
-      const kind = `{${keyOf(wanted.key)}}${wanted.unique ? " unique" : ""}`;
-      if (!sameKey.some((index) => index.unique === wanted.unique)) {
-        return [`${collection}: no index ${kind}`];
-      }
-      const stale = sameKey.find((index) => index.unique !== wanted.unique);
-      return stale
-        ? [`${collection}: ${stale.name} conflicts with ${kind}`]
-        : [];
-    });
+    const stale = sameKey.find((each) => each.unique !== index.unique);
+    return stale ? [`${collection}: ${stale.name} conflicts with ${kind}`] : [];
+  });
+}
+
+/** What `indexes` gets wrong for a query on `declaration`. */
+function mismatches(indexes: Snapshot, declaration: SchemaDefinition, schemaId: string): string[] {
+  return Object.entries(declaration).flatMap(([tableId, table]) =>
+    missing(indexes, `${schemaId}__${tableId}`, wantedIndexes(table.indexes)),
+  );
+}
+
+/** The declarations made between a query's issue and its read. */
+function declarationsSeen(query: Query, run: Run, read: Read): SchemaDefinition[] {
+  return run.declarations.slice(query.issuedAfter - 1, read.registrations);
+}
+
+/**
+ * What an in-flight read gets wrong about the indexes every declaration
+ * between its issue and its read agrees on: those no build had a reason to
+ * drop.
+ */
+function unchangedProblems(query: Query, run: Run): string[] {
+  const { read } = query;
+  if (!read) {
+    return [];
+  }
+  const [first, ...others] = declarationsSeen(query, run, read);
+  return Object.entries(first ?? {}).flatMap(([tableId, table]) => {
+    const unchanged = wantedIndexes(table.indexes).filter((index) =>
+      others.every((other) =>
+        wantedIndexes(other[tableId]?.indexes ?? {}).some((each) => sameIndex(each, index)),
+      ),
+    );
+    return missing(read.indexes, `${run.schemaId}__${tableId}`, unchanged).map(
+      (problem) => `${query.name} read lost an index no declaration changed: ${problem}`,
+    );
   });
 }
 
@@ -123,7 +151,7 @@ function readProblems(query: Query, run: Run): string[] {
   if (!read) {
     return [];
   }
-  const candidates = run.declarations.slice(query.issuedAfter - 1, read.registrations);
+  const candidates = declarationsSeen(query, run, read);
   const misses = candidates.map((declaration) =>
     mismatches(read.indexes, declaration, run.schemaId),
   );
@@ -152,6 +180,8 @@ export const RULES = {
       .map((query) => `${query.name} ${query.outcome}`),
   ReadSeesDeclaredIndexes: (run) =>
     run.queries.filter((query) => !query.inFlight).flatMap((query) => readProblems(query, run)),
+  InFlightReadKeepsUnchangedIndexes: (run) =>
+    run.queries.filter((query) => query.inFlight).flatMap((query) => unchangedProblems(query, run)),
   InFlightReadSeesDeclaredIndexes: (run) =>
     run.queries.filter((query) => query.inFlight).flatMap((query) => readProblems(query, run)),
   SettledMatchesLatest: (run) => [
