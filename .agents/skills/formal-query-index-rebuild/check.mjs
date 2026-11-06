@@ -3,8 +3,8 @@
  * Compiles this folder with the `src/` it imports into a scratch folder and
  * runs `check.ts` there, passing the arguments through. Exits as the check
  * does: 0 when every rule matches the record in SKILL.md, 1 when a rule
- * changed, 2 when the check could not run. SIGINT and SIGTERM stop the
- * compile or the check and remove the scratch folder.
+ * changed, 2 when the check could not run. SIGINT, SIGTERM and SIGHUP stop
+ * the compile or the check and remove the scratch folder.
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
@@ -42,6 +42,7 @@ function run(/** @type {string} */ command, /** @type {string[]} */ args) {
 
 stopOn("SIGINT", 130);
 stopOn("SIGTERM", 143);
+stopOn("SIGHUP", 129);
 symlinkSync(path.join(root, "node_modules"), path.join(out, "node_modules"), "dir");
 const tsc = path.join(root, "node_modules", ".bin", "tsc");
 const compiled = await run(tsc, ["-p", path.join(skill, "tsconfig.json"), "--outDir", out]);

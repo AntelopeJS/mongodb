@@ -199,7 +199,7 @@ const optionsArb = fc.record({ unique: fc.boolean(), crossInstance: fc.boolean()
  * `mail`, so a later registration can rename an index over the same key;
  * the second is `byOwner`, on `owner` and `email`. Either slot may be empty.
  */
-const declarationArb: fc.Arbitrary<SchemaDefinition> = fc
+const declaredArb: fc.Arbitrary<SchemaDefinition> = fc
   .tuple(
     fc.option(fc.tuple(fc.constantFrom("email", "mail"), optionsArb), { nil: undefined }),
     fc.option(optionsArb, { nil: undefined }),
@@ -215,6 +215,15 @@ const declarationArb: fc.Arbitrary<SchemaDefinition> = fc
     }
     return { [TABLE]: { fields: {}, indexes } };
   });
+
+/**
+ * A declaration with no index, which builds only the `_instance` index, is
+ * drawn often enough that two of them follow each other.
+ */
+const declarationArb: fc.Arbitrary<SchemaDefinition> = fc.oneof(
+  { weight: 1, arbitrary: fc.constant({ [TABLE]: { fields: {}, indexes: {} } }) },
+  { weight: 3, arbitrary: declaredArb },
+);
 
 const actionArb: fc.Arbitrary<Action> = fc.oneof(
   fc.record({ register: declarationArb }),

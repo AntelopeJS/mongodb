@@ -22,18 +22,18 @@ node .agents/skills/formal-query-index-rebuild/check.mjs          # CI bounds
 node .agents/skills/formal-query-index-rebuild/check.mjs --full   # full bounds
 ```
 
-`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. No service is needed. SIGINT and SIGTERM stop the compile or the check and remove the scratch folder.
+`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. No service is needed. SIGINT, SIGTERM and SIGHUP stop the compile or the check and remove the scratch folder.
 
 | Bounds | Scenarios | Orders per scenario, at most | Orders run | Scenarios cut short | Wall time |
 | --- | --- | --- | --- | --- | --- |
-| CI (default) | 1,000 | 5,000 | 143,048 | 0 | 14 s |
-| Full (`--full`) | 3,000 | 20,000 | 421,956 | 0 | 35 s |
+| CI (default) | 1,000 | 5,000 | 114,029 | 0 | 11 s |
+| Full (`--full`) | 3,000 | 20,000 | 365,519 | 0 | 30 s |
 
 Times are one run each on a shared 16-core machine, `tsc` included. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
 
 - Exit 0 means every rule that held still holds, and each finding still breaks.
 - Exit 1 means a rule changed. `BROKEN` names a rule that held and now breaks, followed by the shortest counterexample of the scenario that broke it. `HOLDS` names a finding that no longer breaks. The check stops after the first scenario that breaks a rule outside the findings, so a failing run ends in seconds; the rules it did not get to judge print on a `not judged` line.
-- Exit 2 means the check could not run: `tsc` failed, an argument was not a positive integer, or the check threw.
+- Exit 2 means the check could not run: `tsc` failed, an argument was not a positive integer, or the check crashed before it judged the rules.
 
 A line that names a changed rule matches `^(?:BROKEN|HOLDS) +(\w+)`, and a recorded finding prints as `finding <rule>` with its shortest counterexample. Rules that hold print on the lowercase `holds` line, with the scenarios and orders the run covered.
 
@@ -93,7 +93,7 @@ The sync commit is `2a777b1` on AntelopeJS/mongodb `main`. The covered files las
 
 ## Bounds and what is left out
 
-A pass covers the drawn scenarios under every order of their steps, at the bounds of the table under "Run it". A scenario is one table, `users`, with up to two declared indexes, each absent or present with any `unique` and `crossInstance`: one on `email`, named `email` or `mail` so a later registration can rename an index over the same key, and `byOwner` on `owner` and `email`. The collection starts empty or with the indexes a former declaration built. Then the schema is registered, followed by one to three registrations of it and queries on it (table reads or `listInstances`), in any order. The check leaves out:
+A pass covers the drawn scenarios under every order of their steps, at the bounds of the table under "Run it". A scenario is one table, `users`. A declaration has no index one time in four, which builds only the `_instance` index; otherwise it has up to two declared indexes, each absent or present with any `unique` and `crossInstance`: one on `email`, named `email` or `mail` so a later registration can rename an index over the same key, and `byOwner` on `owner` and `email`. The collection starts empty or with the indexes a former declaration built. Then the schema is registered, followed by one to three registrations of it and queries on it (table reads or `listInstances`), in any order. The check leaves out:
 
 - atomic mutations: `RunQuery` awaits the barrier for them at query.ts:68, then runs them on the separate atomic client, which the check does not fake. Dropping that await passes here; `schema-readiness.test.ts` catches it on a real mongod.
 - what a query returns and writes: the fake holds no documents, so the check judges when a query reaches the database and which indexes it sees, not its result.
@@ -109,14 +109,15 @@ Each scratch change was applied to `src/` in a scratch worktree at the sync comm
 
 | Scratch change in the code | Result, both bounds |
 | --- | --- |
-| Revert #61 (`git revert 23982e7`): the replacement build starts at once | `BROKEN SettledMatchesLatest` |
+| Revert #61 (`git revert 23982e7`): the replacement build starts at once | `BROKEN QueryNeverFails`, `BROKEN ReadSeesDeclaredIndexes`, `BROKEN SettledMatchesLatest` |
 | Remove the barrier of #59: `SchemaInitialized` returns `Promise.resolve()` | `BROKEN ReadSeesDeclaredIndexes` |
 | Drop the `isCurrentTask` check in `handleSuccess`: a superseded build's success opens the new build's barrier | `BROKEN ReadSeesDeclaredIndexes` |
 | Drop the barrier await in `tryHandleLifecycle` (query.ts:63) | `BROKEN ReadSeesDeclaredIndexes` |
 | Drop the barrier await in `SelectionQuery.decode` (selection.ts:123) | `BROKEN ReadSeesDeclaredIndexes` |
-| `ensurePhysicalIndex` returns instead of dropping a same-key index under another name (connection.ts:256) | `BROKEN SettledMatchesLatest` |
+| `ensurePhysicalIndex` returns instead of dropping a same-key index under another name (connection.ts:256) | `BROKEN ReadSeesDeclaredIndexes`, `BROKEN SettledMatchesLatest` |
 | `StartSchemaInitialization` resolves the old readiness promise before it cancels the task, so waiting queries run during the replacement build | `BROKEN ReadSeesDeclaredIndexes` |
 | `StartSchemaInitialization` drops the old task without rejecting its readiness promise, so waiting queries hang | `BROKEN QuerySettles` |
 | `ensurePhysicalIndex` drops and recreates an index that already serves the declaration (connection.ts:246-248) | `BROKEN InFlightReadKeepsUnchangedIndexes` |
+| `ensureInstanceIndex` drops and recreates the `_instance` index it already has (connection.ts:290) | `BROKEN InFlightReadKeepsUnchangedIndexes` |
 
-Before the check stopped at the first broken rule, the #61 revert also broke `QueryNeverFails` and `ReadSeesDeclaredIndexes` under the CI bounds. Its counterexample under the full bounds: build 2 and build 3 read the same indexes, build 2 creates `email__i` unique, and build 3, which declares `email` not unique, gets error 86 creating `email__i`. The barrier rejects with `An existing index has the same name as the requested index`, and the collection keeps build 2's indexes. Through the verification skill, `pnpm exec antelopejs-verify formal <run>` on a scratch commit reverting #61 prints `FAIL formal-query-index-rebuild`.
+The rules a run reports depend on the first scenario that breaks one, so a table row lists what that scenario broke. The #61 revert's counterexample under the CI bounds: build 1 reads the indexes, the schema is registered again with `mail` not unique, build 1 drops `email__i`, build 2 reads the indexes while build 1 runs, build 1 creates `mail__i` unique, and build 2 gets error 86 creating `mail__i`. The barrier rejects with `An existing index has the same name as the requested index`, and the collection keeps build 1's indexes. Through the verification skill, `pnpm exec antelopejs-verify formal <run>` on a scratch commit reverting #61 prints `FAIL formal-query-index-rebuild`.

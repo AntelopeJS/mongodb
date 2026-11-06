@@ -57,6 +57,8 @@ interface Exploration {
 }
 
 let runCount = 0;
+/** Set once the rules are judged, so a crash before that exits as "could not run". */
+let judged = false;
 
 async function barrierState(schemaId: string): Promise<string> {
   const unsettled = "still pending";
@@ -294,8 +296,15 @@ async function main(): Promise<number> {
   if (unjudged.length > 0) {
     console.log(`not judged ${unjudged.join(", ")} (stopped at the first broken rule, ${bounds})`);
   }
+  judged = true;
   return changed ? EXIT.changed : EXIT.ok;
 }
+
+process.on("exit", (code) => {
+  if (code !== EXIT.ok && !judged) {
+    process.exitCode = EXIT.tool;
+  }
+});
 
 main().then(
   (code) => process.exit(code),
