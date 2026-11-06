@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.6.3
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.2...v1.6.3)
+
+### 🩹 Fixes
+
+- **deps:** Update ip-address and uuid to resolve runtime advisories ([#109](https://github.com/AntelopeJS/mongodb/pull/109))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs packages to the 2026-11-06 releases ([#111](https://github.com/AntelopeJS/mongodb/pull/111))
+
+### 🏡 Chore
+
+- **ci:** Remove the weekly mutation caller ([#108](https://github.com/AntelopeJS/mongodb/pull/108))
+
+### ✅ Tests
+
+- **formal:** Check queries against replacement index builds ([#107](https://github.com/AntelopeJS/mongodb/pull/107))
+
+### 🤖 CI
+
+- Call ci-node.yml@v1 ([#110](https://github.com/AntelopeJS/mongodb/pull/110))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.6.2
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.1...v1.6.2)
