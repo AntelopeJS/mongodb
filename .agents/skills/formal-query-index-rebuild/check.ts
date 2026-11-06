@@ -40,6 +40,7 @@ const DEFAULT_SEED = 969;
 /** Rules the code breaks today; SKILL.md records each one. */
 const FINDINGS: ReadonlySet<string> = new Set<keyof typeof RULES>([
   "SupersededQueryWaits",
+  "InFlightReadSeesDeclaredIndexes",
 ]);
 
 interface Options {
@@ -84,12 +85,20 @@ function queryStages(kind: QueryKind, schemaId: string): QueryStage[] {
 function issueQuery(run: Run, database: FakeDatabase, kind: QueryKind): void {
   const query: Query = {
     name: `query ${run.queries.length + 1}`,
-    declaration: run.latest,
+    issuedAfter: run.declarations.length,
+    passedBarrier: false,
     superseded: false,
+    inFlight: false,
     outcome: "waiting",
   };
   run.queries.push(query);
   database.trace.push(`${query.name}: issued, RunQuery ${kind}`);
+  SchemaInitialized(run.schemaId).then(
+    () => {
+      query.passedBarrier = true;
+    },
+    () => undefined,
+  );
   void actor.run(query.name, () =>
     RunQuery(queryStages(kind, run.schemaId)).then(
       () => {
@@ -109,11 +118,13 @@ function register(
   database: FakeDatabase,
   declaration: SchemaDefinition,
 ): void {
-  const name = `build ${run.builds + 1}`;
-  run.builds += 1;
+  run.declarations.push(declaration);
+  database.registrations = run.declarations.length;
+  const name = `build ${run.declarations.length}`;
   database.trace.push(`register ${name}: ${JSON.stringify(declaration)}`);
-  for (const query of run.queries) {
-    query.superseded ||= query.outcome === "waiting";
+  for (const query of run.queries.filter((each) => each.outcome === "waiting")) {
+    query.superseded ||= !query.passedBarrier;
+    query.inFlight ||= query.passedBarrier;
   }
   run.latest = declaration;
   actor.run(name, () => Schemas.register(run.schemaId, declaration));
@@ -131,7 +142,7 @@ async function runScenario(
     schemaId: `s${runCount}`,
     earlier: scenario.earlier,
     latest: scenario.first,
-    builds: 0,
+    declarations: [],
     queries: [],
     barrier: "",
     settled: new Map(),
@@ -222,6 +233,17 @@ async function explore(options: Options): Promise<Exploration> {
   return exploration;
 }
 
+function positiveInteger(flag: string, given: string | undefined, fallback: number): number {
+  if (given === undefined) {
+    return fallback;
+  }
+  const value = Number(given);
+  if (!/^\d+$/.test(given) || !Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${flag} takes a positive integer, got ${given}`);
+  }
+  return value;
+}
+
 function parseOptions(): Options {
   const { values } = parseArgs({
     options: {
@@ -233,9 +255,9 @@ function parseOptions(): Options {
   });
   const bounds = values.full ? BOUNDS.full : BOUNDS.ci;
   return {
-    scenarios: Number(values.scenarios ?? bounds.scenarios),
-    orders: Number(values.orders ?? bounds.orders),
-    seed: Number(values.seed ?? DEFAULT_SEED),
+    scenarios: positiveInteger("--scenarios", values.scenarios, bounds.scenarios),
+    orders: positiveInteger("--orders", values.orders, bounds.orders),
+    seed: positiveInteger("--seed", values.seed, DEFAULT_SEED),
   };
 }
 

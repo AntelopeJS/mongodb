@@ -10,7 +10,7 @@ import type {
   SchemaDefinition,
 } from "@antelopejs/interface-database/schema";
 
-import { keyOf, type Snapshot } from "./fake-mongo";
+import { keyOf, type Read, type Snapshot } from "./fake-mongo";
 
 /** The one table of every scenario. */
 export const TABLE = "users";
@@ -33,10 +33,16 @@ export interface Scenario {
 /** A query on the schema and what became of it. */
 export interface Query {
   name: string;
-  declaration: SchemaDefinition;
+  /** How many registrations came before the query was issued. */
+  issuedAfter: number;
+  /** Whether the readiness promise the query awaits had resolved. */
+  passedBarrier: boolean;
+  /** The schema was registered again while the query waited on the barrier. */
   superseded: boolean;
+  /** The schema was registered again after the query passed the barrier, before it settled. */
+  inFlight: boolean;
   outcome: string;
-  read?: Snapshot;
+  read?: Read;
 }
 
 /** What one run of a scenario under one order left. */
@@ -44,7 +50,8 @@ export interface Run {
   schemaId: string;
   earlier: SchemaDefinition | undefined;
   latest: SchemaDefinition;
-  builds: number;
+  /** Every registration of the run, in order. */
+  declarations: SchemaDefinition[];
   queries: Query[];
   barrier: string;
   settled: Snapshot;
@@ -106,24 +113,47 @@ function mismatches(
   });
 }
 
+/**
+ * What is wrong with a query's read: the indexes it saw must be complete
+ * for one declaration made between its issue and its read. A mix of two
+ * declarations, or one half built, matches none.
+ */
+function readProblems(query: Query, run: Run): string[] {
+  const { read } = query;
+  if (!read) {
+    return [];
+  }
+  const candidates = run.declarations.slice(query.issuedAfter - 1, read.registrations);
+  const misses = candidates.map((declaration) =>
+    mismatches(read.indexes, declaration, run.schemaId),
+  );
+  if (misses.some((problems) => problems.length === 0)) {
+    return [];
+  }
+  const builds = `build ${query.issuedAfter}${read.registrations > query.issuedAfter ? `-${read.registrations}` : ""}`;
+  return (misses.at(-1) ?? []).map(
+    (problem) => `${query.name} read matches no declaration of ${builds}: ${problem}`,
+  );
+}
+
 /** Each rule lists what a run did wrong; an empty list means it held. */
 export const RULES = {
+  QuerySettles: (run) =>
+    run.queries
+      .filter((query) => query.outcome === "waiting")
+      .map((query) => `${query.name} never settled`),
   QueryNeverFails: (run) =>
     run.queries
-      .filter((query) => !query.superseded && query.outcome !== "read")
+      .filter((query) => !query.superseded && !query.inFlight && query.outcome !== "read")
       .map((query) => `${query.name} ${query.outcome}`),
   SupersededQueryWaits: (run) =>
     run.queries
-      .filter((query) => query.superseded && query.outcome !== "read")
+      .filter((query) => query.superseded && query.outcome.startsWith("rejected"))
       .map((query) => `${query.name} ${query.outcome}`),
   ReadSeesDeclaredIndexes: (run) =>
-    run.queries.flatMap((query) =>
-      query.read && !query.superseded
-        ? mismatches(query.read, query.declaration, run.schemaId).map(
-            (problem) => `${query.name} read ${problem}`,
-          )
-        : [],
-    ),
+    run.queries.filter((query) => !query.inFlight).flatMap((query) => readProblems(query, run)),
+  InFlightReadSeesDeclaredIndexes: (run) =>
+    run.queries.filter((query) => query.inFlight).flatMap((query) => readProblems(query, run)),
   SettledMatchesLatest: (run) => [
     ...(run.barrier === "open" ? [] : [`the barrier is ${run.barrier}`]),
     ...mismatches(run.settled, run.latest, run.schemaId).map(

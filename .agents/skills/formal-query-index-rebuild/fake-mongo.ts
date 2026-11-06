@@ -10,7 +10,6 @@ import { MongoServerError } from "mongodb";
 
 const NAMESPACE_NOT_FOUND = 26;
 const INDEX_NOT_FOUND = 27;
-const NAMESPACE_EXISTS = 48;
 const INDEX_OPTIONS_CONFLICT = 85;
 const INDEX_KEY_SPECS_CONFLICT = 86;
 
@@ -23,6 +22,12 @@ export interface PhysicalIndex {
 
 /** The indexes of every collection, by collection name. */
 export type Snapshot = Map<string, PhysicalIndex[]>;
+
+/** The indexes a query saw when it reached the database, and how many registrations had been made by then. */
+export interface Read {
+  indexes: Snapshot;
+  registrations: number;
+}
 
 /** Releases a step when the explorer picks it; `apply` runs it. */
 export type Step = <Result>(label: string, apply: () => Result) => Promise<Result>;
@@ -107,8 +112,10 @@ function indexDocument(index: PhysicalIndex): IndexDocument {
 export class FakeDatabase {
   readonly collections: Snapshot = new Map();
   readonly trace: string[] = [];
-  /** The indexes each actor saw when its query reached the database. */
-  readonly reads = new Map<string, Snapshot>();
+  /** What each actor's query saw when it reached the database. */
+  readonly reads = new Map<string, Read>();
+  /** How many registrations of the schema the scenario has made. */
+  registrations = 0;
   step: Step = (_label, apply) => Promise.resolve().then(apply);
 
   /** Runs a step labelled with its actor and records it in the trace. */
@@ -149,10 +156,9 @@ export class FakeDatabase {
 
   createCollection(name: string): Promise<void> {
     return this.call(`createCollection ${name}`, () => {
-      if (this.collections.has(name)) {
-        throw serverError(NAMESPACE_EXISTS, `Collection ${name} already exists`);
+      if (!this.collections.has(name)) {
+        this.collections.set(name, [primaryKeyIndex()]);
       }
-      this.collections.set(name, [primaryKeyIndex()]);
     });
   }
 
@@ -162,7 +168,10 @@ export class FakeDatabase {
 
   private read(label: string): Promise<never[]> {
     return this.call(label, () => {
-      this.reads.set(actor.getStore() ?? "setup", this.snapshot());
+      this.reads.set(actor.getStore() ?? "setup", {
+        indexes: this.snapshot(),
+        registrations: this.registrations,
+      });
       return [];
     });
   }
@@ -196,7 +205,10 @@ export class FakeDatabase {
       },
       dropIndex: (indexName: string) =>
         this.call(`${name} dropIndex ${indexName}`, () => {
-          const indexes = this.collections.get(name) ?? [];
+          const indexes = this.collections.get(name);
+          if (!indexes) {
+            throw serverError(NAMESPACE_NOT_FOUND, `ns not found ${name}`);
+          }
           const at = indexes.findIndex((index) => index.name === indexName);
           if (at < 0) {
             throw serverError(
