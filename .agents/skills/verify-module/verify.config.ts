@@ -1,0 +1,73 @@
+import type { VerifyConfig } from "@antelopejs/tooling-configs/verify";
+
+const FORMAL_QUERY_INDEX_REBUILD = ".agents/skills/formal-query-index-rebuild";
+
+const config: VerifyConfig = {
+  doors: {
+    data: {
+      globs: [
+        "src/connection.ts",
+        "src/implementations/database/schema.ts",
+        "src/implementations/database/selection.ts",
+        "src/implementations/database/atomic.ts",
+        "src/implementations/database/instances.ts",
+        "src/implementations/database/external-writes.ts",
+      ],
+      funnels: [
+        "src/implementations/database/selection.ts",
+        "src/implementations/database/atomic.ts",
+        "src/implementations/database/external-writes.ts",
+      ],
+      containments: [],
+      why: "these modules create collections, drop and rebuild their indexes, and decide which collection and instance a document is written to: a change that drops the wrong index or stamps the wrong instance leaves a client's database with duplicates or documents an upgrade cannot find",
+    },
+    format: {
+      globs: [
+        "src/implementations/database/indexes.ts",
+        "src/implementations/database/utils.ts",
+      ],
+      funnels: [],
+      containments: [],
+      why: "the `<schema>__<table>` collection names, the `_instance` field, the `<index>__i` index names and the `__antelope_instances` bookkeeping collection are the layout every stored database already has: an upgrade that renames them stops finding what the last release wrote",
+    },
+    contract: {
+      globs: ["package.json", "src/config.ts"],
+      funnels: [],
+      containments: [],
+      why: "the config keys (`url`, `database`, `options`, `mode`, `statementTimeoutMs`, `catalog`) and the interfaces listed under `antelopeJs.implements`",
+    },
+    outbound: null,
+    exposure: null,
+    publish: {
+      globs: [
+        "package.json",
+        ".release-it.json",
+        "changelogen.config.json",
+        ".github/workflows/release.yml",
+      ],
+      funnels: [],
+      containments: [],
+      why: "the package name and release workflow claim @antelopejs/mongodb on npm",
+    },
+  },
+  formal: [
+    {
+      name: "formal-query-index-rebuild",
+      covers: [
+        "src/schema-initialization.ts",
+        "src/connection.ts",
+        "src/implementations/database/schema.ts",
+        "src/implementations/database/query.ts",
+        "src/implementations/database/selection.ts",
+      ],
+      files: [`${FORMAL_QUERY_INDEX_REBUILD}/**`],
+      command: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`, "--full"],
+      baseCommand: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`],
+      violation: /^(?:finding|BROKEN|HOLDS) +(\w+)/gm,
+      passing: /(?<=^holds +(?:\w+, )*)(\w+)(?=,| \()/gm,
+      behaviour: { kind: "emit" },
+    },
+  ],
+};
+
+export default config;
