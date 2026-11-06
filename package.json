@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.2.4 <1.0.0",
-    "@antelopejs/interface-database": ">=0.3.0 <0.4.0",
+    "@antelopejs/interface-database": ">=0.3.1 <0.4.0",
     "@antelopejs/interface-database-catalog": ">=0.0.3 <0.1.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
@@ -57,8 +57,8 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "@antelopejs/core": "^1.16.0",
-    "@antelopejs/tooling-configs": "^0.3.1",
+    "@antelopejs/core": "^1.21.0",
+    "@antelopejs/tooling-configs": "^0.3.3",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.15",
@@ -80,7 +80,7 @@
     "typescript": "^5.9.3"
   },
   "optionalDependencies": {
-    "@antelopejs/interface-mongodb": ">=0.0.6 <1.0.0"
+    "@antelopejs/interface-mongodb": ">=0.0.7 <1.0.0"
   },
   "packageManager": "pnpm@10.33.0",
   "antelopeJs": {
