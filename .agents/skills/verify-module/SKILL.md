@@ -46,7 +46,7 @@ Each step writes `<run>/evidence/<feature>/<journey>/<NN-step>/` with `command.t
 pnpm exec antelopejs-verify clean <run>
 ```
 
-`clean` stops what the run started, by recorded PID and container name, and removes everything but `evidence/` and `run.json`. Run it after every run, failed ones included.
+Each journey deletes its scratch folder and `HOME`, its install included, when it ends: passed, failed or interrupted. Only its evidence stays. `clean` stops what the run started, by recorded PID and container name, and removes everything but `evidence/` and `run.json`. Run it after every run, failed ones included.
 
 ## The repository's own layer
 
@@ -115,5 +115,5 @@ The skill is not Trusted yet. It becomes Trusted when it passes a shadow run of 
 
 - Every container is the run's own. Never point a journey at a shared instance such as a developer's local database.
 - A sandbox key missing from the environment is a NOT VERIFIED verdict, which sets status `verify` to `error`.
-- Runs live under the system temp folder (`TMPDIR`), and the shared caches under `~/.cache/antelopejs-verify`.
+- Runs live under the system temp folder (`TMPDIR`), and the shared caches under `~/.cache/antelopejs-verify`. `new` deletes every run no command touched for 7 days, unless a process it recorded is still alive.
 - A repository that outgrows this skill runs `antelopejs-sync --verify custom` and keeps its own `.agents/skills/verify-<repo>/`.
