@@ -21,6 +21,7 @@ jobs:
       docs-typescript-project: docs/tsconfig.json
       renovate-sync: false
       extra-commands: node .agents/skills/formal-query-index-rebuild/check.mjs
+      test-job: true
 
   checks:
     if: always()
