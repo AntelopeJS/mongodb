@@ -107,6 +107,8 @@ function indexDocument(index: PhysicalIndex): IndexDocument {
 export class FakeDatabase {
   readonly collections: Snapshot = new Map();
   readonly trace: string[] = [];
+  /** The indexes each actor saw when its query reached the database. */
+  readonly reads = new Map<string, Snapshot>();
   step: Step = (_label, apply) => Promise.resolve().then(apply);
 
   /** Runs a step labelled with its actor and records it in the trace. */
@@ -158,8 +160,19 @@ export class FakeDatabase {
     return this.call(`collMod ${command.collMod}`, () => ({ ok: 1 }));
   }
 
+  private read(label: string): Promise<never[]> {
+    return this.call(label, () => {
+      this.reads.set(actor.getStore() ?? "setup", this.snapshot());
+      return [];
+    });
+  }
+
   collection(name: string) {
     return {
+      aggregate: () => ({ toArray: () => this.read(`${name} aggregate`) }),
+      find: () => ({
+        project: () => ({ toArray: () => this.read(`${name} find`) }),
+      }),
       indexes: () =>
         this.call(`${name} indexes`, () => {
           const indexes = this.collections.get(name);

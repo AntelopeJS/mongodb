@@ -12,16 +12,16 @@ import type {
 
 import { keyOf, type Snapshot } from "./fake-mongo";
 
-const TABLE = "users";
+/** The one table of every scenario. */
+export const TABLE = "users";
 const INSTANCE_FIELD = "_instance";
-const INDEX_POOL = {
-  email: undefined,
-  byOwner: ["owner", "email"],
-} satisfies Record<string, string[] | undefined>;
 const MAX_LATER_ACTIONS = 3;
 
+/** A query through `RunQuery`: a read of the table, or the lifecycle stage listing instances. */
+export type QueryKind = "read" | "listInstances";
+
 /** A registration of the schema, or a query on it. */
-export type Action = { register: SchemaDefinition } | { query: true };
+export type Action = { register: SchemaDefinition } | { query: QueryKind };
 
 /** What the explorer runs under every order. */
 export interface Scenario {
@@ -132,26 +132,33 @@ export const RULES = {
   ],
 } satisfies Record<string, (run: Run) => string[]>;
 
-const indexArb = fc.option(
-  fc.record({ unique: fc.boolean(), crossInstance: fc.boolean() }),
-  { nil: undefined },
-);
+const optionsArb = fc.record({ unique: fc.boolean(), crossInstance: fc.boolean() });
 
+/**
+ * Two index slots. The first indexes `email` under the name `email` or
+ * `mail`, so a later registration can rename an index over the same key;
+ * the second is `byOwner`, on `owner` and `email`. Either slot may be empty.
+ */
 const declarationArb: fc.Arbitrary<SchemaDefinition> = fc
-  .tuple(indexArb, indexArb)
-  .map((choices) => {
-    const indexes = Object.entries(INDEX_POOL).flatMap(
-      ([indexId, fields], at): [string, IndexDefinition][] => {
-        const choice = choices[at];
-        return choice ? [[indexId, fields ? { ...choice, fields } : choice]] : [];
-      },
-    );
-    return { [TABLE]: { fields: {}, indexes: Object.fromEntries(indexes) } };
+  .tuple(
+    fc.option(fc.tuple(fc.constantFrom("email", "mail"), optionsArb), { nil: undefined }),
+    fc.option(optionsArb, { nil: undefined }),
+  )
+  .map(([emailSlot, byOwner]) => {
+    const indexes: Record<string, IndexDefinition> = {};
+    if (emailSlot) {
+      const [name, options] = emailSlot;
+      indexes[name] = { ...options, fields: ["email"] };
+    }
+    if (byOwner) {
+      indexes.byOwner = { ...byOwner, fields: ["owner", "email"] };
+    }
+    return { [TABLE]: { fields: {}, indexes } };
   });
 
 const actionArb: fc.Arbitrary<Action> = fc.oneof(
   fc.record({ register: declarationArb }),
-  fc.constant<Action>({ query: true }),
+  fc.record({ query: fc.constantFrom<QueryKind>("read", "listInstances") }),
 );
 
 /** Scenarios: an optional earlier layout, a first registration, then up to three actions. */

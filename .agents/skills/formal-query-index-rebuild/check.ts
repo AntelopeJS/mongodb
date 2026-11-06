@@ -1,7 +1,7 @@
 /**
  * Checks that a query on a schema and the index builds of that schema's
  * registrations never race (see SKILL.md). Drives the real
- * `Schemas.register`, `SchemaInitialized` and `InitializeSchema` of `src/`,
+ * `Schemas.register`, `RunQuery` and `InitializeSchema` of `src/`,
  * compiled with this folder by `check.mjs`, against the in-memory database
  * of `fake-mongo.ts`.
  * fast-check draws the scenarios and `explore.ts` runs each under every
@@ -13,11 +13,21 @@ import fc from "fast-check";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 
 import { Disconnect, InitializeSchema } from "../../../src/connection";
+import { RunQuery } from "../../../src/implementations/database/query";
 import { Schemas } from "../../../src/implementations/database/schema";
+import type { QueryStage } from "../../../src/implementations/database/utils";
 import { SchemaInitialized } from "../../../src/schema-initialization";
 import { exploreOrders, type Schedule } from "./explore";
 import { actor, FakeDatabase } from "./fake-mongo";
-import { type Query, RULES, type Run, type Scenario, scenarioArb } from "./rules";
+import {
+  type Query,
+  type QueryKind,
+  RULES,
+  type Run,
+  type Scenario,
+  scenarioArb,
+  TABLE,
+} from "./rules";
 import { connectFake, server } from "./server";
 
 const EXIT = { ok: 0, changed: 1, tool: 2 };
@@ -58,7 +68,20 @@ async function barrierState(schemaId: string): Promise<string> {
   ]);
 }
 
-function issueQuery(run: Run, database: FakeDatabase): void {
+/** The stages `RunQuery` receives for each kind of query, as the interface builds them. */
+function queryStages(kind: QueryKind, schemaId: string): QueryStage[] {
+  const schema: QueryStage = { stage: "schema", options: { id: schemaId }, args: [] };
+  if (kind === "listInstances") {
+    return [schema, { stage: "listInstances", args: [] }];
+  }
+  return [
+    schema,
+    { stage: "instance", options: { id: "tenant" }, args: [] },
+    { stage: "table", options: { id: TABLE }, args: [] },
+  ];
+}
+
+function issueQuery(run: Run, database: FakeDatabase, kind: QueryKind): void {
   const query: Query = {
     name: `query ${run.queries.length + 1}`,
     declaration: run.latest,
@@ -66,17 +89,18 @@ function issueQuery(run: Run, database: FakeDatabase): void {
     outcome: "waiting",
   };
   run.queries.push(query);
-  database.trace.push(`${query.name}: issued, awaits SchemaInitialized`);
+  database.trace.push(`${query.name}: issued, RunQuery ${kind}`);
   void actor.run(query.name, () =>
-    SchemaInitialized(run.schemaId)
-      .then(() => database.call("read", () => database.snapshot()))
-      .then(
-        (read) => Object.assign(query, { outcome: "read", read }),
-        (error: unknown) =>
-          Object.assign(query, {
-            outcome: `rejected (${error instanceof Error ? error.message : String(error)})`,
-          }),
-      ),
+    RunQuery(queryStages(kind, run.schemaId)).then(
+      () => {
+        const read = database.reads.get(query.name);
+        Object.assign(query, read ? { outcome: "read", read } : { outcome: "answered without a read" });
+      },
+      (error: unknown) =>
+        Object.assign(query, {
+          outcome: `rejected (${error instanceof Error ? error.message : String(error)})`,
+        }),
+    ),
   );
 }
 
@@ -130,7 +154,7 @@ async function runScenario(
       if ("register" in action) {
         register(run, database, action.register);
       } else {
-        issueQuery(run, database);
+        issueQuery(run, database, action.query);
       }
       issue(at + 1);
     });

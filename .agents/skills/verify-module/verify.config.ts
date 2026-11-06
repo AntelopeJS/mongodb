@@ -57,6 +57,8 @@ const config: VerifyConfig = {
         "src/schema-initialization.ts",
         "src/connection.ts",
         "src/implementations/database/schema.ts",
+        "src/implementations/database/query.ts",
+        "src/implementations/database/selection.ts",
       ],
       files: [`${FORMAL_QUERY_INDEX_REBUILD}/**`],
       command: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`, "--full"],
