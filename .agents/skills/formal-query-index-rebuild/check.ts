@@ -1,0 +1,260 @@
+/**
+ * Checks that a query on a schema and the index builds of that schema's
+ * registrations never race (see SKILL.md). Drives the real
+ * `Schemas.register`, `SchemaInitialized` and `InitializeSchema` of `src/`,
+ * compiled with this folder by `check.mjs`, against the in-memory database
+ * of `fake-mongo.ts`.
+ * fast-check draws the scenarios and `explore.ts` runs each under every
+ * order of its steps. Exits 0 when every rule matches the record in
+ * SKILL.md, 1 when a rule changed, and 2 when the check could not run.
+ */
+import { parseArgs } from "node:util";
+import fc from "fast-check";
+import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
+
+import { Disconnect, InitializeSchema } from "../../../src/connection";
+import { Schemas } from "../../../src/implementations/database/schema";
+import { SchemaInitialized } from "../../../src/schema-initialization";
+import { exploreOrders, type Schedule } from "./explore";
+import { actor, FakeDatabase } from "./fake-mongo";
+import { type Query, RULES, type Run, type Scenario, scenarioArb } from "./rules";
+import { connectFake, server } from "./server";
+
+const EXIT = { ok: 0, changed: 1, tool: 2 };
+const BOUNDS = {
+  ci: { scenarios: 1000, orders: 5000 },
+  full: { scenarios: 3000, orders: 20000 },
+};
+const DEFAULT_SEED = 969;
+
+/** Rules the code breaks today; SKILL.md records each one. */
+const FINDINGS: ReadonlySet<string> = new Set<keyof typeof RULES>([
+  "SupersededQueryWaits",
+]);
+
+interface Options {
+  scenarios: number;
+  orders: number;
+  seed: number;
+}
+
+interface Exploration {
+  counterexamples: Map<string, string>;
+  scenarios: number;
+  orders: number;
+  cut: number;
+}
+
+let runCount = 0;
+
+async function barrierState(schemaId: string): Promise<string> {
+  const unsettled = "still pending";
+  return Promise.race([
+    SchemaInitialized(schemaId).then(
+      () => "open",
+      (error: unknown) => `rejected (${String(error)})`,
+    ),
+    new Promise<string>((resolve) => setImmediate(() => resolve(unsettled))),
+  ]);
+}
+
+function issueQuery(run: Run, database: FakeDatabase): void {
+  const query: Query = {
+    name: `query ${run.queries.length + 1}`,
+    declaration: run.latest,
+    superseded: false,
+    outcome: "waiting",
+  };
+  run.queries.push(query);
+  database.trace.push(`${query.name}: issued, awaits SchemaInitialized`);
+  void actor.run(query.name, () =>
+    SchemaInitialized(run.schemaId)
+      .then(() => database.call("read", () => database.snapshot()))
+      .then(
+        (read) => Object.assign(query, { outcome: "read", read }),
+        (error: unknown) =>
+          Object.assign(query, {
+            outcome: `rejected (${error instanceof Error ? error.message : String(error)})`,
+          }),
+      ),
+  );
+}
+
+function register(
+    run: Run,
+  database: FakeDatabase,
+  declaration: SchemaDefinition,
+): void {
+  const name = `build ${run.builds + 1}`;
+  run.builds += 1;
+  database.trace.push(`register ${name}: ${JSON.stringify(declaration)}`);
+  for (const query of run.queries) {
+    query.superseded ||= query.outcome === "waiting";
+  }
+  run.latest = declaration;
+  actor.run(name, () => Schemas.register(run.schemaId, declaration));
+}
+
+/** Runs `scenario` in the order `schedule` picks and returns what it left. */
+async function runScenario(
+    schedule: Schedule,
+  scenario: Scenario,
+): Promise<Run> {
+  runCount += 1;
+  const database = new FakeDatabase();
+  server.database = database;
+  const run: Run = {
+    schemaId: `s${runCount}`,
+    earlier: scenario.earlier,
+    latest: scenario.first,
+    builds: 0,
+    queries: [],
+    barrier: "",
+    settled: new Map(),
+    trace: [],
+  };
+  if (scenario.earlier) {
+    const earlier = scenario.earlier;
+    await actor.run("earlier build", () =>
+      InitializeSchema(run.schemaId, earlier),
+    );
+    database.trace.length = 0;
+  }
+  database.step = (_label, apply) => schedule.step().then(apply);
+  const issue = (at: number): void => {
+    const action = scenario.later[at];
+    if (!action) {
+      return;
+    }
+    void schedule.step().then(() => {
+      if ("register" in action) {
+        register(run, database, action.register);
+      } else {
+        issueQuery(run, database);
+      }
+      issue(at + 1);
+    });
+  };
+  register(run, database, scenario.first);
+  issue(0);
+  await schedule.drain();
+  run.barrier = await barrierState(run.schemaId);
+  run.settled = database.snapshot();
+  run.trace = [...database.trace];
+  Schemas.unregister(run.schemaId);
+  return run;
+}
+
+/** The run's steps in order, with collections named by their table. */
+function describeRun(run: Run, problems: string[], picks: number[]): string {
+  return [
+    `picks [${picks.join(",")}]`,
+    ...(run.earlier ? [`earlier build: ${JSON.stringify(run.earlier)}`] : []),
+    ...run.trace,
+    ...problems.map((problem) => `=> ${problem}`),
+  ]
+    .map((line) => `  ${line.replaceAll(`${run.schemaId}__`, "")}`)
+    .join("\n");
+}
+
+/**
+ * Runs `options.scenarios` scenarios, each under every order of its steps
+ * up to `options.orders`, and keeps for each rule its shortest
+ * counterexample. It stops after the first scenario that breaks a rule
+ * outside `FINDINGS`, since that run fails whatever comes next.
+ */
+async function explore(options: Options): Promise<Exploration> {
+  const exploration: Exploration = {
+    counterexamples: new Map(),
+    scenarios: 0,
+    orders: 0,
+    cut: 0,
+  };
+  const shortest = new Map<string, number>();
+  const scenarios = fc.sample(scenarioArb, {
+    numRuns: options.scenarios,
+    seed: options.seed,
+  });
+  for (const scenario of scenarios) {
+    const explored = await exploreOrders(async (schedule) => {
+      const run = await runScenario(schedule, scenario);
+      for (const [rule, judge] of Object.entries(RULES)) {
+        const problems = judge(run);
+        const length = run.trace.length;
+        if (problems.length > 0 && length < (shortest.get(rule) ?? Infinity)) {
+          shortest.set(rule, length);
+          const picks = schedule.choices.map((choice) => choice.pick);
+          exploration.counterexamples.set(rule, describeRun(run, problems, picks));
+        }
+      }
+    }, options.orders);
+    exploration.orders += explored.orders;
+    exploration.cut += explored.exhausted ? 0 : 1;
+    exploration.scenarios += 1;
+    if ([...exploration.counterexamples.keys()].some((rule) => !FINDINGS.has(rule))) {
+      return exploration;
+    }
+  }
+  return exploration;
+}
+
+function parseOptions(): Options {
+  const { values } = parseArgs({
+    options: {
+      full: { type: "boolean", default: false },
+      scenarios: { type: "string" },
+      orders: { type: "string" },
+      seed: { type: "string" },
+    },
+  });
+  const bounds = values.full ? BOUNDS.full : BOUNDS.ci;
+  return {
+    scenarios: Number(values.scenarios ?? bounds.scenarios),
+    orders: Number(values.orders ?? bounds.orders),
+    seed: Number(values.seed ?? DEFAULT_SEED),
+  };
+}
+
+async function main(): Promise<number> {
+  const options = parseOptions();
+  await connectFake();
+  const { counterexamples, scenarios, orders, cut } = await explore(options);
+  await Disconnect();
+  const complete = scenarios === options.scenarios;
+  const holding: string[] = [];
+  const unjudged: string[] = [];
+  let changed = false;
+  for (const rule of Object.keys(RULES)) {
+    const counterexample = counterexamples.get(rule);
+    const isFinding = FINDINGS.has(rule);
+    if (counterexample === undefined && !complete) {
+      unjudged.push(rule);
+    } else if (counterexample === undefined) {
+      changed ||= isFinding;
+      if (isFinding) {
+        console.log(`HOLDS ${rule}`);
+      } else {
+        holding.push(rule);
+      }
+    } else {
+      changed ||= !isFinding;
+      console.log(`${isFinding ? "finding" : "BROKEN"} ${rule}\n${counterexample}`);
+    }
+  }
+  const bounds = `${scenarios} of ${options.scenarios} scenarios, seed ${options.seed}: ${orders} orders, ${cut} scenarios cut at ${options.orders} orders`;
+  if (holding.length > 0) {
+    console.log(`holds ${holding.join(", ")} (${bounds})`);
+  }
+  if (unjudged.length > 0) {
+    console.log(`not judged ${unjudged.join(", ")} (stopped at the first broken rule, ${bounds})`);
+  }
+  return changed ? EXIT.changed : EXIT.ok;
+}
+
+main().then(
+  (code) => process.exit(code),
+  (error: unknown) => {
+    console.error(error);
+    process.exit(EXIT.tool);
+  },
+);
