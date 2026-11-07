@@ -27,10 +27,10 @@ node .agents/skills/formal-query-index-rebuild/check.mjs --full   # full bounds
 
 | Bounds | Scenarios | Orders per scenario, at most | Orders run | Scenarios cut short | Wall time |
 | --- | --- | --- | --- | --- | --- |
-| CI (default) | 1,000 | 5,000 | 66,775 | 0 | 7 s |
-| Full (`--full`) | 3,000 | 20,000 | 216,100 | 0 | 15 s |
+| CI (default) | 1,000 | 5,000 | 66,775 | 0 | 6 s |
+| Full (`--full`) | 3,000 | 20,000 | 216,100 | 0 | 12 s |
 
-Times are the median of four runs with the default `--jobs` (4) on a shared 16-core machine at a load of 11 to 20, `tsc` included. With `--jobs 1` the same runs took 14 s and 37 s; the four workers spend about a third more CPU time than one thread. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
+Times are the median of four runs with the default `--jobs` (4) on a shared 16-core machine at a load of 16 to 28, `tsc` included. With `--jobs 1` the same runs took 14 s and 32 s; the four workers spend about 15% more CPU time than one thread. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
 
 - Exit 0 means every rule that held still holds, and each finding still breaks.
 - Exit 1 means a rule changed. `BROKEN` names a rule that held and now breaks, followed by the shortest counterexample of the scenario that broke it. `HOLDS` names a finding that no longer breaks. The check stops after the first scenario that breaks a rule outside the findings, so a failing run ends in seconds; the rules it did not get to judge print on a `not judged` line.
