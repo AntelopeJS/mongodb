@@ -263,8 +263,9 @@ async function dropStaleIndexes(
 }
 
 /**
- * Creates the indexes in one round trip. The server refuses the whole batch on
- * error 85, so that case creates them one by one, each tolerating it.
+ * Creates the indexes in one round trip. The server refuses the whole batch
+ * when one index fails, so a failed batch creates them one by one: an error-85
+ * index is tolerated, and the indexes before a failing one stay built.
  */
 async function createIndexesTogether(
   collection: Collection,
@@ -284,7 +285,7 @@ async function createIndexesTogether(
       })),
     );
   } catch (err) {
-    if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
+    if (!(err instanceof MongoServerError)) throw err;
     for (const wanted of wantedIndexes) {
       signal?.throwIfAborted();
       await createIndexIfAbsent(collection, wanted);
@@ -354,15 +355,20 @@ export async function InitializeSchema(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
   const tables = Object.entries(schema)[Symbol.iterator]();
+  let failed = false;
   const work = async () => {
     for (const [tableId, table] of tables) {
+      if (failed) return;
       await initializeTable(
         db,
         collectionName(schemaId, tableId),
         table,
         existingCollections,
         signal,
-      );
+      ).catch((err: unknown) => {
+        failed = true;
+        throw err;
+      });
     }
   };
   const settled = await Promise.allSettled(
