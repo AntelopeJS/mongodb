@@ -11,6 +11,7 @@ The check runs the real code of `src/`, compiled with this folder, against `fake
 
 - `check.mjs` compiles this folder and the `src/` files it imports into a scratch folder with the repository's `tsc`, runs `check.ts` there, and deletes the folder.
 - `check.ts` runs a scenario: it registers the schema, issues the later registrations and queries as steps, and judges each run by the rules.
+- `shards.ts` splits the drawn scenarios across worker threads and merges what they report. Each thread is its own isolate with its own `Schemas` registry and fake server, so scenarios never share state. The merge gives each rule the counterexample of the smallest trace length, the lowest scenario on a tie, and cuts after the first scenario that breaks a rule outside the findings, so the output is the same for any `--jobs`.
 - `rules.ts` holds the scenarios and the rules. `explore.ts` is the order explorer. `fake-mongo.ts` is the database. `server.ts` points `MongoClient.connect` at it, so `Connect` runs unchanged.
 
 ## Run it
@@ -22,14 +23,14 @@ node .agents/skills/formal-query-index-rebuild/check.mjs          # CI bounds
 node .agents/skills/formal-query-index-rebuild/check.mjs --full   # full bounds
 ```
 
-`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. No service is needed. SIGINT, SIGTERM and SIGHUP stop the compile or the check and remove the scratch folder.
+`--scenarios <n>`, `--orders <n>` and `--seed <n>` override the bounds; each takes a positive integer. `--jobs <n>` sets how many worker threads explore the scenarios; it defaults to the number of available cores, at most 4, and `--jobs 1` explores them in the main thread. The printed result does not depend on `--jobs`. No service is needed. SIGINT, SIGTERM and SIGHUP stop the compile or the check, workers included, and remove the scratch folder.
 
 | Bounds | Scenarios | Orders per scenario, at most | Orders run | Scenarios cut short | Wall time |
 | --- | --- | --- | --- | --- | --- |
-| CI (default) | 1,000 | 5,000 | 66,775 | 0 | 11 s |
-| Full (`--full`) | 3,000 | 20,000 | 216,100 | 0 | 30 s |
+| CI (default) | 1,000 | 5,000 | 66,775 | 0 | 6 s |
+| Full (`--full`) | 3,000 | 20,000 | 216,100 | 0 | 12 s |
 
-Times are one run each on a shared 16-core machine, `tsc` included. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
+Times are the median of four runs with the default `--jobs` (4) on a shared 16-core machine at a load of 16 to 28, `tsc` included. With `--jobs 1` the same runs took 14 s and 32 s; the four workers spend about 15% more CPU time than one thread. No scenario reaches the cap at HEAD, so every order of every drawn scenario runs.
 
 - Exit 0 means every rule that held still holds, and each finding still breaks.
 - Exit 1 means a rule changed. `BROKEN` names a rule that held and now breaks, followed by the shortest counterexample of the scenario that broke it. `HOLDS` names a finding that no longer breaks. The check stops after the first scenario that breaks a rule outside the findings, so a failing run ends in seconds; the rules it did not get to judge print on a `not judged` line.

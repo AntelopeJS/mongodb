@@ -8,7 +8,9 @@
  * order of its steps. Exits 0 when every rule matches the record in
  * SKILL.md, 1 when a rule changed, and 2 when the check could not run.
  */
+import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
+import { isMainThread, parentPort } from "node:worker_threads";
 import fc from "fast-check";
 import type { SchemaDefinition } from "@antelopejs/interface-database/schema";
 
@@ -29,6 +31,16 @@ import {
   TABLE,
 } from "./rules";
 import { connectFake, server } from "./server";
+import {
+  type Counterexample,
+  type Exploration,
+  exploreShard,
+  mergeResults,
+  runShards,
+  type ScenarioResult,
+  type Shard,
+  type ShardMessage,
+} from "./shards";
 
 const EXIT = { ok: 0, changed: 1, tool: 2 };
 const BOUNDS = {
@@ -36,6 +48,7 @@ const BOUNDS = {
   full: { scenarios: 3000, orders: 20000 },
 };
 const DEFAULT_SEED = 969;
+const MAX_DEFAULT_JOBS = 4;
 
 /** Rules the code breaks today; SKILL.md records each one. */
 const FINDINGS: ReadonlySet<string> = new Set<keyof typeof RULES>([
@@ -47,17 +60,13 @@ interface Options {
   scenarios: number;
   orders: number;
   seed: number;
+  /** How many threads explore the scenarios; 1 explores them in this thread. */
+  jobs: number;
+  /** The 1-based shard a worker thread explores; only `runShards` passes it. */
+  shard: number | undefined;
 }
 
-interface Exploration {
-  counterexamples: Map<string, string>;
-  scenarios: number;
-  orders: number;
-  cut: number;
-}
-
-let runCount = 0;
-/** Set once the rules are judged, so a crash before that exits as "could not run". */
+/** Set once the rules are judged, so a crash, or an exit with work left pending, before that exits as "could not run". */
 let judged = false;
 
 async function barrierState(schemaId: string): Promise<string> {
@@ -132,16 +141,16 @@ function register(
   actor.run(name, () => Schemas.register(run.schemaId, declaration));
 }
 
-/** Runs `scenario` in the order `schedule` picks and returns what it left. */
+/** Runs `scenario` in the order `schedule` picks, as schema `schemaId`, and returns what it left. */
 async function runScenario(
-    schedule: Schedule,
+  schedule: Schedule,
   scenario: Scenario,
+  schemaId: string,
 ): Promise<Run> {
-  runCount += 1;
   const database = new FakeDatabase();
   server.database = database;
   const run: Run = {
-    schemaId: `s${runCount}`,
+    schemaId,
     earlier: scenario.earlier,
     latest: scenario.first,
     declarations: [],
@@ -195,44 +204,103 @@ function describeRun(run: Run, problems: string[], picks: number[]): string {
 }
 
 /**
- * Runs `options.scenarios` scenarios, each under every order of its steps
- * up to `options.orders`, and keeps for each rule its shortest
- * counterexample. It stops after the first scenario that breaks a rule
- * outside `FINDINGS`, since that run fails whatever comes next.
+ * Draws `options.scenarios` scenarios and returns the function that explores
+ * one of them under every order of its steps up to `options.orders`. It
+ * reports, per rule, the shortest counterexample shorter than any the
+ * returned function reported before, so a thread that explores its
+ * scenarios in index order never reports one the merge would drop. The
+ * schema id of an order depends only on the scenario and the order, so the
+ * printed runs do not depend on how the scenarios are split.
  */
-async function explore(options: Options): Promise<Exploration> {
-  const exploration: Exploration = {
-    counterexamples: new Map(),
-    scenarios: 0,
-    orders: 0,
-    cut: 0,
-  };
-  const shortest = new Map<string, number>();
+function scenarioExplorer(options: Options): (index: number) => Promise<ScenarioResult> {
   const scenarios = fc.sample(scenarioArb, {
     numRuns: options.scenarios,
     seed: options.seed,
   });
-  for (const scenario of scenarios) {
+  const shortest = new Map<string, number>();
+  return async (index) => {
+    const scenario = scenarios[index];
+    if (!scenario) {
+      throw new Error(`scenario ${index} was not drawn`);
+    }
+    const found = new Map<string, Counterexample>();
+    let order = 0;
     const explored = await exploreOrders(async (schedule) => {
-      const run = await runScenario(schedule, scenario);
+      const run = await runScenario(schedule, scenario, `s${index}_${order}`);
+      order += 1;
       for (const [rule, judge] of Object.entries(RULES)) {
         const problems = judge(run);
         const length = run.trace.length;
         if (problems.length > 0 && length < (shortest.get(rule) ?? Infinity)) {
           shortest.set(rule, length);
           const picks = schedule.choices.map((choice) => choice.pick);
-          exploration.counterexamples.set(rule, describeRun(run, problems, picks));
+          found.set(rule, { length, text: describeRun(run, problems, picks) });
         }
       }
     }, options.orders);
-    exploration.orders += explored.orders;
-    exploration.cut += explored.exhausted ? 0 : 1;
-    exploration.scenarios += 1;
-    if ([...exploration.counterexamples.keys()].some((rule) => !FINDINGS.has(rule))) {
-      return exploration;
-    }
+    return {
+      index,
+      orders: explored.orders,
+      exhausted: explored.exhausted,
+      broken: [...found.keys()].some((rule) => !FINDINGS.has(rule)),
+      counterexamples: [...found],
+    };
+  };
+}
+
+/**
+ * Explores `options.scenarios` scenarios, each under every order of its
+ * steps up to `options.orders`, and keeps for each rule its shortest
+ * counterexample. It stops after the first scenario that breaks a rule
+ * outside `FINDINGS`, since that run fails whatever comes next. With more
+ * than one job, worker threads explore the scenarios apart and the merge
+ * returns what one thread exploring them in order would have.
+ */
+async function explore(options: Options): Promise<Exploration> {
+  if (options.jobs === 1) {
+    const results: ScenarioResult[] = [];
+    await connectFake();
+    await exploreShard(
+      options.scenarios,
+      { index: 0, jobs: 1 },
+      scenarioExplorer(options),
+      (result) => results.push(result),
+      () => false,
+    );
+    await Disconnect();
+    return mergeResults(results, options.scenarios);
   }
-  return exploration;
+  const argv = [
+    "--scenarios", String(options.scenarios),
+    "--orders", String(options.orders),
+    "--seed", String(options.seed),
+    "--jobs", String(options.jobs),
+  ];
+  const results = await runShards(__filename, argv, options.jobs);
+  return mergeResults(results, options.scenarios);
+}
+
+/** Explores the scenarios of this worker thread's shard and posts each result to the main thread. */
+async function exploreAsWorker(options: Options, shard: Shard): Promise<void> {
+  let cut = Infinity;
+  parentPort?.on("message", (lowest: number) => {
+    cut = Math.min(cut, lowest);
+  });
+  parentPort?.unref();
+  await connectFake();
+  const explore = scenarioExplorer(options);
+  await exploreShard(
+    options.scenarios,
+    shard,
+    (index) => {
+      parentPort?.postMessage({ started: index } satisfies ShardMessage);
+      return explore(index);
+    },
+    (result) => parentPort?.postMessage(result),
+    (index) => index > cut,
+  );
+  await Disconnect();
+  parentPort?.close();
 }
 
 function positiveInteger(flag: string, given: string | undefined, fallback: number): number {
@@ -253,21 +321,32 @@ function parseOptions(): Options {
       scenarios: { type: "string" },
       orders: { type: "string" },
       seed: { type: "string" },
+      jobs: { type: "string" },
+      shard: { type: "string" },
     },
   });
   const bounds = values.full ? BOUNDS.full : BOUNDS.ci;
+  const scenarios = positiveInteger("--scenarios", values.scenarios, bounds.scenarios);
+  const jobs = positiveInteger(
+    "--jobs",
+    values.jobs,
+    Math.min(availableParallelism(), MAX_DEFAULT_JOBS),
+  );
   return {
-    scenarios: positiveInteger("--scenarios", values.scenarios, bounds.scenarios),
+    scenarios,
     orders: positiveInteger("--orders", values.orders, bounds.orders),
     seed: positiveInteger("--seed", values.seed, DEFAULT_SEED),
+    jobs: Math.min(jobs, scenarios),
+    shard: values.shard === undefined ? undefined : positiveInteger("--shard", values.shard, 1),
   };
 }
 
 async function main(): Promise<number> {
   const options = parseOptions();
-  await connectFake();
+  if (options.shard !== undefined) {
+    throw new Error("--shard is for the worker threads that --jobs starts");
+  }
   const { counterexamples, scenarios, orders, cut } = await explore(options);
-  await Disconnect();
   const complete = scenarios === options.scenarios;
   const holding: string[] = [];
   const unjudged: string[] = [];
@@ -300,16 +379,24 @@ async function main(): Promise<number> {
   return changed ? EXIT.changed : EXIT.ok;
 }
 
-process.on("exit", (code) => {
-  if (code !== EXIT.ok && !judged) {
-    process.exitCode = EXIT.tool;
-  }
-});
-
-main().then(
-  (code) => process.exit(code),
-  (error: unknown) => {
+if (isMainThread) {
+  process.on("exit", () => {
+    if (!judged) {
+      process.exitCode = EXIT.tool;
+    }
+  });
+  main().then(
+    (code) => process.exit(code),
+    (error: unknown) => {
+      console.error(error);
+      process.exit(EXIT.tool);
+    },
+  );
+} else {
+  const options = parseOptions();
+  const index = (options.shard ?? 1) - 1;
+  exploreAsWorker(options, { index, jobs: options.jobs }).catch((error: unknown) => {
     console.error(error);
     process.exit(EXIT.tool);
-  },
-);
+  });
+}
