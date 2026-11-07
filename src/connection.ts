@@ -20,6 +20,7 @@ const BOOKKEEPING_INDEX = "schemaId_instanceId";
 const NAMESPACE_EXISTS_CODE = 48;
 const INDEX_NOT_FOUND_CODE = 27;
 const INDEX_OPTIONS_CONFLICT_CODE = 85;
+const TABLE_CONCURRENCY = 8;
 const COLLECTION_OPTIONS = {
   changeStreamPreAndPostImages: { enabled: true },
 } as const;
@@ -126,6 +127,7 @@ interface PhysicalIndex {
 type ExistingIndex = Awaited<ReturnType<Collection["indexes"]>>[number];
 
 interface ExistingIndexes {
+  all: ExistingIndex[];
   byName: Record<string, ExistingIndex>;
   byFields: Record<string, ExistingIndex>;
 }
@@ -183,6 +185,7 @@ async function listExistingIndexes(
 ): Promise<ExistingIndexes> {
   const existingIndexes = await collection.indexes();
   return {
+    all: existingIndexes,
     byName: Object.fromEntries(
       existingIndexes.map((index): [string, ExistingIndex] => [
         String(index.name),
@@ -234,55 +237,85 @@ function servesWanted(index: ExistingIndex, wanted: PhysicalIndex): boolean {
 
 /**
  * MongoDB keeps one index per key pattern: another index on the wanted fields
- * is dropped for the one with the declared uniqueness.
+ * is dropped for the one with the declared uniqueness. Resolves whether the
+ * wanted index still has to be created.
  */
-async function ensurePhysicalIndex(
+async function dropStaleIndexes(
   collection: Collection,
   wanted: PhysicalIndex,
   existing: ExistingIndexes,
-) {
+): Promise<boolean> {
   const existingByName = existing.byName[wanted.name];
   if (existingByName) {
     if (servesWanted(existingByName, wanted)) {
-      return;
+      return false;
     }
     await dropIndexIfPresent(collection, wanted.name);
   }
   const existingByFields = existing.byFields[fieldsKey(wanted.fields)];
   if (existingByFields && existingByFields.name !== wanted.name) {
     if (servesWanted(existingByFields, wanted)) {
-      return;
+      return false;
     }
     await dropIndexIfPresent(collection, existingByFields.name!);
   }
-  await createIndexIfAbsent(collection, wanted);
+  return true;
+}
+
+/**
+ * Creates the indexes in one round trip. The server refuses the whole batch on
+ * error 85, so that case creates them one by one, each tolerating it.
+ */
+async function createIndexesTogether(
+  collection: Collection,
+  wantedIndexes: PhysicalIndex[],
+  signal?: AbortSignal,
+) {
+  if (wantedIndexes.length === 0) {
+    return;
+  }
+  signal?.throwIfAborted();
+  try {
+    await collection.createIndexes(
+      wantedIndexes.map((wanted) => ({
+        key: new Map(wanted.fields.map((field) => [field, 1 as const])),
+        name: wanted.name,
+        unique: wanted.isUnique,
+      })),
+    );
+  } catch (err) {
+    if (!isServerError(err, INDEX_OPTIONS_CONFLICT_CODE)) throw err;
+    for (const wanted of wantedIndexes) {
+      signal?.throwIfAborted();
+      await createIndexIfAbsent(collection, wanted);
+    }
+  }
 }
 
 async function syncSecondaryIndexes(
   collection: Collection,
   table: TableDefinition,
+  existing: ExistingIndexes,
   signal?: AbortSignal,
 ) {
-  const existing = await listExistingIndexes(collection);
   const wantedIndexes = Object.entries(table.indexes).flatMap(
     ([indexId, index]) => physicalIndexes(indexId, index),
   );
+  const missing: PhysicalIndex[] = [];
   for (const wanted of wantedIndexes) {
     signal?.throwIfAborted();
-    await ensurePhysicalIndex(collection, wanted, existing);
+    if (await dropStaleIndexes(collection, wanted, existing)) {
+      missing.push(wanted);
+    }
   }
+  await createIndexesTogether(collection, missing, signal);
 }
 
 async function ensureInstanceIndex(
   collection: Collection,
-  table: TableDefinition,
+  existing: ExistingIndexes,
 ) {
-  const hasDeclaredIndexes = Object.keys(table.indexes).length > 0;
-  if (hasDeclaredIndexes) {
-    return;
-  }
-  const existingIndexes = await collection.indexes();
-  const hasInstanceIndex = existingIndexes.some(
+  const hasInstanceIndex = existing.all.some(
     (index) =>
       index.name === INSTANCE_INDEX ||
       (Object.keys(index.key).length === 1 && index.key[INSTANCE_FIELD]),
@@ -290,6 +323,25 @@ async function ensureInstanceIndex(
   if (!hasInstanceIndex) {
     await collection.createIndex([INSTANCE_FIELD], { name: INSTANCE_INDEX });
   }
+}
+
+async function initializeTable(
+  db: Db,
+  mongoCollection: string,
+  table: TableDefinition,
+  existingCollections: Set<string>,
+  signal?: AbortSignal,
+) {
+  signal?.throwIfAborted();
+  await ensureCollection(db, mongoCollection, existingCollections);
+  const collection = db.collection(mongoCollection);
+  const existing = await listExistingIndexes(collection);
+  signal?.throwIfAborted();
+  if (Object.keys(table.indexes).length > 0) {
+    await syncSecondaryIndexes(collection, table, existing, signal);
+    return;
+  }
+  await ensureInstanceIndex(collection, existing);
 }
 
 export async function InitializeSchema(
@@ -301,14 +353,23 @@ export async function InitializeSchema(
   const existingCollections = new Set(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
-  for (const [tableId, table] of Object.entries(schema)) {
-    signal?.throwIfAborted();
-    const mongoCollection = collectionName(schemaId, tableId);
-    await ensureCollection(db, mongoCollection, existingCollections);
-    const collection = db.collection(mongoCollection);
-    await syncSecondaryIndexes(collection, table, signal);
-    signal?.throwIfAborted();
-    await ensureInstanceIndex(collection, table);
+  const tables = Object.entries(schema)[Symbol.iterator]();
+  const work = async () => {
+    for (const [tableId, table] of tables) {
+      await initializeTable(
+        db,
+        collectionName(schemaId, tableId),
+        table,
+        existingCollections,
+        signal,
+      );
+    }
+  };
+  const settled = await Promise.allSettled(
+    Array.from({ length: TABLE_CONCURRENCY }, work),
+  );
+  for (const result of settled) {
+    if (result.status === "rejected") throw result.reason;
   }
 }
 
