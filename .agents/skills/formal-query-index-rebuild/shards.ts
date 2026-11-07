@@ -58,49 +58,82 @@ export async function exploreShard(
   }
 }
 
+/** What a worker posts: the scenario it starts, then that scenario's result. */
+export type ShardMessage = { started: number } | ScenarioResult;
+
 /**
  * Starts one worker per shard on `file`, which must explore its shard and
- * post each `ScenarioResult`, and tells every worker the lowest scenario
- * that broke a rule so the others stop early. `argv` is appended to each
- * worker's arguments after `--shard <n>`, 1-based.
+ * post `{ started }` before each scenario and its `ScenarioResult` after,
+ * and tells every worker the lowest scenario that broke a rule so the
+ * others stop early. `argv` is appended to each worker's arguments after
+ * `--shard <n>`, 1-based. A worker that fails stops the others at the
+ * scenario it was exploring; the run fails only when no lower scenario
+ * broke a rule, since exploring in order would not have reached it
+ * otherwise.
  */
 export function runShards(file: string, argv: string[], jobs: number): Promise<ScenarioResult[]> {
   return new Promise((resolve, reject) => {
     const results: ScenarioResult[] = [];
+    const current = Array.from({ length: jobs }, (_, index) => index);
+    const failed = new Set<number>();
+    let failure: Error | undefined;
+    let failedAt = Infinity;
     let cut = Infinity;
     let running = jobs;
     const workers = Array.from(
       { length: jobs },
       (_, index) => new Worker(file, { argv: [...argv, "--shard", String(index + 1)] }),
     );
-    const fail = (error: Error): void => {
-      for (const worker of workers) {
-        void worker.terminate();
+    const stopAfter = (lowest: number): void => {
+      if (lowest < cut) {
+        cut = lowest;
+        for (const worker of workers) {
+          worker.postMessage(cut);
+        }
       }
-      reject(error);
     };
-    for (const worker of workers) {
-      worker.on("message", (result: ScenarioResult) => {
-        results.push(result);
-        if (result.broken && result.index < cut) {
-          cut = result.index;
-          for (const other of workers) {
-            other.postMessage(cut);
-          }
+    const fail = (shard: number, error: Error): void => {
+      if (failed.has(shard)) {
+        return;
+      }
+      failed.add(shard);
+      const at = current[shard] ?? shard;
+      if (at < failedAt) {
+        failedAt = at;
+        failure = error;
+      }
+      stopAfter(at);
+    };
+    const settle = (): void => {
+      const brokeBefore = results.some((result) => result.broken && result.index < failedAt);
+      if (failure && !brokeBefore) {
+        reject(failure);
+        return;
+      }
+      resolve(results);
+    };
+    workers.forEach((worker, shard) => {
+      worker.on("message", (message: ShardMessage) => {
+        if ("started" in message) {
+          current[shard] = message.started;
+          return;
+        }
+        results.push(message);
+        if (message.broken) {
+          stopAfter(message.index);
         }
       });
-      worker.on("error", fail);
+      worker.on("error", (error) => fail(shard, error));
       worker.on("exit", (code) => {
         if (code !== 0) {
-          fail(new Error(`a shard exited with code ${code}`));
-          return;
+          fail(shard, new Error(`a shard exited with code ${code}`));
         }
         running -= 1;
         if (running === 0) {
-          resolve(results);
+          settle();
         }
       });
-    }
+    });
   });
 }
 

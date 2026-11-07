@@ -39,6 +39,7 @@ import {
   runShards,
   type ScenarioResult,
   type Shard,
+  type ShardMessage,
 } from "./shards";
 
 const EXIT = { ok: 0, changed: 1, tool: 2 };
@@ -65,7 +66,7 @@ interface Options {
   shard: number | undefined;
 }
 
-/** Set once the rules are judged, so a crash before that exits as "could not run". */
+/** Set once the rules are judged, so a crash, or an exit with work left pending, before that exits as "could not run". */
 let judged = false;
 
 async function barrierState(schemaId: string): Promise<string> {
@@ -285,11 +286,16 @@ async function exploreAsWorker(options: Options, shard: Shard): Promise<void> {
   parentPort?.on("message", (lowest: number) => {
     cut = Math.min(cut, lowest);
   });
+  parentPort?.unref();
   await connectFake();
+  const explore = scenarioExplorer(options);
   await exploreShard(
     options.scenarios,
     shard,
-    scenarioExplorer(options),
+    (index) => {
+      parentPort?.postMessage({ started: index } satisfies ShardMessage);
+      return explore(index);
+    },
     (result) => parentPort?.postMessage(result),
     (index) => index > cut,
   );
@@ -374,8 +380,8 @@ async function main(): Promise<number> {
 }
 
 if (isMainThread) {
-  process.on("exit", (code) => {
-    if (code !== EXIT.ok && !judged) {
+  process.on("exit", () => {
+    if (!judged) {
       process.exitCode = EXIT.tool;
     }
   });
