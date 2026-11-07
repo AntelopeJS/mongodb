@@ -203,6 +203,27 @@ export class FakeDatabase {
           return wanted.name;
         });
       },
+      createIndexes: (
+        specs: { key: Map<string, number>; name: string; unique?: boolean }[],
+      ) => {
+        const wanted = specs.map((spec) => ({
+          name: spec.name,
+          key: [...spec.key.keys()],
+          unique: spec.unique === true,
+        }));
+        return this.call(
+          `${name} createIndexes ${wanted.map(describeIndex).join(", ")}`,
+          () => {
+            const indexes = this.collections.get(name) ?? [primaryKeyIndex()];
+            const next = indexes.map((index) => ({ ...index }));
+            for (const index of wanted) {
+              createIndex(next, index);
+            }
+            this.collections.set(name, next);
+            return wanted.map((index) => index.name);
+          },
+        );
+      },
       dropIndex: (indexName: string) =>
         this.call(`${name} dropIndex ${indexName}`, () => {
           const indexes = this.collections.get(name);
