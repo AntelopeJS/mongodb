@@ -47,7 +47,7 @@ const BOUNDS = {
   full: { scenarios: 3000, orders: 20000 },
 };
 const DEFAULT_SEED = 969;
-const MAX_DEFAULT_JOBS = 8;
+const MAX_DEFAULT_JOBS = 4;
 
 /** Rules the code breaks today; SKILL.md records each one. */
 const FINDINGS: ReadonlySet<string> = new Set<keyof typeof RULES>([
