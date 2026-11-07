@@ -39,7 +39,7 @@ A line that names a changed rule matches `^(?:BROKEN|HOLDS) +(\w+)`, and a recor
 
 ## When to run it
 
-Run `--full` when a change touches a file under "Coverage record" or this folder. CI runs the CI bounds on every push, through `extra-commands` in `.github/workflows/ci.yml`. The verification skill runs `--full` with `pnpm exec antelopejs-verify formal <run>` when the diff touches a covered file: the `formal` list of `.agents/skills/verify-module/verify.config.ts` names this check.
+Run `--full` when a change touches a file under "Coverage record" or this folder. CI runs the CI bounds on every push, in the `formal` job of `.github/workflows/ci.yml`. The verification skill runs `--full` with `pnpm exec antelopejs-verify formal <run>` when the diff touches a covered file: the `formal` list of `.agents/skills/verify-module/verify.config.ts` names this check.
 
 ## The rules
 
