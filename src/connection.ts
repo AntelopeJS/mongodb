@@ -355,10 +355,10 @@ export async function InitializeSchema(
     (await db.listCollections().toArray()).map((collection) => collection.name),
   );
   const tables = Object.entries(schema)[Symbol.iterator]();
-  let failed = false;
+  const failures: unknown[] = [];
   const work = async () => {
     for (const [tableId, table] of tables) {
-      if (failed) return;
+      if (failures.length > 0) return;
       await initializeTable(
         db,
         collectionName(schemaId, tableId),
@@ -366,17 +366,12 @@ export async function InitializeSchema(
         existingCollections,
         signal,
       ).catch((err: unknown) => {
-        failed = true;
-        throw err;
+        failures.push(err);
       });
     }
   };
-  const settled = await Promise.allSettled(
-    Array.from({ length: TABLE_CONCURRENCY }, work),
-  );
-  for (const result of settled) {
-    if (result.status === "rejected") throw result.reason;
-  }
+  await Promise.all(Array.from({ length: TABLE_CONCURRENCY }, work));
+  if (failures.length > 0) throw failures[0];
 }
 
 export async function EnsureBookkeepingCollection() {

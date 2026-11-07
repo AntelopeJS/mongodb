@@ -85,7 +85,7 @@ Replay a counterexample on `dist/`, built by `pnpm run build`, against a real mo
 | Part of the check | Code |
 | --- | --- |
 | registration | `Schemas.register` (implementations/database/schema.ts:33-42), `StartSchemaInitialization`, `CancelSchemaInitialization` (schema-initialization.ts:54-80) |
-| build | `runAttempt` and `handleSuccess` (schema-initialization.ts:161-207), `InitializeSchema` and its index helpers (connection.ts:183-380) |
+| build | `runAttempt` and `handleSuccess` (schema-initialization.ts:161-207), `InitializeSchema` and its index helpers (connection.ts:183-375) |
 | query | `RunQuery` with a table read and with `listInstances` (implementations/database/query.ts:49-89): the barrier awaits in `tryHandleLifecycle` (query.ts:63) and `SelectionQuery.decode` (implementations/database/selection.ts:123), over `SchemaInitialized` (schema-initialization.ts:91-93) |
 | driver | `Connect` and `GetDatabase` (connection.ts:39-104) over `fake-mongo.ts` |
 

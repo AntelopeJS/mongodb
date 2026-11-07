@@ -20,6 +20,9 @@ const DUPLICATE_KEY_CODE = 11000;
 const MANY_SCHEMA_ID = "initialize-many";
 const MANY_TABLES = 20;
 const failure = new Error("listing failed");
+const ORDER_SCHEMA_ID = "initialize-order";
+const lateFailure = new Error("late listing failure");
+const earlyFailure = new Error("early listing failure");
 const tables: connection.SchemaDefinition = {
   [FAILING_TABLE]: { indexes: {} },
   [SLOW_TABLE]: { indexes: {} },
@@ -127,5 +130,44 @@ describe("InitializeSchema failure", () => {
     );
     expect(error).to.equal(failure);
     expect(created.length).to.be.lessThan(MANY_TABLES);
+  });
+});
+
+describe("InitializeSchema failure order", () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("rejects with the failure that happened first", async () => {
+    const late = collectionName(ORDER_SCHEMA_ID, "late");
+    const listIndexes = sinon.stub(Collection.prototype, "indexes");
+    listIndexes.callsFake(async function (this: Collection) {
+      if (this.collectionName === late) {
+        await delay(SLOW_LISTING_MS);
+        throw lateFailure;
+      }
+      throw earlyFailure;
+    });
+
+    const error = await connection
+      .InitializeSchema(ORDER_SCHEMA_ID, {
+        late: { indexes: {} },
+        early: { indexes: {} },
+      })
+      .then(
+        () => undefined,
+        (rejection: unknown) => rejection,
+      );
+
+    sinon.restore();
+    const db = await connection.GetDatabase();
+    await Promise.all(
+      ["late", "early"].map((tableId) =>
+        db
+          .dropCollection(collectionName(ORDER_SCHEMA_ID, tableId))
+          .catch(() => false),
+      ),
+    );
+    expect(error).to.equal(earlyFailure);
   });
 });
