@@ -31,6 +31,7 @@ import {
 const FIELD_PATH_PREFIX = "$";
 const DEFAULT_SEPARATOR = " ";
 const MAX_DATE_MILLISECONDS = 8.64e15;
+const MILLISECONDS_PER_SECOND = 1000;
 
 type ValueDecoder = (
   value: QueryValue,
@@ -86,6 +87,34 @@ function CondenseValue(
         in: body,
       },
     };
+  };
+}
+
+function IsDate(value: DecodedOperand): Document {
+  return { $eq: [{ $type: value }, "date"] };
+}
+
+function IsFiniteNumber(value: DecodedOperand): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * A number operand of `add` or `sub` in the unit `$add` and `$subtract` read on `receiver`: the
+ * contract gives seconds on a date, which the server reads as milliseconds, and the number as sent
+ * on any other receiver. A constant is scaled here, so the server never multiplies a constant it
+ * could evaluate ahead of the `$cond`.
+ */
+function SecondsOnDate(receiver: DecodedOperand, operand: DecodedOperand) {
+  if (IsFiniteNumber(operand)) {
+    return {
+      $cond: [IsDate(receiver), operand * MILLISECONDS_PER_SECOND, operand],
+    };
+  }
+  return {
+    $multiply: [
+      operand,
+      { $cond: [IsDate(receiver), MILLISECONDS_PER_SECOND, 1] },
+    ],
   };
 }
 
@@ -190,11 +219,15 @@ class Expression {
       return { $add: [this.value] };
     }
     for (const operand of operands) {
-      this.value = Number.isFinite(operand)
-        ? { $add: [this.value, operand] }
+      this.value = IsFiniteNumber(operand)
+        ? this.addNumber(operand)
         : this.addByReceiver(operand);
     }
     return this.value;
+  }
+  @CondenseValue
+  addNumber(operand: number) {
+    return { $add: [this.value, SecondsOnDate(this.value, operand)] };
   }
   /**
    * `$add` reads numbers and dates only, and an expression's type is known only to the server, so
@@ -212,17 +245,46 @@ class Expression {
           $cond: [
             { $isArray: [this.value] },
             { $concatArrays: [this.value, operand] },
-            { $add: [this.value, operand] },
+            { $add: [this.value, SecondsOnDate(this.value, operand)] },
           ],
         },
       ],
     };
   }
-  stage_sub = "$subtract";
+  /**
+   * A date less a date answers the seconds between them, and a date less a number goes back that
+   * many seconds. A constant date takes only the first form: the server would refuse to multiply it
+   * ahead of the `$cond`.
+   */
+  @CondenseValue
+  stage_sub(operand: DecodedOperand) {
+    const between = (other: DecodedOperand) => ({
+      $divide: [{ $subtract: [this.value, other] }, MILLISECONDS_PER_SECOND],
+    });
+    if (operand instanceof Date) {
+      return between(operand);
+    }
+    const back = (other: DecodedOperand) => ({
+      $subtract: [this.value, SecondsOnDate(this.value, other)],
+    });
+    if (IsFiniteNumber(operand)) {
+      return back(operand);
+    }
+    const tmp = Temporary();
+    const other = `$$${tmp}`;
+    return {
+      $let: {
+        vars: { [tmp]: operand },
+        in: {
+          $cond: [IsDate(other), between(other), back(other)],
+        },
+      },
+    };
+  }
 
   @CondenseValue
   stage_date_during(low: DecodedOperand, high: DecodedOperand) {
-    const receiverIsDate = { $eq: [{ $type: this.value }, "date"] };
+    const receiverIsDate = IsDate(this.value);
     return {
       $and: [
         { $gte: [this.value, DuringBound(receiverIsDate, low)] },
