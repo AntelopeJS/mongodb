@@ -83,6 +83,8 @@ async function mutate(stack: Stack): Promise<void> {
   const deleted = await run(stack, "delete pad", products.get("pad").delete());
   context.expect(deleted.folder, [same("update and delete each answer one row", [updated.value ?? null, deleted.value ?? null], [1, 1])]);
   const request = { type: "update", revisionField: "revision", expectedRevision: "r1", nextRevision: "r2", patch: { price: 6 } } as const;
+  const foreign = await run(stack, "atomicMutation tenant-a's ink from tenant-b", TENANT_B.table("products").atomicMutation("ink", { ...request, patch: { price: 666 } }));
+  context.expect(foreign.folder, [same("another instance's atomicMutation does not reach the row", foreign.value ?? null, "not-applied")]);
   const applied = await run(stack, "atomicMutation ink at r1", products.atomicMutation("ink", request));
   const stale = await run(stack, "atomicMutation ink at r1 again", products.atomicMutation("ink", request));
   context.expect(stale.folder, [same("the first mutation applies and the stale one does not", [applied.value ?? null, stale.value ?? null], ["applied", "not-applied"])]);
@@ -99,7 +101,7 @@ const SHOP_STATE = `({
 })`;
 
 const rowsAcrossInstances: Journey = {
-  title: "rows written to two instances are read, ordered, counted, updated, deleted and mutated atomically within their instance, and destroying an instance removes its rows from every table and its bookkeeping",
+  title: "rows written to two instances are read, ordered, counted, updated, deleted and mutated atomically within their instance, another instance's atomicMutation does not reach them, and destroying an instance removes its rows from every table and its bookkeeping",
   entryPoint: "`RunQuery` of `@antelopejs/interface-database` through core: insert, get, getAll, orderBy, slice, key, pluck, count, sum, update, delete, atomicMutation and the instance lifecycle",
   async run(context) {
     const stack = await start(context);

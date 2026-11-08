@@ -25,8 +25,8 @@ AQL on an owned instance: reads, writes and atomic mutations scoped to their ins
 
 ## Sub-features
 
-- `rows-across-instances`: two instances of one schema; `get`, `getAll`, `orderBy`, `slice`, `key`, `pluck`, `count`, `sum`, `update`, `delete`, an `atomicMutation` applied then refused as stale, `listInstances` and `destroyInstance`, read back with mongosh: each row carries its `_instance`, the destroyed instance's rows are gone from every table and only the other instance is left in `__antelope_instances`.
-- `expressions-joins`: `filter`, `map` and `do` lambdas run in a consumer module: a comparison, `upcase`, `mul`, `includes` and `count` per row, a `get` inside `map` that joins each order to its product, a `get` inside a `map` over an array that answers each element's row in order, and the `DuplicateKeyError` of an `_id` another instance already holds, as README.md says.
+- `rows-across-instances`: two instances of one schema; `get`, `getAll`, `orderBy`, `slice`, `key`, `pluck`, `count`, `sum`, `update`, `delete`, an `atomicMutation` that another instance cannot apply to the row, applied then refused as stale, `listInstances` and `destroyInstance`, read back with mongosh: each row carries its `_instance`, the destroyed instance's rows are gone from every table and only the other instance is left in `__antelope_instances`.
+- `expressions-joins`: `filter`, `map` and `do` lambdas run in a consumer module: a comparison, `upcase`, `mul`, `includes` and `count` per row, a `get` inside `map` that joins each order to its product, a `get` inside a `map` over an array that answers each element's row in order and null for a key only another instance holds, and the `DuplicateKeyError` of an `_id` another instance already holds, as README.md says.
 - `change-feed`: `changes()` on one instance streams that instance's insert, update and delete in order, with the row before and after, and skips another instance's insert; `CloseCursor` closes the server's change stream.
 
 ## How to get to it (user POV)

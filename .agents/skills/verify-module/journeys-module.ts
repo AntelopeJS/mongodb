@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { has, type Journey } from "@antelopejs/tooling-configs/verify";
 
-import { OWNED_DATABASE, answered, register, run, same, start, type ModuleConfig } from "./mongo.ts";
+import { CLIENT_DATABASE, OWNED_DATABASE, answered, externalConfig, register, run, same, SERVICE, start, type ModuleConfig } from "./mongo.ts";
 import { NOTES } from "./journeys-smoke.ts";
 
 const UNUSED_URL = "mongodb://127.0.0.1:1";
@@ -33,7 +33,7 @@ const configRefused: Journey = {
 };
 
 const rawClient: Journey = {
-  title: "`GetClient` of `@antelopejs/interface-mongodb` answers the owned instance's client, which reads what the database interface wrote",
+  title: "`GetClient` of `@antelopejs/interface-mongodb` answers the owned instance's client, which reads what the database interface wrote, and an external instance registers none",
   entryPoint: "`GetClient()` of `@antelopejs/interface-mongodb` through core, chained to `db(...).collection(...).countDocuments(...)`",
   async run(context) {
     const stack = await start(context);
@@ -46,6 +46,14 @@ const rawClient: Journey = {
       chain: [["db", OWNED_DATABASE], ["collection", "smoke__notes"], ["countDocuments", { _instance: "tenant-a" }]],
     });
     context.expect(counted.folder, [answered(counted), same("the raw client sees both notes", counted.value, 2)]);
+    await context.stop("stop the owned instance", stack.app);
+    const external = await start(context, externalConfig(context.service(SERVICE)));
+    const none = await context.call("GetClient on an external instance", external.app, {
+      interface: "@antelopejs/interface-mongodb",
+      path: ["GetClient"],
+      chain: [["db", CLIENT_DATABASE], ["collection", "customers"], ["countDocuments", {}]],
+    });
+    context.expect(none.folder, [{ name: "an external instance registers no client, so GetClient never answers", pass: !none.ok, detail: none.body.slice(0, 300) }]);
   },
 };
 

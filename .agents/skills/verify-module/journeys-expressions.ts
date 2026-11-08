@@ -21,8 +21,9 @@ await products.insert([
 const other = shop.instance("b").table("products");
 const sharedKey = await other.insert({ _id: "pen", name: "Other pen", price: 99, tags: [] }).then(() => "inserted", (error) => error.name);
 await other.insert({ _id: "pen-b", name: "Other pen", price: 99, tags: [] });
+await other.insert({ _id: "x", name: "b's x", price: 1, tags: [] });
 await a.table("orders").insert([{ _id: "o1", productId: "pen", quantity: 3 }, { _id: "o2", productId: "ink", quantity: 1 }]);
-await a.table("bundles").insert({ _id: "b1", items: ["pad", "pen"] });
+await a.table("bundles").insert({ _id: "b1", items: ["pad", "x", "pen"] });
 return {
   sharedKey,
   dearer: await products.filter((p) => p.key("price").gt(2)).orderBy("_id").key("_id"),
@@ -35,7 +36,7 @@ const pen = { _id: "pen", _instance: "a", name: "Pen", price: 2, tags: ["office"
 const pad = { _id: "pad", _instance: "a", name: "Pad", price: 3, tags: [] };
 
 const expressionsJoins: Journey = {
-  title: "filter, map and do lambdas compute on the server, a `get` inside them joins rows, and `_id` stays unique across instances",
+  title: "filter, map and do lambdas compute on the server, a `get` inside them joins rows of the same instance, and `_id` stays unique across instances",
   entryPoint: "`table.filter`, `map`, `do` and `get` inside a lambda, run from a consumer module with `await`",
   async run(context) {
     const app = await startScenario(context);
@@ -53,7 +54,7 @@ const expressionsJoins: Journey = {
         { _id: "o1", product: "Pen" },
         { _id: "o2", product: "Ink" },
       ]),
-      same("a get inside a map over an array answers each element's row, in the array's order", pick(answer.value, "bundled"), [pad, pen]),
+      same("a get inside a map over an array answers each element's row of instance a in order, and null for instance b's x", pick(answer.value, "bundled"), [pad, null, pen]),
     ]);
   },
 };

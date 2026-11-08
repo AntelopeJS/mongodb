@@ -51,6 +51,20 @@ async function describes(stack: Stack): Promise<void> {
   ]);
 }
 
+function column(name: string): Json {
+  return { relation: RELATION, column: name };
+}
+
+async function references(stack: Stack): Promise<void> {
+  const { context } = stack;
+  const key = await catalog(stack, "CheckReference _id to _id", "CheckReference", [{ from: column("_id"), to: column("_id") }]);
+  const none = await catalog(stack, "CheckReference name to city", "CheckReference", [{ from: column("name"), to: column("city") }]);
+  context.expect(none.folder, [
+    same("every _id is held by the key _id", key.value, { status: "ok", value: { containment: 1, checkedRows: 2, sampled: false, targetIsKey: true } }),
+    same("no name is a city", none.value, { status: "ok", value: { containment: 0, checkedRows: 2, sampled: false, targetIsKey: false } }),
+  ]);
+}
+
 async function profiles(stack: Stack): Promise<void> {
   const { context } = stack;
   const profile = await catalog(stack, "Profile", "Profile", [{ relation: RELATION, columns: ["credit", "tier"] }]);
@@ -78,13 +92,14 @@ function sortedRows(rows: Json | undefined): Json {
 }
 
 const catalogDescribes: Journey = {
-  title: "the catalog of an external instance lists, describes, profiles and samples the client's collections with the registration rules of the module",
-  entryPoint: "`Info`, `ListRelations`, `DescribeRelations`, `Profile` and `SampleRows` of `@antelopejs/interface-database-catalog` through core, under `ajs project dev`",
+  title: "the catalog of an external instance lists, describes, checks references between, profiles and samples the client's collections with the registration rules of the module",
+  entryPoint: "`Info`, `ListRelations`, `DescribeRelations`, `CheckReference`, `Profile` and `SampleRows` of `@antelopejs/interface-database-catalog` through core, under `ajs project dev`",
   async run(context) {
     const stack = await startOnClientDatabase(context);
     if (stack === undefined) return;
     await lists(stack);
     await describes(stack);
+    await references(stack);
     await profiles(stack);
   },
 };
