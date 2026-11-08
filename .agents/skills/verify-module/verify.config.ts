@@ -1,6 +1,7 @@
 import type { VerifyConfig } from "@antelopejs/tooling-configs/verify";
 
 import { catalogJourneys } from "./journeys-catalog.ts";
+import { expressionJourneys } from "./journeys-expressions.ts";
 import { externalJourneys } from "./journeys-external.ts";
 import { indexJourneys } from "./journeys-indexes.ts";
 import { moduleJourneys } from "./journeys-module.ts";
@@ -65,7 +66,7 @@ const config: VerifyConfig = {
     if (mongo === undefined) throw new Error(`no ${SERVICE} service in this run`);
     return ownedConfig(mongo);
   },
-  journeys: { ...smokeJourneys, ...moduleJourneys, ...queryJourneys, ...indexJourneys, ...externalJourneys, ...catalogJourneys },
+  journeys: { ...smokeJourneys, ...moduleJourneys, ...queryJourneys, ...expressionJourneys, ...indexJourneys, ...externalJourneys, ...catalogJourneys },
   formal: [
     {
       name: "formal-query-index-rebuild",

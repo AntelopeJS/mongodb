@@ -74,22 +74,6 @@ async function readsScopedToInstance(stack: Stack): Promise<void> {
   context.expect(keyed.folder, [same("getAll answers the two keys", keyed.value, [{ _id: "ink", price: 5 }, { _id: "pen", price: 2 }])]);
   const totals = await Promise.all([run(stack, "count tenant-a products", products.count()), run(stack, "count tenant-b products", TENANT_B.table("products").count()), run(stack, "sum tenant-a prices", products.sum("price"))]);
   context.expect(totals[2].folder, [same("each instance counts and sums only its own rows", totals.map((total) => total.value ?? null), [3, 1, 10])]);
-  const filtered = await run(stack, "products dearer than 2", products.filter((row) => row.key("price").gt(2)).orderBy("_id").key("_id"));
-  const joined = await run(
-    stack,
-    "orders joined to their product's name",
-    TENANT_A.table("orders")
-      .orderBy("_id")
-      .map((order) => order.merge({ product: products.get(order.key("productId")).key("name") }))
-      .pluck("_id", "product"),
-  );
-  context.expect(joined.folder, [
-    same("filter answers ink and pad", filtered.value, ["ink", "pad"]),
-    same("a get inside map joins each order to its own instance's product", joined.value, [
-      { _id: "o1", product: "pen" },
-      { _id: "o2", product: "ink" },
-    ]),
-  ]);
 }
 
 async function mutate(stack: Stack): Promise<void> {
