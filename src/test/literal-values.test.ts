@@ -17,6 +17,8 @@ interface LiteralRecord {
   tags: string[];
   nested: Record<string, string>;
   missing?: string;
+  stage?: string;
+  args?: string[];
 }
 
 type SelectionKey = string | number | boolean;
@@ -152,6 +154,22 @@ describe("$-prefixed string values: writes", () => {
       other: DOLLAR_VALUE,
       count: INITIAL_COUNT + 1,
       nested: { path: DOLLAR_VALUE, "dotted.key": DOLLAR_VALUE },
+    });
+  });
+
+  it("stores a document whose stage field reads func on a document update", async () => {
+    await table().get(RECORD_ID).update({ stage: "func" }).run();
+    await table()
+      .get(DOLLAR_ID)
+      .update({ stage: "func", args: [PLAIN_VALUE, DOLLAR_VALUE] })
+      .run();
+
+    const stored = await table().get(RECORD_ID).run();
+    const withArgs = await table().get(DOLLAR_ID).run();
+    expect(stored).to.deep.include({ stage: "func", label: DOLLAR_VALUE });
+    expect(withArgs).to.deep.include({
+      stage: "func",
+      args: [PLAIN_VALUE, DOLLAR_VALUE],
     });
   });
 

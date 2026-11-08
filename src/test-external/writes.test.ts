@@ -3,6 +3,7 @@ import { BSON, type Document, type MongoClient, ObjectId } from "mongodb";
 import { IsDuplicateKeyError } from "@antelopejs/interface-database";
 import type { Schema } from "@antelopejs/interface-database/schema";
 
+import { ExternalWriteError } from "../implementations/database/external-errors";
 import { type ErpTables, RegisterErp } from "./erp";
 import {
   AdminClient,
@@ -111,6 +112,18 @@ describe("writing back what an external collection answered", () => {
     expect(CanonicalField(customerAfter, "points")).to.equal(
       CanonicalField(customerBefore, "points"),
     );
+  });
+
+  it("validates a document whose stage field reads func as a document, not refusing it as a mapper", async () => {
+    const refusal: unknown = await Table("customers")
+      .get(customer.toHexString())
+      .update({ name: "Staged 91", stage: "func" })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+    expect(refusal).to.be.instanceOf(ExternalWriteError);
+    expect(refusal).to.deep.include({ kind: "invalid", fields: ["stage"] });
   });
 
   it("ignores an object field on update, rather than writing back what a read altered", async () => {
