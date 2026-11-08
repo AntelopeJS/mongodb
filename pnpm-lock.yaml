@@ -37,8 +37,8 @@ importers:
         specifier: ^1.21.0
         version: 1.21.0
       '@antelopejs/tooling-configs':
-        specifier: ^0.3.3
-        version: 0.3.3(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
+        specifier: ^0.4.0
+        version: 0.4.0(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
       '@types/chai':
         specifier: ^4.3.20
         version: 4.3.20
@@ -127,8 +127,8 @@ packages:
   '@antelopejs/interface-mongodb@0.0.7':
     resolution: {integrity: sha512-uWcKbrxKv6p6pWC8jwJALhI4q31hVAeyI4mKKKUsN2imgruwQay8+JZbl5ptlNfzJyH22QiQ0P9dcJfeThnKyg==}
 
-  '@antelopejs/tooling-configs@0.3.3':
-    resolution: {integrity: sha512-jQ09zavCF5MMQtfyd8YOqpoxV6l6bp3m9tA5iN0z0XhQpVHM5VWr53yEuQ6Mc+1tseBW85N94ruP4TEfiGg8iQ==}
+  '@antelopejs/tooling-configs@0.4.0':
+    resolution: {integrity: sha512-qmi9CD5OZkWgIFGYZTQ63eyFBMEqGfY8967smEKyQVM0WW1n7kybqeG0ycB0wP+zgT4/LHehF6h7byLvTMBE1A==}
     engines: {node: '>=22.18.0'}
     hasBin: true
     peerDependencies:
@@ -136,7 +136,7 @@ packages:
       eslint-plugin-perfectionist: '>=5.0.0'
       knip: '>=6.0.0'
       mongodb-memory-server: '>=10.0.0'
-      oxfmt: ^0.66.0
+      oxfmt: ^0.66.0 || ^0.77.0
       oxlint: 1.81.0
       pixelmatch: '>=7.0.0'
       playwright-core: '>=1.56.0'
@@ -2868,10 +2868,11 @@ snapshots:
       - socks
     optional: true
 
-  '@antelopejs/tooling-configs@0.3.3(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
+  '@antelopejs/tooling-configs@0.4.0(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
     dependencies:
       '@oxlint/plugins': 1.81.0
       dts-bundle-generator: 9.5.1
+      minimatch: 10.2.6
       typescript: 5.9.3
       yaml: 2.9.1
     optionalDependencies:
