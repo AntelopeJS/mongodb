@@ -74,7 +74,7 @@ export function StageId(stage: QueryStage | undefined): InstanceId | undefined {
 export function IsUpdateFunction(
   value: QueryStage<"update">["args"][0],
 ): value is QueryStage<"func"> {
-  if (!("stage" in value) || !("args" in value)) {
+  if (!(value instanceof Object) || !("stage" in value) || !("args" in value)) {
     return false;
   }
   const { stage, args } = value;
