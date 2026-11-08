@@ -63,6 +63,10 @@ function isExpressionMarker(
 
 /**
  * This decorator should be used on stages where this.value is used multiple times.
+ *
+ * A field path or variable stays in place. Any other receiver, a constant string included, moves
+ * into a `$let` variable: the server folds the constant sub-expressions of every `$cond` branch
+ * before it picks one, and refuses the whole pipeline on one that does not suit its operands.
  */
 function CondenseValue(
   _cl: Expression,
@@ -73,7 +77,7 @@ function CondenseValue(
   if (!(prev instanceof Function)) return;
   desc.value = function (this: Expression, ...args: unknown[]) {
     const valueBefore = this.value;
-    if (isString(valueBefore)) {
+    if (isString(valueBefore) && valueBefore.startsWith(FIELD_PATH_PREFIX)) {
       const result: unknown = prev.apply(this, args);
       return result;
     }
