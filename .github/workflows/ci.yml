@@ -22,15 +22,6 @@ jobs:
       renovate-sync: false
       extra-commands: node .agents/skills/formal-query-index-rebuild/check.mjs
       test-job: true
-
-  checks:
-    if: always()
-    needs: [ci]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: exit 1
   renovate-sync:
     if: >-
       github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
