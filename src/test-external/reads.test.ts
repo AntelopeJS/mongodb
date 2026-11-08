@@ -394,3 +394,22 @@ describe("instances over an external collection", () => {
     expect(refusal?.message).to.contain("orders").and.to.contain("tenant-1");
   });
 });
+
+describe("reading an external collection through a cursor", () => {
+  before(async () => {
+    erp = await RegisterErp();
+  });
+
+  it("yields every mapped row, null values included, as run() does", async () => {
+    const query = Table("orders")
+      .orderBy("_id")
+      .slice(0, 8)
+      .map((order) => order.key("note"));
+    const notes: unknown[] = [];
+    for await (const note of query.cursor()) {
+      notes.push(note);
+    }
+    expect(notes).to.include(null);
+    expect(notes).to.deep.equal(await query.run());
+  });
+});
