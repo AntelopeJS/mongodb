@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.6.4
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.3...v1.6.4)
+
+### 🔥 Performance
+
+- **connection:** Batch index creation and set up collections concurrently ([#113](https://github.com/AntelopeJS/mongodb/pull/113))
+- **formal-check:** Explore scenarios on worker threads ([#114](https://github.com/AntelopeJS/mongodb/pull/114))
+
+### 🩹 Fixes
+
+- **expression:** Move a constant string receiver into a $let so add concatenates it ([#120](https://github.com/AntelopeJS/mongodb/pull/120))
+- **database:** Read an update as a function only by the recorded func shape ([#117](https://github.com/AntelopeJS/mongodb/pull/117))
+- **query:** Keep reading a mapped cursor past null values ([#118](https://github.com/AntelopeJS/mongodb/pull/118))
+- **query:** Kill the server cursor of a cursor closed during its first aggregate ([#116](https://github.com/AntelopeJS/mongodb/pull/116))
+- **expression:** Read add and sub operands on a date as seconds ([#119](https://github.com/AntelopeJS/mongodb/pull/119))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs/tooling-configs to 0.4.0 ([#121](https://github.com/AntelopeJS/mongodb/pull/121))
+
+### ✅ Tests
+
+- **verify:** Add the mongodb verify features ([#115](https://github.com/AntelopeJS/mongodb/pull/115))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.6.3
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.2...v1.6.3)
