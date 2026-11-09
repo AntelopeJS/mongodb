@@ -73,6 +73,17 @@ describe("the operations interface-database 0.3.0 types", () => {
     );
   });
 
+  it("add concatenates a constant string receiver with a constant or a field", async () => {
+    assert.deepEqual(
+      await Rows().map(() => ValueProxy.constant("a").add("b")),
+      ["ab"],
+    );
+    assert.deepEqual(
+      await Rows().map((row) => ValueProxy.constant("a").add(row.key("name"))),
+      ["aada"],
+    );
+  });
+
   it("add concatenates a list with a constant or a field", async () => {
     assert.deepEqual(await Rows().map((row) => row.key("tags").add(["x"])), [
       ["a", "x"],
