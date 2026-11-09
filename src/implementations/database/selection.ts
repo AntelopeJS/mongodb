@@ -22,7 +22,7 @@ import {
 } from "./instance-scope";
 // oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
-import type { QueryAnswer } from "./pipeline-core";
+import type { CursorValue, QueryAnswer } from "./pipeline-core";
 import {
   DecodeFunction,
   DecodeLiteralValue,
@@ -288,12 +288,10 @@ export class SelectionQuery extends AggregationPipeline {
     return this.external ? RenderOutput(result) : result;
   }
 
-  public override async readCursor() {
-    if (!this.external) {
-      return super.readCursor();
-    }
-    const row = await this.nextRow();
-    return RenderOutput(row && this.rowValue(row));
+  protected override cursorValue(row: Document): CursorValue {
+    return this.external
+      ? RenderOutput(this.rowValue(row))
+      : super.cursorValue(row);
   }
 
   public override async addStages(stages: QueryStage[]) {

@@ -29,6 +29,14 @@ export interface PipelineSource {
  */
 export type QueryAnswer = BsonValue | unknown[];
 
+/** What a cursor yields for one row: the row's value, or its change event on a change stream. */
+export type CursorValue = BsonValue | ReturnType<typeof ToChangeEvent>;
+
+/** One read of a cursor: its next value, or the end, which no value of a row stands for. */
+export type CursorRead = IteratorResult<CursorValue, void>;
+
+const CURSOR_END: CursorRead = { done: true, value: undefined };
+
 /**
  * The aggregation pipeline of one stream: its state, how it runs, and the stages that filter,
  * project, order or reduce it without rewriting its root.
@@ -98,10 +106,10 @@ export class PipelineCore {
     return this.readRows();
   }
 
-  /** The value a row of the pipeline holds: its wrapped field, or the whole row. */
+  /** The value a row of the pipeline holds: its wrapped field, `null` when the row lacks it, or the whole row. */
   protected rowValue(row: Document): BsonValue {
     // oxlint-disable-next-line typescript/no-unsafe-return -- row is a driver Document, so row[wrappedObject] is the any of mongodb's Document type; the pipeline stores the value under wrappedObject, and naming that type through aggregate<T> or a typed local would only assert it
-    return this.wrappedObject ? row[this.wrappedObject] : row;
+    return this.wrappedObject ? (row[this.wrappedObject] ?? null) : row;
   }
 
   /** The values of the pipeline's rows, or its one element. */
@@ -135,15 +143,16 @@ export class PipelineCore {
     return results;
   }
 
-  public async readCursor() {
-    const change = await this.nextRow();
-    if (change === null) {
-      return null;
-    }
-    if (this.isChangeStream) {
-      return ToChangeEvent(change);
-    }
-    return this.rowValue(change);
+  public async readCursor(): Promise<CursorRead> {
+    const row = await this.nextRow();
+    return row === null
+      ? CURSOR_END
+      : { done: false, value: this.cursorValue(row) };
+  }
+
+  /** The value the cursor yields for one row: its change event on a change stream, else its row value. */
+  protected cursorValue(row: Document): CursorValue {
+    return this.isChangeStream ? ToChangeEvent(row) : this.rowValue(row);
   }
 
   /** The cursor's next row, or `null` past the last one or once closed. */

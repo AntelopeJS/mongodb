@@ -5,6 +5,7 @@ import { IsQueryStage } from "@antelopejs/interface-database/common";
 import { SelectionQuery } from "./selection";
 import { RunAtomicMutation } from "./atomic";
 import type { AggregationPipeline } from "./pipeline";
+import type { CursorRead } from "./pipeline-core";
 import { CreateInstance, DestroyInstance, ListInstances } from "./instances";
 import { SchemaInitialized } from "../../schema-initialization";
 import { IsExternal } from "../../config";
@@ -121,22 +122,21 @@ async function openQuery(
 export async function ReadCursor(
   reqId: number,
   stages: QueryStage[],
-): Promise<{ done: boolean; value: any }> {
+): Promise<CursorRead> {
   assert(
     !stages.some((stage) => stage.stage === "atomicMutation"),
     "atomicMutation cannot be read as a cursor",
   );
   const query = await openQuery(reqId, stages);
   if (!query) {
-    return { done: true, value: null };
+    return { done: true, value: undefined };
   }
   try {
     const next = await query.readCursor();
-    if (next === null) {
+    if (next.done) {
       delete openQueries[reqId];
     }
-
-    return { done: next === null, value: next };
+    return next;
   } catch (error) {
     delete openQueries[reqId];
     try {
