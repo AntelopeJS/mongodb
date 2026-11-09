@@ -66,13 +66,25 @@ export function StageId(stage: QueryStage | undefined): InstanceId | undefined {
 }
 
 /**
- * Tells whether an `update` argument records a function of the row rather than a document: an
- * object whose `stage` reads "func", which is how the adapter tells them apart.
+ * Tells whether an `update` argument records a function of the row rather than a document: the
+ * `func` stage the builder records, whose `stage` reads "func" and whose `args` pair the
+ * parameter ids with the body. A document holding a field `stage` set to "func" without that
+ * pair stays a document.
  */
 export function IsUpdateFunction(
   value: QueryStage<"update">["args"][0],
 ): value is QueryStage<"func"> {
-  return value instanceof Object && "stage" in value && value.stage === "func";
+  if (!(value instanceof Object) || !("stage" in value) || !("args" in value)) {
+    return false;
+  }
+  const { stage, args } = value;
+  return (
+    stage === "func" &&
+    Array.isArray(args) &&
+    args.length === 2 &&
+    Array.isArray(args[0]) &&
+    args[0].every((id) => Number.isInteger(id))
+  );
 }
 
 export function normalizeInstanceId(
