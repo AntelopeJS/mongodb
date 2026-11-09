@@ -1,5 +1,14 @@
 import type { VerifyConfig } from "@antelopejs/tooling-configs/verify";
 
+import { catalogJourneys } from "./journeys-catalog.ts";
+import { expressionJourneys } from "./journeys-expressions.ts";
+import { externalJourneys } from "./journeys-external.ts";
+import { indexJourneys } from "./journeys-indexes.ts";
+import { moduleJourneys } from "./journeys-module.ts";
+import { queryJourneys } from "./journeys-queries.ts";
+import { smokeJourneys } from "./journeys-smoke.ts";
+import { MONGO_IMAGE, MONGO_SERVICE, SERVICE, ownedConfig } from "./mongo.ts";
+
 const FORMAL_QUERY_INDEX_REBUILD = ".agents/skills/formal-query-index-rebuild";
 
 const config: VerifyConfig = {
@@ -46,6 +55,18 @@ const config: VerifyConfig = {
       why: "the package name and release workflow claim @antelopejs/mongodb on npm",
     },
   },
+  userFacing: ["src/*.ts", "src/implementations/**", "docs/**/*.md"],
+  setup: [
+    ["pnpm", "run", "build"],
+    ["docker", "build", "--quiet", "--tag", MONGO_IMAGE, ".agents/skills/verify-module/mongo"],
+  ],
+  services: { [SERVICE]: MONGO_SERVICE },
+  moduleConfig(services) {
+    const mongo = services.find((service) => service.name === SERVICE);
+    if (mongo === undefined) throw new Error(`no ${SERVICE} service in this run`);
+    return ownedConfig(mongo);
+  },
+  journeys: { ...smokeJourneys, ...moduleJourneys, ...queryJourneys, ...expressionJourneys, ...indexJourneys, ...externalJourneys, ...catalogJourneys },
   formal: [
     {
       name: "formal-query-index-rebuild",
