@@ -58,6 +58,7 @@ async function ExternalConfig() {
 
 async function OwnedConfig() {
   mongod = await MongoMemoryReplSet.create({
+    instanceOpts: [{ args: ["--setParameter", "enableTestCommands=1"] }],
     replSet: { count: 1 },
     binary: { version: MONGODB_VERSION },
   });

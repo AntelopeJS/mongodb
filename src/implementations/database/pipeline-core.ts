@@ -1,5 +1,10 @@
 import assert from "node:assert";
-import type { AggregateOptions, AggregationCursor, Document } from "mongodb";
+import type {
+  AggregateOptions,
+  AggregationCursor,
+  Collection,
+  Document,
+} from "mongodb";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import {
@@ -36,6 +41,23 @@ export type CursorValue = BsonValue | ReturnType<typeof ToChangeEvent>;
 export type CursorRead = IteratorResult<CursorValue, void>;
 
 const CURSOR_END: CursorRead = { done: true, value: undefined };
+
+/** Kills the server cursor `cursor` still names, if any; one the driver killed or exhausted names none. */
+async function KillServerCursor(
+  collection: Collection,
+  cursor: AggregationCursor<Document>,
+): Promise<void> {
+  const id = cursor.id;
+  if (id === undefined || id.isZero()) {
+    return;
+  }
+  await collection.db
+    .command(
+      { killCursors: collection.collectionName, cursors: [id] },
+      { readPreference: cursor.readPreference },
+    )
+    .catch(() => undefined);
+}
 
 /**
  * The aggregation pipeline of one stream: its state, how it runs, and the stages that filter,
@@ -157,14 +179,32 @@ export class PipelineCore {
 
   /** The cursor's next row, or `null` past the last one or once closed. */
   protected async nextRow(): Promise<Document | null> {
-    if (!this.cursor) {
-      const collection = await GetCollection(this.collection);
-      if (this.isClosed) {
-        return null;
-      }
-      this.cursor = collection.aggregate(this.pipeline, this.options);
+    if (this.cursor) {
+      return this.cursor.next();
     }
-    return this.cursor.next();
+    const collection = await GetCollection(this.collection);
+    if (this.isClosed) {
+      return null;
+    }
+    this.cursor = collection.aggregate(this.pipeline, this.options);
+    return this.firstRow(collection, this.cursor);
+  }
+
+  /**
+   * The cursor's first row. A close that lands while the first `aggregate` is in flight ends the
+   * driver's session before the server has named the cursor, so the driver never kills it: once that
+   * `aggregate` returns, the cursor it opened is killed here and the read yields `null`.
+   */
+  private async firstRow(
+    collection: Collection,
+    cursor: AggregationCursor<Document>,
+  ): Promise<Document | null> {
+    const row = await cursor.next().finally(async () => {
+      if (this.isClosed) {
+        await KillServerCursor(collection, cursor);
+      }
+    });
+    return this.isClosed ? null : row;
   }
 
   public async closeCursor() {
