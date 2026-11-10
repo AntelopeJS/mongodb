@@ -13,6 +13,7 @@ import {
   DefaultConstant,
   DefaultExpression,
   hasKey,
+  isCallable,
   isString,
   Temporary,
 } from "./utils";
@@ -114,7 +115,7 @@ export class AggregationPipeline extends PipelineCore {
           throw new Error(`Unimplemented stage: ${stage.stage}`);
         }
         const callback = this[stageCallback];
-        if (!(callback instanceof Function)) {
+        if (!isCallable(callback)) {
           continue;
         }
         await callback.apply(this, [stage]);

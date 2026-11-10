@@ -9,7 +9,7 @@ import {
 
 import { GetOptions } from "../../config";
 import type { CollectionKind } from "./external-descriptor";
-import { isDocument, isString } from "./utils";
+import { isDocument, isObjectInstance, isString } from "./utils";
 
 export const UUID_SUBTYPE = 4;
 
@@ -105,7 +105,7 @@ function SubtypeOf(value: IdValue): number | undefined {
 }
 
 function KeysOf(end: EndDocument): string[] | undefined {
-  return end.type === "object" && end.value instanceof Object
+  return end.type === "object" && isObjectInstance(end.value)
     ? Object.keys(end.value)
     : undefined;
 }

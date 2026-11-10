@@ -17,7 +17,8 @@
     "declaration": true,
     "noEmitOnError": true,
     "sourceMap": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "types": ["chai", "mocha", "node", "randomstring", "semver", "sinon"]
   },
   "include": ["src/**/*.ts"]
 }

@@ -15,7 +15,7 @@ const STRUCTURE_COMMANDS = [
   "dropDatabase",
 ];
 const PROFILE_ALL = 2;
-const UNTYPED_FOREIGN_MODE = '{ "mode": "foreign" }';
+const FOREIGN_MODE = "foreign";
 const WRITE_OPERATIONS = ["insert", "update", "remove"];
 
 function ExternalWith(overrides: Options): Options {
@@ -90,9 +90,8 @@ describe("external configuration", () => {
   }
 
   it("refuses an unknown mode by name", () => {
-    const overrides: unknown = JSON.parse(UNTYPED_FOREIGN_MODE);
     const foreign: Options = { ...configured };
-    Object.assign(foreign, overrides);
+    expect(Reflect.set(foreign, "mode", FOREIGN_MODE)).to.equal(true);
     expect(() => SetOptions(foreign)).to.throw("received foreign");
   });
 

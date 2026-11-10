@@ -31,7 +31,7 @@
     "lint:fix": "oxlint --fix",
     "lint": "oxlint",
     "prepack": "pnpm run build",
-    "release": "pnpm run lint && pnpm run test && pnpm run prepack && release-it",
+    "release": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run prepack && release-it",
     "test": "pnpm run build && ajs module test . && pnpm run test:external:run",
     "test:external": "pnpm run build && pnpm run test:external:run",
     "test:external:run": "MONGO_TEST_MODE=external ajs module test . $(for file in dist/test-external/*.test.js; do printf -- '-f %s ' \"$file\"; done)",
@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@antelopejs/core": "^1.21.0",
-    "@antelopejs/tooling-configs": "^0.4.0",
+    "@antelopejs/tooling-configs": "^0.5.0",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.15",

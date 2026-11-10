@@ -1,4 +1,5 @@
 import { Binary, BSON, type Document } from "mongodb";
+import { isObjectInstance } from "../database/utils";
 
 const UUID_SUBTYPE = 4;
 const RELAXED = { relaxed: true };
@@ -22,7 +23,7 @@ export function TextOf(value: Document[keyof Document]): string | undefined {
   if (value instanceof BSON.Long || value instanceof BSON.Decimal128) {
     return value.toString();
   }
-  return value instanceof Object
+  return isObjectInstance(value)
     ? BSON.EJSON.stringify(value, RELAXED)
     : String(value);
 }
