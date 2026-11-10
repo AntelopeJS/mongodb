@@ -107,7 +107,9 @@ export function normalizeInstanceId(
     return null;
   }
   if (!isString(id)) {
-    throw new Error(`Invalid instance id: expected string, got ${typeof id}`);
+    throw new Error(
+      `Invalid instance id: expected string, got ${JSON.stringify(id)}`,
+    );
   }
   return id;
 }

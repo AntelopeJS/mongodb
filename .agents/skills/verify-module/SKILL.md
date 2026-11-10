@@ -97,7 +97,7 @@ node_modules/.bin/antelopejs-verify map
 6. **One-way doors.** The section comes right after the result line and is mandatory. `node_modules/.bin/antelopejs-verify doors` prints the `One-way-door:` line of the diff. Every file the path rules flag needs a door row or a false positive with its reason.
 7. **Result.** FAIL if any rule fails. NOT VERIFIED when any journey of a required feature is NOT VERIFIED, for example a SaaS module run without its sandbox keys, however many other journeys passed. PASS+NOTES when everything required ran and passed but the judgement lists something no journey reached or something the owner should look at. PASS otherwise.
 
-Write your judgement to `<run>/evidence/judgement.json`:
+Write your judgement to a JSON file:
 
 ```json
 {
@@ -113,13 +113,13 @@ Write your judgement to `<run>/evidence/judgement.json`:
 }
 ```
 
-A door row is `{ "kind", "location", "irreversible", "containment" }`, where `containment` says what limits the damage. Then render the verdict:
+A door row is `{ "kind", "location", "irreversible", "containment" }`, where `containment` says what limits the damage. Pass it to `verdict` in the same step:
 
 ```bash
-node_modules/.bin/antelopejs-verify verdict <run> --pr <n>
+node_modules/.bin/antelopejs-verify verdict <run> --pr <n> --judgement <file>
 ```
 
-`verdict` writes `evidence/verdict.md` and exits 1 unless the result is PASS or PASS+NOTES. Report the verdict and what you saw in your own reply, from a thread that did not write the change.
+`verdict` stores it as `evidence/judgement.json`, writes `evidence/verdict.md` and exits 1 when an input is missing or the result is not PASS or PASS+NOTES. Read `verdict.md` only after it exits. Report the verdict and what you saw in your own reply, from a thread that did not write the change.
 
 ## Trust
 

@@ -30,9 +30,9 @@ async function writes(stack: Stack): Promise<void> {
   const inserted = await run(stack, "insert Cy without an _id", CUSTOMERS.insert({ name: "Cy", credit: 30, tier: "gold" }));
   const insertedId = pick(inserted.value, 0);
   context.expect(inserted.folder, [answered(inserted), { name: "insert answers a new ObjectId as hex", pass: isString(insertedId) && /^[0-9a-f]{24}$/.test(insertedId), detail: JSON.stringify(insertedId ?? null) }]);
+  const undeclared = await run(stack, "insert with an undeclared key", CUSTOMERS.insert({ name: "Dee", credit: 1, tier: "gold", city: "Nice" }));
   const updated = await run(stack, "update Ada's credit", CUSTOMERS.get(ADA).update({ credit: 11 }));
   context.expect(updated.folder, [same("the update answers one row", updated.value, 1)]);
-  const undeclared = await run(stack, "insert with an undeclared key", CUSTOMERS.insert({ name: "Dee", credit: 1, tier: "gold", city: "Nice" }));
   const toView = await run(stack, "insert into the view", ERP.instance().table("big_customers").insert({ name: "Eve", credit: 99 }));
   const instance = await run(stack, "createInstance", ERP.createInstance("tenant-a"));
   context.expect(instance.folder, [
