@@ -63,11 +63,11 @@ const indexLayout: Journey = {
     const stack = await start(context);
     if (!(await seedItems(stack))) return;
     const items = STORE.instance("tenant-a").table("items");
+    const duplicate = await run(stack, "insert a second a@example.test in tenant-a", items.insert({ _id: "i5", sku: "D4", name: "drill", price: 7, email: "a@example.test" }));
+    context.expect(duplicate.folder, duplicateRefused(duplicate, "email"));
     const byName = await run(stack, "getAll bolt on the name index", items.getAll(["bolt"], "name").key("_id"));
     const range = await run(stack, "between b and d on the name index", items.between("name", "b", "d").orderBy("name").key("_id"));
     context.expect(range.folder, [same("getAll on an index answers its row", byName.value, ["i2"]), same("between on an index answers bolt then cog", range.value, ["i2", "i3"])]);
-    const duplicate = await run(stack, "insert a second a@example.test in tenant-a", items.insert({ _id: "i5", sku: "D4", name: "drill", price: 7, email: "a@example.test" }));
-    context.expect(duplicate.folder, duplicateRefused(duplicate, "email"));
     const indexes = await mongosh(context, "mongosh lists the indexes of store__items", OWNED_DATABASE, indexesOf("store__items"));
     context.expect(indexes.folder, [
       same("every declared index is led by _instance, and only email__i is unique", indexes.value, [
