@@ -9,6 +9,7 @@ import {
   type SampledType,
   UUID_SUBTYPE,
 } from "./external-probe";
+import { isObjectInstance } from "./utils";
 
 /** A declaration's kind, as `TableDefinition.fields` spells it. */
 export type DeclaredKind =
@@ -163,7 +164,7 @@ function ParseToken(token: string, path: string): DeclaredKind {
 
 function IsCodec(type: FieldType): boolean {
   return (
-    type instanceof Object &&
+    isObjectInstance(type) &&
     "decode" in type &&
     "encode" in type &&
     "is" in type
@@ -178,7 +179,7 @@ function ElementKindOf(
   if (Array.isArray(type)) {
     return type.length > 0 ? DeclaredKindOf(type[0], path) : undefined;
   }
-  if (type instanceof Object) {
+  if (isObjectInstance(type)) {
     return undefined;
   }
   const token = String(type).trim().toLowerCase();
@@ -194,7 +195,7 @@ function DeclaredKindOf(type: FieldType, path: string): DeclaredKind {
   if (IsCodec(type)) {
     return "any";
   }
-  if (type instanceof Object) {
+  if (isObjectInstance(type)) {
     return "object";
   }
   return ParseToken(String(type), path);

@@ -22,6 +22,7 @@ import {
   type DecodedOperand,
   type DecodingContext,
   hasKey,
+  isCallable,
   isDocument,
   isObjectOrNull,
   isString,
@@ -75,7 +76,7 @@ function CondenseValue(
   desc: PropertyDescriptor,
 ) {
   const prev: unknown = desc.value;
-  if (!(prev instanceof Function)) return;
+  if (!isCallable(prev)) return;
   desc.value = function (this: Expression, ...args: unknown[]) {
     const valueBefore = this.value;
     if (isString(valueBefore) && valueBefore.startsWith(FIELD_PATH_PREFIX)) {
@@ -181,7 +182,7 @@ class Expression {
                   )),
                 ],
         };
-      } else if (callback instanceof Function) {
+      } else if (isCallable(callback)) {
         this.currentStage = stage;
         this.value = await callback.apply(
           this,

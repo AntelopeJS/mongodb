@@ -43,6 +43,19 @@ export function isDocument<Value>(value: Value): value is Value & Document {
 }
 
 /**
+ * Tells whether a value is an instance of this realm's `Object`: an object or a function, but
+ * not `null`, a primitive, or an object without `Object.prototype` in its chain.
+ */
+export function isObjectInstance<Value>(value: Value): value is Value & object {
+  return value instanceof Object;
+}
+
+/** Tells whether a value is an instance of this realm's `Function`, as `instanceof Function` narrows it. */
+export function isCallable<Value>(value: Value): value is Value & Function {
+  return value instanceof Function;
+}
+
+/**
  * Tells whether `table` has the stage handler `key`, a method of its class or a field of its own.
  * The `stage_` prefix keeps the `Object.prototype` members out of the answer.
  */

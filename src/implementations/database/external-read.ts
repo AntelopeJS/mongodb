@@ -22,6 +22,7 @@ import {
   type KeyClass,
   READS,
 } from "./external-descriptor";
+import { isObjectInstance } from "./utils";
 
 /** A document of BSON values, as a compiled query expression or a document the driver answered. */
 export interface BsonDocument {
@@ -122,7 +123,7 @@ export function IsKeyScalar(
 }
 
 export function KeyText(value: BsonValue | bigint): string | undefined {
-  if (value instanceof Object || value === null || value === undefined) {
+  if (isObjectInstance(value) || value === null || value === undefined) {
     return undefined;
   }
   return String(value);
@@ -244,7 +245,7 @@ export function NormalizingStages(collection: ExternalCollection): Document[] {
 }
 
 function Constant(value: BsonValue): BsonValue {
-  return value instanceof Object && "$literal" in value
+  return isObjectInstance(value) && "$literal" in value
     ? value.$literal
     : value;
 }
