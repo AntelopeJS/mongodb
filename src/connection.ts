@@ -26,14 +26,14 @@ const COLLECTION_OPTIONS = {
 } as const;
 
 let configuredDatabase: string | undefined;
-let atomicClient: MongoClient | undefined;
+let atomicDatabase: Db | undefined;
 let connectedClient: MongoClient | undefined;
-let resolveClient: (client: MongoClient) => void = () => undefined;
-let clientPromise = PendingClient();
+let resolveDatabase: (db: Db) => void = () => undefined;
+let databasePromise = PendingDatabase();
 
-function PendingClient(): Promise<MongoClient> {
+function PendingDatabase(): Promise<Db> {
   return new Promise((resolve) => {
-    resolveClient = resolve;
+    resolveDatabase = resolve;
   });
 }
 
@@ -46,25 +46,25 @@ export async function Connect(
   const mongoClient = await MongoClient.connect(url, options);
   connectedClient = mongoClient;
   configuredDatabase = database;
-  resolveClient(mongoClient);
+  resolveDatabase(mongoClient.db(database));
   if (IsExternal()) {
     return;
   }
   internal.connected = true;
   internal.SetClient(mongoClient);
-  atomicClient = new MongoClient(url, {
+  atomicDatabase = new MongoClient(url, {
     ...options,
     retryWrites: false,
     retryReads: false,
-  });
+  }).db(database);
 }
 
 export async function Disconnect() {
-  await atomicClient?.close();
-  atomicClient = undefined;
+  await atomicDatabase?.client.close();
+  atomicDatabase = undefined;
   await connectedClient?.close();
   if (connectedClient) {
-    clientPromise = PendingClient();
+    databasePromise = PendingDatabase();
   }
   connectedClient = undefined;
   if (internal.connected) {
@@ -84,24 +84,21 @@ export function GetConfiguredDatabaseName(): string {
 }
 
 export async function GetCollection(collection: string): Promise<Collection> {
-  const dbName = GetConfiguredDatabaseName();
-  return clientPromise.then((client) =>
-    client.db(dbName).collection(collection),
-  );
+  return (await GetDatabase()).collection(collection);
 }
 
 export function GetAtomicCollection(collection: string): Collection {
-  const dbName = GetConfiguredDatabaseName();
-  if (!atomicClient) {
+  GetConfiguredDatabaseName();
+  if (!atomicDatabase) {
     throw new Error("MongoDB atomic mutation client is not configured");
   }
-  return atomicClient.db(dbName).collection(collection);
+  return atomicDatabase.collection(collection);
 }
 
 /** The database this instance serves, once connected. */
 export async function GetDatabase(): Promise<Db> {
-  const dbName = GetConfiguredDatabaseName();
-  return clientPromise.then((client) => client.db(dbName));
+  GetConfiguredDatabaseName();
+  return databasePromise;
 }
 
 interface IndexDefinition {
