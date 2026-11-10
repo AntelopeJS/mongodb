@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.4...v1.7.0)
+
+### 🔥 Performance
+
+- **connection:** Reuse one Db handle per client ([#124](https://github.com/AntelopeJS/mongodb/pull/124))
+
+### 📦 Build
+
+- **deps:** Bump @antelopejs/tooling-configs to 0.5.0 ([#122](https://github.com/AntelopeJS/mongodb/pull/122))
+- **deps:** Bump @antelopejs/tooling-configs to 0.5.1 ([#123](https://github.com/AntelopeJS/mongodb/pull/123))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.6.4
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.3...v1.6.4)
