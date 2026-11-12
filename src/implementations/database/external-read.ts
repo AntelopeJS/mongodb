@@ -49,6 +49,7 @@ export type BsonValue =
   | string
   | number
   | boolean
+  | bigint
   | null
   | undefined;
 
