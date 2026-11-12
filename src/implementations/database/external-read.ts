@@ -123,7 +123,7 @@ export function IsKeyScalar(
   );
 }
 
-export function KeyText(value: BsonValue | bigint): string | undefined {
+export function KeyText(value: BsonValue): string | undefined {
   if (isObjectInstance(value) || value === null || value === undefined) {
     return undefined;
   }
@@ -134,10 +134,7 @@ export function KeyText(value: BsonValue | bigint): string | undefined {
  * The native values a rendered key addresses: at most one, of the collection's key type class.
  * Text that does not parse as that class addresses nothing, rather than raising.
  */
-export function KeyValues(
-  key: KeyClass,
-  keys: (BsonValue | bigint)[],
-): KeyValue[] {
+export function KeyValues(key: KeyClass, keys: BsonValue[]): KeyValue[] {
   return keys
     .map((value) => KeyText(value))
     .filter((text): text is string => text !== undefined)
