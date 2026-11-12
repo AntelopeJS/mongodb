@@ -76,11 +76,28 @@ export async function ReadInfo(): Promise<CatalogInfo> {
   };
 }
 
+/**
+ * What a connection with no authenticated user may do once its catalog reads succeeded: the
+ * server runs without access control, so every write is allowed.
+ */
+const UNRESTRICTED: Privilege = {
+  resource: { anyResource: true },
+  actions: Object.values(WRITE_ACTIONS),
+};
+
+/**
+ * The privileges of the authenticated user, or {@link UNRESTRICTED} when none is: called after
+ * `listCollections` succeeded, which a server with access control on refuses to an
+ * unauthenticated connection.
+ */
 async function Privileges(db: Db): Promise<Privilege[]> {
   const status = await db.command({
     connectionStatus: 1,
     showPrivileges: true,
   });
+  if (AuthenticatedRole(status) === "") {
+    return [UNRESTRICTED];
+  }
   const privileges: unknown = status.authInfo?.authenticatedUserPrivileges;
   return Array.isArray(privileges) ? privileges.filter(isPrivilege) : [];
 }
