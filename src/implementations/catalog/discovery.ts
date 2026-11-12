@@ -95,7 +95,8 @@ async function Privileges(db: Db): Promise<Privilege[]> {
     connectionStatus: 1,
     showPrivileges: true,
   });
-  if (AuthenticatedRole(status) === "") {
+  const users: unknown = status.authInfo?.authenticatedUsers;
+  if (Array.isArray(users) && users.length === 0) {
     return [UNRESTRICTED];
   }
   const privileges: unknown = status.authInfo?.authenticatedUserPrivileges;
