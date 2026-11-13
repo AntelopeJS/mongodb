@@ -76,26 +76,26 @@ describe("writing back what an external collection answered", () => {
 
   it("changes nothing when a whole read row comes back unedited, Long, Decimal128 and ObjectId included", async () => {
     const before = Canonical(await Stored("customers", customer));
-    const row = await Table("customers").get(customer.toHexString());
+    const row = await Table("customers").get(customer.toHexString()).run();
     expect(
-      await Table("customers").get(customer.toHexString()).update(row),
+      await Table("customers").get(customer.toHexString()).update(row).run(),
     ).to.equal(0);
     expect(Canonical(await Stored("customers", customer))).to.equal(before);
     expect(row.ref).to.equal(null);
     const orderBefore = Canonical(await Stored("orders", order));
-    const orderRow = await Table("orders").get(order.toHexString());
+    const orderRow = await Table("orders").get(order.toHexString()).run();
     expect(
-      await Table("orders").get(order.toHexString()).update(orderRow),
+      await Table("orders").get(order.toHexString()).update(orderRow).run(),
     ).to.equal(0);
     expect(Canonical(await Stored("orders", order))).to.equal(orderBefore);
   });
 
   it("changes only the field edited, keeping the others' native types and the undeclared phone", async () => {
     const before = await Stored("orders", order);
-    const row = await Table("orders").get(order.toHexString());
+    const row = await Table("orders").get(order.toHexString()).run();
     const edited = { ...row, status: "cancelled" };
     expect(
-      await Table("orders").get(order.toHexString()).update(edited),
+      await Table("orders").get(order.toHexString()).update(edited).run(),
     ).to.equal(1);
     const after = await Stored("orders", order);
     const originalStatus: unknown = before?.status;
@@ -106,7 +106,8 @@ describe("writing back what an external collection answered", () => {
     const customerBefore = await Stored("customers", customer);
     await Table("customers")
       .get(customer.toHexString())
-      .update({ name: "Renamed 91" });
+      .update({ name: "Renamed 91" })
+      .run();
     const customerAfter = await Stored("customers", customer);
     expect(customerAfter?.phone).to.equal(customerBefore?.phone);
     expect(CanonicalField(customerAfter, "points")).to.equal(
@@ -118,6 +119,7 @@ describe("writing back what an external collection answered", () => {
     const refusal: unknown = await Table("customers")
       .get(customer.toHexString())
       .update({ name: "Staged 91", stage: "func" })
+      .run()
       .then(
         () => undefined,
         (error: unknown) => error,
@@ -133,7 +135,8 @@ describe("writing back what an external collection answered", () => {
     );
     await Table("customers")
       .get(customer.toHexString())
-      .update({ address: { city: "Nowhere" } });
+      .update({ address: { city: "Nowhere" } })
+      .run();
     expect(
       CanonicalField(await Stored("customers", customer), "address"),
     ).to.equal(before);
@@ -144,7 +147,8 @@ describe("writing back what an external collection answered", () => {
     expect(
       await Table("customers")
         .get(customer.toHexString())
-        .update({ _id: other, name: "Moved" }),
+        .update({ _id: other, name: "Moved" })
+        .run(),
     ).to.equal(0);
     expect((await Stored("customers", customer))?.name).to.not.equal("Moved");
   });
@@ -165,7 +169,7 @@ describe("inserting into an external collection", () => {
       name: `${BULK_PREFIX} ${index}`,
       email: `bulk${index}@example.com`,
     }));
-    const ids = await Table("customers").insert(values);
+    const ids = await Table("customers").insert(values).run();
     expect(ids).to.have.length(BULK_SIZE);
     const stored = await admin
       .db(CLIENT_DATABASE)
@@ -186,17 +190,20 @@ describe("inserting into an external collection", () => {
   it("deletes what a search on a normalized value selects", async () => {
     const deleted = await Table("customers")
       .filter((row) => row.key("name").match(`^${BULK_PREFIX} `))
-      .delete();
+      .delete()
+      .run();
     expect(deleted).to.equal(BULK_SIZE);
   });
 
   it("stores a customerId given as hex as an ObjectId, the field's dominant type", async () => {
-    const [id] = await Table("orders").insert({
-      customerId: CustomerId(3).toHexString(),
-      status: "draft",
-      orderedAt: new Date("2026-01-01T00:00:00Z"),
-      total: 12.5,
-    });
+    const [id] = await Table("orders")
+      .insert({
+        customerId: CustomerId(3).toHexString(),
+        status: "draft",
+        orderedAt: new Date("2026-01-01T00:00:00Z"),
+        total: 12.5,
+      })
+      .run();
     const stored = await Stored("orders", new ObjectId(id));
     expect(stored?.customerId).to.be.instanceOf(ObjectId);
     expect(stored?.total?._bsontype).to.equal("Decimal128");
@@ -209,10 +216,12 @@ describe("inserting into an external collection", () => {
   it("upserts on conflict through the write-back guard, keeping undeclared fields", async () => {
     const customer = CustomerId(14);
     const before = await Stored("customers", customer);
-    const ids = await Table("customers").insert(
-      { _id: customer.toHexString(), name: "Upserted 14" },
-      { conflict: "update" },
-    );
+    const ids = await Table("customers")
+      .insert(
+        { _id: customer.toHexString(), name: "Upserted 14" },
+        { conflict: "update" },
+      )
+      .run();
     expect(ids).to.deep.equal([customer.toHexString()]);
     const after = await Stored("customers", customer);
     expect(after).to.include({ name: "Upserted 14" });
@@ -223,7 +232,9 @@ describe("inserting into an external collection", () => {
   });
 
   it("writes a whole number as a double into a field of ints and doubles, which ints would not hold", async () => {
-    const [id] = await Table("customers").insert({ name: "Scored", score: 4 });
+    const [id] = await Table("customers")
+      .insert({ name: "Scored", score: 4 })
+      .run();
     const stored = await admin
       .db(CLIENT_DATABASE)
       .collection("customers")
@@ -233,7 +244,7 @@ describe("inserting into an external collection", () => {
 
   it("refuses an insert into a string-keyed collection without _id, naming it", async () => {
     const error = await Refusal(() =>
-      Table("products").insert({ label: "No key" }),
+      Table("products").insert({ label: "No key" }).run(),
     );
     expect(error.message).to.contain("'_id'");
   });
@@ -256,7 +267,8 @@ describe("what an external write refuses", () => {
       const error = await Refusal(() =>
         Table("customers")
           .get(customer)
-          .update({ [key]: "x" }),
+          .update({ [key]: "x" })
+          .run(),
       );
       expect(error.message).to.contain(`'${key}'`);
     });
@@ -264,10 +276,12 @@ describe("what an external write refuses", () => {
 
   it("refuses an object value on insert", async () => {
     const error = await Refusal(() =>
-      Table("customers").insert({
-        name: "Addressed",
-        address: { city: "Paris" },
-      }),
+      Table("customers")
+        .insert({
+          name: "Addressed",
+          address: { city: "Paris" },
+        })
+        .run(),
     );
     expect(error.message).to.contain("'address'").and.to.contain("read-only");
   });
@@ -277,14 +291,15 @@ describe("what an external write refuses", () => {
     const error = await Refusal(() =>
       Table("orders")
         .get(OrderId(2).toHexString())
-        .update({ customerId: "not-hex" }),
+        .update({ customerId: "not-hex" })
+        .run(),
     );
     expect(error.message).to.contain("'customerId'").and.to.contain("ObjectId");
     expect(await WritesTo("orders")).to.equal(writesBefore);
   });
 
   it("writes a fraction into a Long field as a double rather than refuse it", async () => {
-    await Table("customers").get(customer).update({ points: 1.5 });
+    await Table("customers").get(customer).update({ points: 1.5 }).run();
     const stored = await Stored("customers", new ObjectId(customer));
     expect(CanonicalField(stored, "points")).to.equal(
       '{"$numberDouble":"1.5"}',
@@ -293,7 +308,10 @@ describe("what an external write refuses", () => {
 
   it("names the property a validator refuses", async () => {
     const error = await Refusal(() =>
-      Table("orders").get(OrderId(2).toHexString()).update({ status: "lost" }),
+      Table("orders")
+        .get(OrderId(2).toHexString())
+        .update({ status: "lost" })
+        .run(),
     );
     expect(error).to.have.property("kind", "invalid");
     expect(error).to.have.property("fields").that.deep.equals(["status"]);
@@ -301,7 +319,10 @@ describe("what an external write refuses", () => {
 
   it("raises DuplicateKeyError on a duplicate email, quoting no value", async () => {
     const error = await Refusal(() =>
-      Table("customers").get(customer).update({ email: "user6@example.com" }),
+      Table("customers")
+        .get(customer)
+        .update({ email: "user6@example.com" })
+        .run(),
     );
     expect(IsDuplicateKeyError(error)).to.equal(true);
     expect(error.message).to.not.contain("example.com");
@@ -309,7 +330,9 @@ describe("what an external write refuses", () => {
 
   it("names the index and its fields of a duplicate key an insert hits", async () => {
     const error = await Refusal(() =>
-      Table("customers").insert({ name: "Twin", email: "user6@example.com" }),
+      Table("customers")
+        .insert({ name: "Twin", email: "user6@example.com" })
+        .run(),
     );
     expect(error).to.include({ index: "email_1" });
     expect(error).to.have.property("fields").that.deep.equals(["email"]);
@@ -317,14 +340,14 @@ describe("what an external write refuses", () => {
 
   it("names the property a validator refuses on insert", async () => {
     const error = await Refusal(() =>
-      Table("orders").insert({ status: "lost", orderedAt: new Date() }),
+      Table("orders").insert({ status: "lost", orderedAt: new Date() }).run(),
     );
     expect(error).to.have.property("fields").that.deep.equals(["status"]);
   });
 
   it("answers forbidden for a collection the account may not write", async () => {
     const error = await Refusal(() =>
-      Table("products").get("SKU-00001").update({ label: "Changed" }),
+      Table("products").get("SKU-00001").update({ label: "Changed" }).run(),
     );
     expect(error).to.have.property("kind", "forbidden");
     expect(error.message).to.not.contain("Changed");
@@ -345,10 +368,11 @@ describe("replacing a document of an external collection", () => {
 
   it("removes the declared fields left out and keeps the undeclared and the read-only ones", async () => {
     const before = await Stored("customers", customer);
-    const row = await Table("customers").get(customer.toHexString());
+    const row = await Table("customers").get(customer.toHexString()).run();
     const replaced = await Table("customers")
       .get(customer.toHexString())
-      .replace({ name: "Replaced 11", email: row?.email ?? null });
+      .replace({ name: "Replaced 11", email: row?.email ?? null })
+      .run();
     expect(replaced).to.equal(1);
     const after = await Stored("customers", customer);
     expect(after).to.not.have.property("segment");

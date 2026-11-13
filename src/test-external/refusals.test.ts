@@ -50,7 +50,8 @@ describe("what an external collection refuses", () => {
           expectedRevision: "Customer 1",
           nextRevision: "Customer one",
           patch: {},
-        }),
+        })
+        .run(),
     );
     expect(message).to.contain("atomicMutation").and.to.contain("customers");
     expect(await NativeCount("customers", { name: "Customer 1" })).to.equal(
@@ -59,34 +60,38 @@ describe("what an external collection refuses", () => {
   });
 
   it("refuses creating and destroying an instance", async () => {
-    expect(await Refusal(() => erp.createInstance("t1"))).to.contain(
+    expect(await Refusal(() => erp.createInstance("t1").run())).to.contain(
       "createInstance",
     );
-    expect(await Refusal(() => erp.destroyInstance("t1"))).to.contain(
+    expect(await Refusal(() => erp.destroyInstance("t1").run())).to.contain(
       "destroyInstance",
     );
   });
 
   it("lists no instances", async () => {
-    expect(await erp.listInstances()).to.deep.equal([]);
+    expect(await erp.listInstances().run()).to.deep.equal([]);
   });
 
   it("refuses get on a collection with no usable _id, naming it", async () => {
     const message = await Refusal(() =>
-      erp.instance().table("mixed_ids").get("1"),
+      erp.instance().table("mixed_ids").get("1").run(),
     );
     expect(message).to.contain("mixed_ids").and.to.contain("no _id");
   });
 
   it("refuses getAll by _id on a collection with no usable _id, naming it", async () => {
     const message = await Refusal(() =>
-      erp.instance().table("mixed_ids").getAll(["1"], "_id"),
+      erp.instance().table("mixed_ids").getAll(["1"], "_id").run(),
     );
     expect(message).to.contain("mixed_ids").and.to.contain("no _id");
   });
 
   it("still reads a keyless collection by a field", async () => {
-    const rows = await erp.instance().table("mixed_ids").getAll(["int"], "v");
+    const rows = await erp
+      .instance()
+      .table("mixed_ids")
+      .getAll(["int"], "v")
+      .run();
     expect(rows).to.have.length(1);
   });
 });

@@ -64,62 +64,70 @@ describe("the operations a caller reaches past the contract with cast", () => {
 
   it("during compares a number field with number bounds as numbers", async () => {
     assert.deepEqual(
-      await Rows().map((row) => {
-        const age = row.key("age").cast<Date>();
-        return {
-          inside: age.during(0, 100),
-          above: age.during(40, 100),
-          fields: age.during(row.key("low"), row.key("high")),
-        };
-      }),
+      await Rows()
+        .map((row) => {
+          const age = row.key("age").cast<Date>();
+          return {
+            inside: age.during(0, 100),
+            above: age.during(40, 100),
+            fields: age.during(row.key("low"), row.key("high")),
+          };
+        })
+        .run(),
       [{ inside: true, above: false, fields: true }],
     );
   });
 
   it("during compares a string field with string bounds as strings", async () => {
     assert.deepEqual(
-      await Rows().map((row) => {
-        const name = row.key("name").cast<Date>();
-        return {
-          inside: name.during(TextBound("a"), TextBound("c")),
-          above: name.during(TextBound("b"), TextBound("c")),
-          fields: name.during(
-            row.key("earliest").cast<Date>(),
-            row.key("name").cast<Date>(),
-          ),
-        };
-      }),
+      await Rows()
+        .map((row) => {
+          const name = row.key("name").cast<Date>();
+          return {
+            inside: name.during(TextBound("a"), TextBound("c")),
+            above: name.during(TextBound("b"), TextBound("c")),
+            fields: name.during(
+              row.key("earliest").cast<Date>(),
+              row.key("name").cast<Date>(),
+            ),
+          };
+        })
+        .run(),
       [{ inside: true, above: false, fields: false }],
     );
   });
 
   it("during refuses no text bound on a date, and orders it by type", async () => {
     assert.deepEqual(
-      await Rows().map((row) => ({
-        constants: row
-          .key("bornAt")
-          .during(TextBound(EPOCH_TEXT), TextBound(LATER_TEXT)),
-        fields: row
-          .key("bornAt")
-          .during(
-            row.key("earliest").cast<Date>(),
-            row.key("latest").cast<Date>(),
-          ),
-      })),
+      await Rows()
+        .map((row) => ({
+          constants: row
+            .key("bornAt")
+            .during(TextBound(EPOCH_TEXT), TextBound(LATER_TEXT)),
+          fields: row
+            .key("bornAt")
+            .during(
+              row.key("earliest").cast<Date>(),
+              row.key("latest").cast<Date>(),
+            ),
+        }))
+        .run(),
       [{ constants: false, fields: false }],
     );
   });
 
   it("during refuses no number bound that new Date cannot read", async () => {
     assert.deepEqual(
-      await Rows().map((row) => ({
-        hugeOnNumber: row.key("age").cast<Date>().during(0, 1e300),
-        infiniteOnNumber: row.key("age").cast<Date>().during(0, Infinity),
-        hugeOnDate: row.key("bornAt").during(1e300, 1e301),
-        hugeFieldOnDate: row
-          .key("bornAt")
-          .during(row.key("high").mul(1e300), row.key("high").mul(1e301)),
-      })),
+      await Rows()
+        .map((row) => ({
+          hugeOnNumber: row.key("age").cast<Date>().during(0, 1e300),
+          infiniteOnNumber: row.key("age").cast<Date>().during(0, Infinity),
+          hugeOnDate: row.key("bornAt").during(1e300, 1e301),
+          hugeFieldOnDate: row
+            .key("bornAt")
+            .during(row.key("high").mul(1e300), row.key("high").mul(1e301)),
+        }))
+        .run(),
       [
         {
           hugeOnNumber: true,
