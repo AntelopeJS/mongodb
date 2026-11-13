@@ -43,9 +43,9 @@ describe("comparisons an external collection's indexes serve", () => {
   });
 
   it("filters orders by a customer's hex _id, the string-stored ones included, through the index", async () => {
-    const rows = await Orders().filter((row) =>
-      row.key("customerId").eq(customer.toHexString()),
-    );
+    const rows = await Orders()
+      .filter((row) => row.key("customerId").eq(customer.toHexString()))
+      .run();
     const native = await NativeCount("orders", {
       customerId: { $in: [customer, customer.toHexString()] },
     });
@@ -63,7 +63,9 @@ describe("comparisons an external collection's indexes serve", () => {
   });
 
   it("answers getAll on the customerId index with both stored forms", async () => {
-    const rows = await Orders().getAll([customer.toHexString()], "customerId");
+    const rows = await Orders()
+      .getAll([customer.toHexString()], "customerId")
+      .run();
     expect(rows).to.have.length(
       await NativeCount("orders", {
         customerId: { $in: [customer, customer.toHexString()] },
@@ -75,7 +77,9 @@ describe("comparisons an external collection's indexes serve", () => {
     const [native] = await Native("orders", [
       { $group: { _id: null, sum: { $sum: "$total" } } },
     ]);
-    expect(await Orders().sum("total")).to.equal(Number(native.sum.toString()));
+    expect(await Orders().sum("total").run()).to.equal(
+      Number(native.sum.toString()),
+    );
   });
 
   it("averages, and takes the minimum and maximum of, a number field whose stray string reads null", async () => {
@@ -86,7 +90,7 @@ describe("comparisons an external collection's indexes serve", () => {
         $group: { _id: null, max: { $max: "$price" }, min: { $min: "$price" } },
       },
     ]);
-    expect(await products.max("price")).to.equal(native.max);
-    expect(await products.min("price")).to.equal(native.min);
+    expect(await products.max("price").run()).to.equal(native.max);
+    expect(await products.min("price").run()).to.equal(native.min);
   });
 });

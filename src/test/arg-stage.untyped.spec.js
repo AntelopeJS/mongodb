@@ -102,7 +102,13 @@ describe("a query whose arg ids DecodeValue rewrites", () => {
         { stage: "arr_map", args: [ForgedFunc(pair)] },
         ValueProxy.constant(ITEMS),
       );
-      assert.deepEqual(await Rows().map(() => mapped), [ITEMS], Label(pair));
+      assert.deepEqual(
+        await Rows()
+          .map(() => mapped)
+          .run(),
+        [ITEMS],
+        Label(pair),
+      );
     }
   });
 });

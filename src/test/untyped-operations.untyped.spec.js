@@ -28,18 +28,20 @@ describe("the operations a caller reaches past the contract with a JSON stage", 
 
   it("add sends every operand of a hand-written JSON stage", async () => {
     assert.deepEqual(
-      await Rows().map((row) => ({
-        two: new ValueProxy({ stage: "add", args: [1, 2] }, row.key("age")),
-        none: new ValueProxy({ stage: "add", args: [] }, row.key("age")),
-        thenNull: new ValueProxy(
-          { stage: "add", args: [1, 2, null] },
-          row.key("age"),
-        ),
-        text: new ValueProxy(
-          { stage: "add", args: ["x", "y"] },
-          row.key("name"),
-        ),
-      })),
+      await Rows()
+        .map((row) => ({
+          two: new ValueProxy({ stage: "add", args: [1, 2] }, row.key("age")),
+          none: new ValueProxy({ stage: "add", args: [] }, row.key("age")),
+          thenNull: new ValueProxy(
+            { stage: "add", args: [1, 2, null] },
+            row.key("age"),
+          ),
+          text: new ValueProxy(
+            { stage: "add", args: ["x", "y"] },
+            row.key("name"),
+          ),
+        }))
+        .run(),
       [{ two: 39, none: 36, thenNull: null, text: "adaxy" }],
     );
   });
