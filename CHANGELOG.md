@@ -4,6 +4,11 @@
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.7.0...v1.8.0)
 
+### Upgrade notes
+
+- Implements `@antelopejs/interface-database` `>=0.4.0 <0.5.0` ([#129](https://github.com/AntelopeJS/mongodb/pull/129)). An application on interface-database 0.3.x must upgrade to 0.4.0 with this release. In 0.4.0 a query is no longer thenable: run it with `.run()`. `await query` without `.run()` answers the query object and sends nothing to the server.
+- **Behavior change:** with access control off on the server, the catalog's `RelationSummary.writes` now answers `insert`, `update` and `delete` as `true` for a collection, instead of `false` ([#127](https://github.com/AntelopeJS/mongodb/pull/127)). A view still answers `false` for all three.
+
 ### 🚀 Enhancements
 
 - **deps:** Support @antelopejs/interface-database 0.4.0 ([#129](https://github.com/AntelopeJS/mongodb/pull/129))
