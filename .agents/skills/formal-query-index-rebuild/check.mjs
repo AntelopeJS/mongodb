@@ -8,6 +8,7 @@
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,8 +45,14 @@ stopOn("SIGINT", 130);
 stopOn("SIGTERM", 143);
 stopOn("SIGHUP", 129);
 symlinkSync(path.join(root, "node_modules"), path.join(out, "node_modules"), "dir");
-const tsc = path.join(root, "node_modules", ".bin", "tsc");
-const compiled = await run(tsc, ["-p", path.join(skill, "tsconfig.json"), "--outDir", out]);
+const tsc = createRequire(path.join(root, "package.json")).resolve("typescript/bin/tsc");
+const compiled = await run(process.execPath, [
+  tsc,
+  "-p",
+  path.join(skill, "tsconfig.json"),
+  "--outDir",
+  out,
+]);
 if (compiled !== 0) {
   console.error("tsc failed");
   finish(TOOL_ERROR);
