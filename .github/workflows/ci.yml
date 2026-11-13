@@ -22,6 +22,7 @@ jobs:
       renovate-sync: false
       extra-commands: node .agents/skills/formal-query-index-rebuild/check.mjs
       test-job: true
+      windows: true
   renovate-sync:
     if: >-
       github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
