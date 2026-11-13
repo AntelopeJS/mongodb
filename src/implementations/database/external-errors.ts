@@ -73,9 +73,10 @@ interface ServerFailure {
 function FailureOf(error: MongoServerError): ServerFailure {
   const [first] =
     error instanceof MongoBulkWriteError ? [error.writeErrors].flat() : [];
-  // SAFETY: the server's write error carries keyPattern on a duplicate key; the driver's type omits it.
-  const written = first?.err as Document | undefined;
-  const keyPattern: unknown = first ? written?.keyPattern : error.keyPattern;
+  const failed: unknown = first ? first.err : error;
+  const keyPattern: unknown = isDocument(failed)
+    ? failed.keyPattern
+    : undefined;
   const keyFields = isDocument(keyPattern) ? Object.keys(keyPattern) : [];
   return first
     ? {

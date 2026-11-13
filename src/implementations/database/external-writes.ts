@@ -12,6 +12,7 @@ import {
 } from "./external-payload";
 import { TimeLimit } from "./external-probe";
 import {
+  type BsonDocument,
   type BsonValue,
   ConstantKind,
   KeyText,
@@ -86,10 +87,7 @@ async function WriteTarget(
     .toArray();
   return {
     _id: {
-      $in: rows.map((row) =>
-        // oxlint-disable-next-line typescript/no-unsafe-argument -- row is a driver Document, so row._id is the any of mongodb's Document type; the pipeline ends in { $project: { _id: 1 } }, so it holds the stored _id, and naming that type through aggregate<T> or a typed local would only assert it
-        NativeKey(key, row._id),
-      ),
+      $in: rows.map((row: BsonDocument) => NativeKey(key, row._id)),
     },
   };
 }

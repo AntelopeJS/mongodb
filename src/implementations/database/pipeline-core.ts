@@ -14,7 +14,7 @@ import {
 } from "./indexes";
 import { GetCollection } from "../../connection";
 import { ToChangeEvent } from "./change-event";
-import type { BsonValue } from "./external-read";
+import type { BsonDocument, BsonValue } from "./external-read";
 import type { DecodingContext } from "./utils";
 import { DecodeFunction, DecodeValue } from "./expression";
 
@@ -129,8 +129,7 @@ export class PipelineCore {
   }
 
   /** The value a row of the pipeline holds: its wrapped field, `null` when the row lacks it, or the whole row. */
-  protected rowValue(row: Document): BsonValue {
-    // oxlint-disable-next-line typescript/no-unsafe-return -- row is a driver Document, so row[wrappedObject] is the any of mongodb's Document type; the pipeline stores the value under wrappedObject, and naming that type through aggregate<T> or a typed local would only assert it
+  protected rowValue(row: BsonDocument): BsonValue {
     return this.wrappedObject ? (row[this.wrappedObject] ?? null) : row;
   }
 

@@ -20,7 +20,6 @@ import {
   type InstanceContext,
   resolveInstanceContext,
 } from "./instance-scope";
-// oxlint-disable-next-line import/no-cycle -- SelectionQuery extends AggregationPipeline, whose addStages, union, join and lookup decode subqueries through SelectionQuery.decode
 import { AggregationPipeline } from "./pipeline";
 import type { CursorValue, QueryAnswer } from "./pipeline-core";
 import {
@@ -94,16 +93,19 @@ export class SelectionQuery extends AggregationPipeline {
     const instance = external
       ? ({ kind: "cross" } as const)
       : resolveInstanceContext(instanceId);
-    super({
-      schemaId,
-      tableName,
-      collection: external?.collection ?? collectionName(schemaId, tableName),
-      initialFilter: external
-        ? []
-        : buildInitialPipeline(instance, isChangeStream),
-      isChangeStream,
-      context,
-    });
+    super(
+      {
+        schemaId,
+        tableName,
+        collection: external?.collection ?? collectionName(schemaId, tableName),
+        initialFilter: external
+          ? []
+          : buildInitialPipeline(instance, isChangeStream),
+        isChangeStream,
+        context,
+      },
+      ReadTable,
+    );
     this.external =
       external && new ExternalStages(external, this.pipeline, context);
     this.options = external ? TimeLimit() : {};
@@ -137,7 +139,7 @@ export class SelectionQuery extends AggregationPipeline {
       selection.external?.finish(selection.resultType);
       return selection;
     }
-    return AggregationPipeline.decode(stages, context);
+    return AggregationPipeline.decodeArgument(stages, ReadTable, context);
   }
 
   private getFilter() {
@@ -509,4 +511,13 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "delete";
   }
+}
+
+/** Decodes a subquery, answering its pipeline only when it reads a table. */
+async function ReadTable(
+  stages: QueryStage[],
+  context: DecodingContext,
+): Promise<SelectionQuery | undefined> {
+  const stream = await SelectionQuery.decode(stages, context);
+  return stream instanceof SelectionQuery ? stream : undefined;
 }

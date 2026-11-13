@@ -10,7 +10,6 @@ import { type DecodingContext, IsUpdateFunction, Temporary } from "./utils";
 import type { ExternalCollection } from "./external-descriptor";
 import { DecodeFunction, DecodeValue, IsConstantValue } from "./expression";
 import {
-  type BsonValue,
   NativeFilter,
   NormalizingStages,
   ComparesNatively,
@@ -92,8 +91,7 @@ export class ExternalStages {
       ? undefined
       : await DecodeValue(key, this.context);
     this.pipeline.push({
-      // SAFETY: a decoded query value is plain data, BSON values and expression documents.
-      $match: KeyGetMatch(this.collection, key, decoded as BsonValue),
+      $match: KeyGetMatch(this.collection, key, decoded),
     });
   }
 
@@ -140,8 +138,7 @@ export class ExternalStages {
       const compiled = await DecodeFunction(predicate, this.context, [
         "$$ROOT",
       ]);
-      // SAFETY: a compiled filter is plain data, BSON values and expression documents.
-      return NativeFilter(this.collection, compiled as BsonValue);
+      return NativeFilter(this.collection, compiled);
     } catch (error) {
       if (error === NOT_NATIVE) {
         return undefined;

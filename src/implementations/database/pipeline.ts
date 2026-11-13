@@ -4,8 +4,6 @@ import { ValueProxy } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
-// oxlint-disable-next-line import/no-cycle -- base class dispatches to its own subclass decoder
-import { SelectionQuery } from "./selection";
 import { ArrayLookup } from "./array-lookup";
 import {
   type DecodedOperand,
@@ -18,7 +16,13 @@ import {
   Temporary,
 } from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
-import { PipelineCore } from "./pipeline-core";
+import { PipelineCore, type PipelineSource } from "./pipeline-core";
+
+/** Decodes a subquery into the pipeline of the table it reads, or undefined when it reads none. */
+export type TableReader = (
+  stages: QueryStage[],
+  context: DecodingContext,
+) => Promise<AggregationPipeline | undefined>;
 
 function buildRightStages(
   stage: QueryStage<"union" | "join" | "lookup">,
@@ -29,23 +33,34 @@ function buildRightStages(
 /** The stages that rewrite the root of a pipeline, including those that decode another stream into it. */
 export class AggregationPipeline extends PipelineCore {
   private pendingUnset: string[] = [];
+  private readonly readTable: TableReader;
 
-  public static async decode(
+  public constructor(source: PipelineSource, readTable: TableReader) {
+    super(source);
+    this.readTable = readTable;
+  }
+
+  /** Decodes an argument query, the only query that reads no table. */
+  public static async decodeArgument(
     stages: QueryStage[],
+    readTable: TableReader,
     context?: DecodingContext,
     modifier?: (pipeline: AggregationPipeline) => any,
   ): Promise<AggregationPipeline> {
     if (stages[0]?.stage === "arg") {
       assert(context, "Arg query without context?");
       const argRef = String(stages[0].args[0]);
-      const query = new AggregationPipeline({
-        schemaId: "",
-        tableName: argRef,
-        collection: argRef,
-        initialFilter: [],
-        isChangeStream: false,
-        context,
-      });
+      const query = new AggregationPipeline(
+        {
+          schemaId: "",
+          tableName: argRef,
+          collection: argRef,
+          initialFilter: [],
+          isChangeStream: false,
+          context,
+        },
+        readTable,
+      );
       if (modifier) {
         await modifier(query);
       }
@@ -60,14 +75,11 @@ export class AggregationPipeline extends PipelineCore {
     this.context.subquery = async (subQuery) => {
       const tmp = Temporary("join");
       const tmpRoot = Temporary("parentRoot");
-      const rightStream = await SelectionQuery.decode(
+      const rightStream = await this.readTable(
         subQuery,
         this.context.withRoot(`$$${tmpRoot}`),
       );
-      assert(
-        rightStream instanceof SelectionQuery,
-        "Subquery must read a table",
-      );
+      assert(rightStream, "Subquery must read a table");
 
       const getStage = subQuery.find(
         (s) => s.stage === "get" || s.stage === "getAll",
@@ -217,11 +229,11 @@ export class AggregationPipeline extends PipelineCore {
 
   protected async stage_union(stage: QueryStage<"union">) {
     assert(!this.isChangeStream, "Union not supported in change streams");
-    const rightStream = await SelectionQuery.decode(
+    const rightStream = await this.readTable(
       buildRightStages(stage),
       this.context,
     );
-    assert(rightStream instanceof SelectionQuery, "Union must read a table");
+    assert(rightStream, "Union must read a table");
 
     if (this.wrappedObject !== rightStream.wrappedObject) {
       if (!this.wrappedObject) {
@@ -245,12 +257,12 @@ export class AggregationPipeline extends PipelineCore {
   protected async stage_join(stage: QueryStage<"join">) {
     assert(!this.isChangeStream, "Join not supported in change streams");
     const { innerOnly } = stage.options;
-    const rightStream = await SelectionQuery.decode(
+    const rightStream = await this.readTable(
       buildRightStages(stage),
       this.context,
     );
     const [, predicate, mapper] = stage.args;
-    assert(rightStream instanceof SelectionQuery, "Join must read a table");
+    assert(rightStream, "Join must read a table");
     const root = this.getRoot();
     const tmp = Temporary("join");
     this.pipeline.push(
@@ -288,11 +300,11 @@ export class AggregationPipeline extends PipelineCore {
 
   protected async stage_lookup(stage: QueryStage<"lookup">) {
     assert(!this.isChangeStream, "Lookup not supported in change streams");
-    const rightStream = await SelectionQuery.decode(
+    const rightStream = await this.readTable(
       buildRightStages(stage),
       this.context,
     );
-    assert(rightStream instanceof SelectionQuery);
+    assert(rightStream);
 
     const localField = this.getField(stage.options.localKey);
     const foreignField = stage.options.otherKey;
@@ -311,12 +323,11 @@ export class AggregationPipeline extends PipelineCore {
       {
         $addFields: {
           [localField]: {
-            $cond: {
-              if: { $isArray: `$${localField}` },
-              // oxlint-disable-next-line unicorn/no-thenable -- MongoDB $cond requires a then branch; this is a pipeline operator, not a promise.
-              then: `$${tmp}`,
-              else: { $arrayElemAt: [`$${tmp}`, 0] },
-            },
+            $cond: [
+              { $isArray: `$${localField}` },
+              `$${tmp}`,
+              { $arrayElemAt: [`$${tmp}`, 0] },
+            ],
           },
           [tmp]: "$$REMOVE",
         },
@@ -363,8 +374,9 @@ export class AggregationPipeline extends PipelineCore {
     const afterGroup: Document[] = [];
     const pipelineInserter = async (stages: QueryStage[]) => {
       const tmp = Temporary("groupstream");
-      const subquery = await AggregationPipeline.decode(
+      const subquery = await AggregationPipeline.decodeArgument(
         stages,
+        this.readTable,
         this.context,
         (subquery) => {
           subquery.wrappedObject = tmp;
