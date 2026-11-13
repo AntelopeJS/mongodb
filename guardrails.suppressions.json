@@ -5,7 +5,7 @@
     "typescript/no-unsafe-return": 0,
     "unicorn/no-thenable": 0
   },
-  "tsExpectError": 6,
+  "tsExpectError": 0,
   "tsIgnore": 0,
   "safety": 0,
   "config": {},

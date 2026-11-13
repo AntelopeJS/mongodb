@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { ValueProxy } from "@antelopejs/interface-database";
-import type { QueryStage } from "@antelopejs/interface-database/common";
 import { Schema } from "@antelopejs/interface-database/schema";
 
 import { DecodeFunction } from "../implementations/database/expression";
@@ -11,18 +10,7 @@ const INSTANCE = "one";
 const BOUND = "$$bound";
 const ITEMS = ["a", "b"];
 
-/** An id as a stage list rebuilt from client JSON can carry it. */
-type JsonId =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonId[]
-  | { [key: string]: JsonId };
-
-type IdPair = [funcId: JsonId, argId: JsonId];
-
-const SAME_ID_AS_RECORDED: IdPair[] = [
+const SAME_ID_AS_RECORDED = [
   ["$x", "$x"],
   ["$x", ["$x"]],
   [["$x"], "$x"],
@@ -32,40 +20,38 @@ const SAME_ID_AS_RECORDED: IdPair[] = [
   [[null], [null]],
 ];
 
-const OBJECT_FUNC_IDS: JsonId[] = [{}, { a: 1 }, "[object Object]"];
-const REWRITTEN_ARG_IDS: JsonId[] = ["$x", null, ["$x"], [null]];
+const OBJECT_FUNC_IDS = [{}, { a: 1 }, "[object Object]"];
+const REWRITTEN_ARG_IDS = ["$x", null, ["$x"], [null]];
 
-const OTHER_ID_THAN_RECORDED: IdPair[] = OBJECT_FUNC_IDS.flatMap((funcId) =>
-  REWRITTEN_ARG_IDS.map((argId): IdPair => [funcId, argId]),
+const OTHER_ID_THAN_RECORDED = OBJECT_FUNC_IDS.flatMap((funcId) =>
+  REWRITTEN_ARG_IDS.map((argId) => [funcId, argId]),
 );
 
-const NUMBER_IDS: IdPair[] = [
+const NUMBER_IDS = [
   [1, 1],
   ["1", 1],
 ];
 
-const OTHER_NUMBER_IDS: IdPair[] = [
+const OTHER_NUMBER_IDS = [
   [1, 2],
   [1, 0],
 ];
 
-function Func(funcId: number, argId: number): QueryStage<"func"> {
+/** A func stage whose ids are any JSON value, as a stage list rebuilt from client JSON can hold. */
+function ForgedFunc([funcId, argId]) {
   return {
     stage: "func",
-    args: [[funcId], new ValueProxy<string>({ stage: "arg", args: [argId] })],
+    args: [[funcId], new ValueProxy({ stage: "arg", args: [argId] })],
   };
 }
 
-function ForgedFunc([funcId, argId]: IdPair) {
-  // @ts-expect-error ids that are not numbers, which a stage list rebuilt from client JSON can hold and the driver reads as recorded
-  return Func(funcId, argId);
+function Bound([funcId, argId]) {
+  return DecodeFunction(ForgedFunc([funcId, argId]), new DecodingContext(), [
+    BOUND,
+  ]);
 }
 
-function Bound(pair: IdPair) {
-  return DecodeFunction(ForgedFunc(pair), new DecodingContext(), [BOUND]);
-}
-
-function Label([funcId, argId]: IdPair) {
+function Label([funcId, argId]) {
   return `func id ${JSON.stringify(funcId)} with arg id ${JSON.stringify(argId)}`;
 }
 
@@ -92,7 +78,7 @@ describe("an arg stage reads the argument its func bound under the id both recor
   });
 });
 
-const schema = new Schema<{ rows: { _id: string } }>(SCHEMA_ID, {
+const schema = new Schema(SCHEMA_ID, {
   rows: { fields: {}, indexes: {} },
 });
 
@@ -112,7 +98,7 @@ describe("a query whose arg ids DecodeValue rewrites", () => {
 
   it("maps over the list with the argument its func bound", async () => {
     for (const pair of SAME_ID_AS_RECORDED) {
-      const mapped = new ValueProxy<string[]>(
+      const mapped = new ValueProxy(
         { stage: "arr_map", args: [ForgedFunc(pair)] },
         ValueProxy.constant(ITEMS),
       );
