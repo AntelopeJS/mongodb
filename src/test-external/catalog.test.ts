@@ -29,6 +29,12 @@ const STRUCTURE_COMMANDS = [
   "drop",
 ];
 const WRITE_OPERATIONS = ["insert", "update", "remove"];
+/**
+ * Two profiles of the events fixture read its 100,000 documents in full nine times; fewer
+ * documents let a 1 ms measure finish. That takes about 1.2 s on an idle host and up to 7 s
+ * on a loaded one.
+ */
+const PROFILE_EVENTS_TIMEOUT_MS = 20_000;
 
 function Relation(name: string): string {
   return `${CLIENT_DATABASE}.${name}`;
@@ -145,7 +151,8 @@ describe("the profiles and samples of an external MongoDB catalog", () => {
     expect(email?.categories).to.equal(undefined);
   });
 
-  it("answers timeout for a measure that runs out of time, and answers again once it has time", async () => {
+  it("answers timeout for a measure that runs out of time, and answers again once it has time", async function () {
+    this.timeout(PROFILE_EVENTS_TIMEOUT_MS);
     SetMeasureTimeoutForTests(1);
     try {
       const slow = await Profile({
