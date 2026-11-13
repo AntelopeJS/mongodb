@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.8.0
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.7.0...v1.8.0)
+
+### 🚀 Enhancements
+
+- **deps:** Support @antelopejs/interface-database 0.4.0 ([#129](https://github.com/AntelopeJS/mongodb/pull/129))
+
+### 🩹 Fixes
+
+- **catalog:** Report every write allowed when access control is off ([#127](https://github.com/AntelopeJS/mongodb/pull/127))
+
+### 💅 Refactors
+
+- **database:** Fix the code behind every lint and SAFETY suppression ([#126](https://github.com/AntelopeJS/mongodb/pull/126))
+
+### 📖 Documentation
+
+- **readme:** Adopt the AntelopeJS framework README style ([#125](https://github.com/AntelopeJS/mongodb/pull/125))
+
+### ✅ Tests
+
+- Move the forbidden-input cases into untyped specs ([#128](https://github.com/AntelopeJS/mongodb/pull/128))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.7.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.6.4...v1.7.0)
