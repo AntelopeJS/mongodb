@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@antelopejs/interface-core':
-        specifier: '>=0.2.4 <1.0.0'
-        version: 0.4.0
+        specifier: '>=0.5.1 <0.6.0'
+        version: 0.5.1
       '@antelopejs/interface-database':
         specifier: '>=0.4.0 <0.5.0'
-        version: 0.4.0(@antelopejs/interface-core@0.4.0)
+        version: 0.4.0(@antelopejs/interface-core@0.5.1)
       '@antelopejs/interface-database-catalog':
         specifier: '>=0.0.3 <0.1.0'
-        version: 0.0.3(@antelopejs/interface-core@0.4.0)
+        version: 0.0.3(@antelopejs/interface-core@0.5.1)
       chai:
         specifier: ^4.5.0
         version: 4.5.0
@@ -34,11 +34,11 @@ importers:
         version: 11.1.1
     devDependencies:
       '@antelopejs/core':
-        specifier: ^1.21.0
-        version: 1.21.0
+        specifier: ~1.23.0
+        version: 1.23.0
       '@antelopejs/tooling-configs':
-        specifier: ^0.5.8
-        version: 0.5.8(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
+        specifier: '>=0.6.0 <0.7.0'
+        version: 0.6.0(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))
       '@types/chai':
         specifier: ^4.3.20
         version: 4.3.20
@@ -86,7 +86,7 @@ importers:
         version: 19.2.4(@types/node@22.19.15)
       release-it-changelogen:
         specifier: ^0.1.0
-        version: 0.1.0(changelogen@0.5.7)(release-it@19.2.4(@types/node@22.19.15))(semver@7.7.4)
+        version: 0.1.0(changelogen@0.5.7)(release-it@19.2.4(@types/node@22.19.15))(semver@7.8.6)
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -98,18 +98,18 @@ importers:
         version: 5.9.3
     optionalDependencies:
       '@antelopejs/interface-mongodb':
-        specifier: '>=0.0.7 <1.0.0'
+        specifier: '>=0.0.7 <0.1.0'
         version: 0.0.7(socks@2.8.10)
 
 packages:
 
-  '@antelopejs/core@1.21.0':
-    resolution: {integrity: sha512-0+qxASgc1sF8MihvGYfrAy6m3XTPcrFJeeIH69ivI0cvtYmj71cjzTeXdKghBZb4ndTMQ2IXeKbK6zxrG2w4Tw==}
+  '@antelopejs/core@1.23.0':
+    resolution: {integrity: sha512-RZvKjGqY8UntJxBNXtoYSSQwQxvM+WUgWfwB/YbQVk7K7GFugDCj3zyoLWmWyQDg48lwNbfrLDAMGvQ4OFy1Jg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  '@antelopejs/interface-core@0.4.0':
-    resolution: {integrity: sha512-IPX6dtt3KHknclN4mLOYeRYL2Odz1Pts+dtaZul62NghsBUX/0OFHD4Qhoaf+Beva4hjInbaF918ajr4Z5HVWQ==}
+  '@antelopejs/interface-core@0.5.1':
+    resolution: {integrity: sha512-ON/7TYA1yyT8UznzKi6vnwyjRU3byNE0OcFXBmf8dE/dqp8hKjeWHVyA2EUPOngmEimCLw4idZqOS5DJqMJx3g==}
 
   '@antelopejs/interface-database-catalog@0.0.3':
     resolution: {integrity: sha512-ZT7bZ0ycEs8VvEgNGQTGMAzKiFQC1BOYOM2f2e+vFuCN/1VPBZZFxg3XOmHClTzdW/RzX2k7lasfMyaVOUzOCA==}
@@ -124,8 +124,8 @@ packages:
   '@antelopejs/interface-mongodb@0.0.7':
     resolution: {integrity: sha512-uWcKbrxKv6p6pWC8jwJALhI4q31hVAeyI4mKKKUsN2imgruwQay8+JZbl5ptlNfzJyH22QiQ0P9dcJfeThnKyg==}
 
-  '@antelopejs/tooling-configs@0.5.8':
-    resolution: {integrity: sha512-F4q6E2HWXEF0f6MHHOCQGheRzaNkX4e8JeYI92x6KajWJIkk8HroThU8jmIaP7Q23w6fIv8fveHtyc7pJ2hQHg==}
+  '@antelopejs/tooling-configs@0.6.0':
+    resolution: {integrity: sha512-DtGbS8grU8KKoB/HcvxKfwQy2AqQh7OUF2it85zf4czzZPodgdsw1/Ajj4onJvOYygqNgcd7D7EdDFtmY7FuDA==}
     engines: {node: '>=22.18.0'}
     hasBin: true
     peerDependencies:
@@ -1054,6 +1054,10 @@ packages:
   '@typescript-eslint/visitor-keys@8.69.0':
     resolution: {integrity: sha512-+rmdgPA+EXkNgKYvHvFfhrs35utXbwaC5PGpDquSXcoXQDKUA5UjV0LmTucG/4JXkM31BTu4TilHtrN8IVBe8w==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@typescript/typescript6@6.0.2':
+    resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
+    hasBin: true
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2490,6 +2494,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   serialize-javascript@7.1.4:
     resolution: {integrity: sha512-FqlEuoTq/zRmA4Lg6aOqyH3lCHbUtCB0bmHCeFniX2GBdDqMJM3FwdvEhlE5Pim1dlt2FfBdVPmUNNiGhhKqpw==}
     engines: {node: '>=20.0.0'}
@@ -2684,6 +2693,11 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
 
@@ -2821,9 +2835,9 @@ packages:
 
 snapshots:
 
-  '@antelopejs/core@1.21.0':
+  '@antelopejs/core@1.23.0':
     dependencies:
-      '@antelopejs/interface-core': 0.4.0
+      '@antelopejs/interface-core': 0.5.1
       '@clack/prompts': 1.8.1
       '@types/proper-lockfile': 4.1.4
       commander: 13.1.0
@@ -2833,20 +2847,20 @@ snapshots:
       picocolors: 1.1.1
       proper-lockfile: 4.1.2
       reflect-metadata: 0.2.2
-      semver: 7.7.4
+      semver: 7.8.6
       typescript: 5.9.3
 
-  '@antelopejs/interface-core@0.4.0':
+  '@antelopejs/interface-core@0.5.1':
     dependencies:
       reflect-metadata: 0.2.2
 
-  '@antelopejs/interface-database-catalog@0.0.3(@antelopejs/interface-core@0.4.0)':
+  '@antelopejs/interface-database-catalog@0.0.3(@antelopejs/interface-core@0.5.1)':
     dependencies:
-      '@antelopejs/interface-core': 0.4.0
+      '@antelopejs/interface-core': 0.5.1
 
-  '@antelopejs/interface-database@0.4.0(@antelopejs/interface-core@0.4.0)':
+  '@antelopejs/interface-database@0.4.0(@antelopejs/interface-core@0.5.1)':
     dependencies:
-      '@antelopejs/interface-core': 0.4.0
+      '@antelopejs/interface-core': 0.5.1
 
   '@antelopejs/interface-mongodb@0.0.7(socks@2.8.10)':
     dependencies:
@@ -2861,12 +2875,13 @@ snapshots:
       - socks
     optional: true
 
-  '@antelopejs/tooling-configs@0.5.8(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
+  '@antelopejs/tooling-configs@0.6.0(eslint-plugin-perfectionist@5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.66.0)(oxlint@1.81.0(oxlint-tsgolint@7.0.2001))':
     dependencies:
       '@oxlint/plugins': 1.81.0
+      '@typescript/typescript6': 6.0.2
       dts-bundle-generator: 9.5.1
       minimatch: 10.2.6
-      typescript: 5.9.3
+      semver: 7.8.6
       yaml: 2.9.1
     optionalDependencies:
       eslint-plugin-perfectionist: 5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3)
@@ -3550,6 +3565,10 @@ snapshots:
       '@typescript-eslint/types': 8.69.0
       eslint-visitor-keys: 5.0.1
 
+  '@typescript/typescript6@6.0.2':
+    dependencies:
+      '@typescript/old': typescript@6.0.3
+
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
       acorn: 8.19.0
@@ -3775,7 +3794,7 @@ snapshots:
       pathe: 1.1.2
       pkg-types: 1.3.1
       scule: 1.3.0
-      semver: 7.7.4
+      semver: 7.8.6
       std-env: 3.10.0
       yaml: 2.9.1
     transitivePeerDependencies:
@@ -5027,7 +5046,7 @@ snapshots:
 
   reflect-metadata@0.2.2: {}
 
-  release-it-changelogen@0.1.0(changelogen@0.5.7)(release-it@19.2.4(@types/node@22.19.15))(semver@7.7.4):
+  release-it-changelogen@0.1.0(changelogen@0.5.7)(release-it@19.2.4(@types/node@22.19.15))(semver@7.8.6):
     dependencies:
       chalk: 5.6.2
       changelogen: 0.5.7
@@ -5036,7 +5055,7 @@ snapshots:
       execa: 8.0.1
       pathe: 1.1.2
       release-it: 19.2.4(@types/node@22.19.15)
-      semver: 7.7.4
+      semver: 7.8.6
       yargs-parser: 21.1.1
 
   release-it@19.2.4(@types/node@22.19.15):
@@ -5108,6 +5127,8 @@ snapshots:
   semver@7.7.3: {}
 
   semver@7.7.4: {}
+
+  semver@7.8.6: {}
 
   serialize-javascript@7.1.4: {}
 
@@ -5317,6 +5338,8 @@ snapshots:
   type-fest@2.19.0: {}
 
   typescript@5.9.3: {}
+
+  typescript@6.0.3: {}
 
   ufo@1.6.4: {}
 
