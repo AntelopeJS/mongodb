@@ -29,6 +29,7 @@ import {
   IsConstantValue,
 } from "./expression";
 import {
+  IsPrimaryKeyDuplicate,
   ResolveIndex,
   type ResolvedIndex,
   SingleIndexField,
@@ -217,8 +218,13 @@ export class SelectionQuery extends AggregationPipeline {
         },
       }),
     };
-    const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
-    await collection.bulkWrite(documents.map(buildOp));
+    const operations = documents.map(CONFLICT_OPERATIONS[this._conflictMode!]);
+    await collection.bulkWrite(operations).catch((error: unknown) => {
+      if (!IsPrimaryKeyDuplicate(error)) {
+        throw error;
+      }
+      return collection.bulkWrite(operations);
+    });
     const ids: unknown[] = [];
     for (const doc of documents) {
       ids.push(doc._id);

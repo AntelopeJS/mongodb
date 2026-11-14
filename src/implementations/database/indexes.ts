@@ -76,6 +76,17 @@ function declaredIndexId(physicalName: string): string {
     : physicalName;
 }
 
+/** Whether MongoDB refused a write because its `_id` already exists in the collection. */
+export function IsPrimaryKeyDuplicate(
+  error: unknown,
+): error is MongoServerError {
+  return (
+    error instanceof MongoServerError &&
+    error.code === DUPLICATE_KEY_CODE &&
+    DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1] === PRIMARY_KEY_INDEX
+  );
+}
+
 /**
  * The typed error of a write MongoDB refused for a duplicate key (E11000),
  * naming the declared index rather than its physical, instance-prefixed one;
