@@ -5,8 +5,8 @@ import { PrimaryKeyDuplicateAt } from "./indexes";
 /**
  * Runs ordered upserts to the end. An upsert that loses an `_id` race to a
  * concurrent insert resumes from that operation, which then matches the
- * winner's row; one refused twice in a row (an `_id` another instance holds)
- * throws.
+ * winner's row. An operation refused twice in a row throws: its `_id` is held
+ * by another instance, or was deleted and inserted again between the attempts.
  */
 export async function UpsertAll(
   collection: Collection,

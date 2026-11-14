@@ -117,4 +117,28 @@ describe("insert with conflict: concurrent writers", () => {
     expect(held).to.include({ writer0: true });
     expect(held).not.to.have.property("writer1");
   });
+
+  it("refuses a batch at the row another instance holds and keeps the rows before it", async () => {
+    const ids = Array.from({ length: 4 }, () => randomUUID());
+    await rows(OTHER_TENANT).insert(writerRow(ids[2], 0)).run();
+
+    const error = await rows()
+      .insert(
+        ids.map((_id) => writerRow(_id, 1)),
+        { conflict: "update" },
+      )
+      .run()
+      .then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+
+    expect(IsDuplicateKeyError(error)).to.equal(true);
+    expect((await storedRows(ids)).map((row) => row._id)).to.have.members(
+      ids.slice(0, 2),
+    );
+    expect(await rows(OTHER_TENANT).get(ids[2]).run()).not.to.have.property(
+      "writer1",
+    );
+  });
 });
