@@ -15,6 +15,7 @@ import { RenderOutput } from "./external-read";
 import { ExternalTarget, PredicateAfterRows } from "./external-selection";
 import { ExternalStages } from "./external-stages";
 import { RunExternalWrite } from "./external-writes";
+import { UpsertAll } from "./conflict-upsert";
 import {
   buildInitialPipeline,
   type InstanceContext,
@@ -29,7 +30,6 @@ import {
   IsConstantValue,
 } from "./expression";
 import {
-  IsPrimaryKeyDuplicate,
   ResolveIndex,
   type ResolvedIndex,
   SingleIndexField,
@@ -219,12 +219,7 @@ export class SelectionQuery extends AggregationPipeline {
       }),
     };
     const operations = documents.map(CONFLICT_OPERATIONS[this._conflictMode!]);
-    await collection.bulkWrite(operations).catch((error: unknown) => {
-      if (!IsPrimaryKeyDuplicate(error)) {
-        throw error;
-      }
-      return collection.bulkWrite(operations);
-    });
+    await UpsertAll(collection, operations);
     const ids: unknown[] = [];
     for (const doc of documents) {
       ids.push(doc._id);
