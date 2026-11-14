@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.8.1
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.0...v1.8.1)
+
+### 📖 Documentation
+
+- **changelog:** Upgrade notes of mongodb 1.8.0 ([#130](https://github.com/AntelopeJS/mongodb/pull/130))
+
+### 📦 Build
+
+- **deps:** Cap the AntelopeJS ranges below the next minor ([#133](https://github.com/AntelopeJS/mongodb/pull/133))
+
+### ✅ Tests
+
+- **catalog:** Give the measure timeout test the time its reads take under load ([#132](https://github.com/AntelopeJS/mongodb/pull/132))
+
+### 🤖 CI
+
+- Run the checks on Windows beside Linux ([#131](https://github.com/AntelopeJS/mongodb/pull/131))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.0
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.7.0...v1.8.0)
