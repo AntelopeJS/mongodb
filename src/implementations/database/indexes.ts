@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { MongoServerError } from "mongodb";
+import { MongoBulkWriteError, MongoServerError } from "mongodb";
 import { Logging } from "@antelopejs/interface-core/logging";
 import { DuplicateKeyError } from "@antelopejs/interface-database";
 import type { IndexDefinition } from "@antelopejs/interface-database/schema";
@@ -76,6 +76,31 @@ function declaredIndexId(physicalName: string): string {
     : physicalName;
 }
 
+/** The physical index named by a write MongoDB refused for a duplicate key (E11000). */
+function duplicatedIndex(error: unknown): string | undefined {
+  if (
+    !(error instanceof MongoServerError) ||
+    error.code !== DUPLICATE_KEY_CODE
+  ) {
+    return undefined;
+  }
+  return DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1];
+}
+
+/**
+ * The position, in its batch, of the first operation of a bulk write that
+ * MongoDB refused because its `_id` already exists; undefined for any other error.
+ */
+export function PrimaryKeyDuplicateAt(error: unknown): number | undefined {
+  if (
+    !(error instanceof MongoBulkWriteError) ||
+    duplicatedIndex(error) !== PRIMARY_KEY_INDEX
+  ) {
+    return undefined;
+  }
+  return [error.writeErrors].flat()[0]?.index;
+}
+
 /**
  * The typed error of a write MongoDB refused for a duplicate key (E11000),
  * naming the declared index rather than its physical, instance-prefixed one;
@@ -86,13 +111,7 @@ export function TypedWriteError<WriteFailure>(
   tableName: string,
   error: WriteFailure,
 ): WriteFailure | DuplicateKeyError {
-  if (
-    !(error instanceof MongoServerError) ||
-    error.code !== DUPLICATE_KEY_CODE
-  ) {
-    return error;
-  }
-  const physicalName = DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1];
+  const physicalName = duplicatedIndex(error);
   if (!physicalName) {
     return error;
   }

@@ -15,6 +15,7 @@ import { RenderOutput } from "./external-read";
 import { ExternalTarget, PredicateAfterRows } from "./external-selection";
 import { ExternalStages } from "./external-stages";
 import { RunExternalWrite } from "./external-writes";
+import { UpsertAll } from "./conflict-upsert";
 import {
   buildInitialPipeline,
   type InstanceContext,
@@ -217,8 +218,8 @@ export class SelectionQuery extends AggregationPipeline {
         },
       }),
     };
-    const buildOp = CONFLICT_OPERATIONS[this._conflictMode!];
-    await collection.bulkWrite(documents.map(buildOp));
+    const operations = documents.map(CONFLICT_OPERATIONS[this._conflictMode!]);
+    await UpsertAll(collection, operations);
     const ids: unknown[] = [];
     for (const doc of documents) {
       ids.push(doc._id);
