@@ -32,9 +32,9 @@
     "lint": "oxlint",
     "prepack": "pnpm run build",
     "release": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run prepack && release-it",
-    "test": "pnpm run build && ajs module test . && pnpm run test:external:run",
+    "test": "pnpm run build && ajs module test . --timeout 10000 && pnpm run test:external:run",
     "test:external": "pnpm run build && pnpm run test:external:run",
-    "test:external:run": "MONGO_TEST_MODE=external ajs module test . $(for file in dist/test-external/*.test.js; do printf -- '-f %s ' \"$file\"; done)",
+    "test:external:run": "MONGO_TEST_MODE=external ajs module test . --timeout 10000 $(for file in dist/test-external/*.test.js; do printf -- '-f %s ' \"$file\"; done)",
     "format:check": "oxfmt --check .",
     "knip": "knip",
     "prepare": "if [ -e .git ] && command -v git >/dev/null 2>&1 && command -v lefthook >/dev/null 2>&1 && GIT_DIR=.git GIT_WORK_TREE=. git rev-parse --git-dir >/dev/null 2>&1; then GIT_DIR=.git GIT_WORK_TREE=. lefthook install; fi",
@@ -57,7 +57,7 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "@antelopejs/core": "~1.23.0",
+    "@antelopejs/core": "~1.23.1",
     "@antelopejs/tooling-configs": ">=0.6.0 <0.7.0",
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.10",
