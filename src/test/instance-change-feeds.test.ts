@@ -89,7 +89,7 @@ class Reader {
     await this.drain();
   }
 
-  /** Every event other than the probe's, up to an update of the probe written after them. */
+  /** Every event other than the probe's, up to a replace of the probe written after them. */
   public async drain(): Promise<Seen[]> {
     this.arm();
     const marker = await this.probe();
