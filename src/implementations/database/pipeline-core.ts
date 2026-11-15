@@ -161,7 +161,8 @@ export class PipelineCore {
 
   /**
    * The cursor's next batch: the row it waits for, then every row the driver already holds, without
-   * fetching more. An empty batch means the cursor is exhausted or closed.
+   * fetching more. An empty batch means the cursor is exhausted, or was closed before its first row
+   * arrived. A read after a close that came later rejects.
    */
   public async readCursor(): Promise<CursorValue[]> {
     const row = await this.nextRow();
@@ -180,7 +181,7 @@ export class PipelineCore {
     return this.isChangeStream ? ToChangeEvent(row) : this.rowValue(row);
   }
 
-  /** The cursor's next row, or `null` past the last one or once closed. */
+  /** The cursor's next row, or `null` past the last one or when closed before its first row arrived. */
   protected async nextRow(): Promise<Document | null> {
     if (this.cursor) {
       return this.cursor.next();
