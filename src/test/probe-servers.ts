@@ -37,6 +37,34 @@ export async function ClosedPort(): Promise<number> {
   return port;
 }
 
+/** A host that accepts connections and never answers, and counts them. */
+export interface Listener {
+  port: number;
+  accepted: () => number;
+  close: () => Promise<void>;
+}
+
+/** Starts a {@link Listener} on a free local port. */
+export async function StartListener(): Promise<Listener> {
+  const sockets = new Set<net.Socket>();
+  let accepted = 0;
+  const server = net.createServer((socket) => {
+    accepted += 1;
+    sockets.add(socket);
+    socket.on("error", () => undefined);
+  });
+  return {
+    port: await Listening(server),
+    accepted: () => accepted,
+    close: async () => {
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await new Promise((resolve) => server.close(resolve));
+    },
+  };
+}
+
 /**
  * What a relay asks of each chunk a connection carries: `true` once the connection has gone
  * quiet, from this chunk on. A quiet connection forwards nothing more and closes nothing.

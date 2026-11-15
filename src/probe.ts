@@ -3,7 +3,13 @@ import type {
   ProbeAnswer,
   ProbeUnreadable,
 } from "@antelopejs/interface-database-catalog";
-import { type Db, MongoClient, MongoServerError } from "mongodb";
+import {
+  AuthMechanism,
+  type Db,
+  MongoClient,
+  type MongoOptions,
+  MongoServerError,
+} from "mongodb";
 
 import {
   AuthenticatedRole,
@@ -25,6 +31,50 @@ type Access = Pick<SignedInAnswer, "canRead" | "canWrite">;
 
 const FULL_ACCESS: Access = { canRead: true, canWrite: true };
 const NO_ACCESS: Access = { canRead: false, canWrite: false };
+
+/** The mechanisms that sign in with the user name and password the URL carries, and nothing else. */
+const URL_MECHANISMS: ReadonlySet<AuthMechanism> = new Set([
+  AuthMechanism.MONGODB_DEFAULT,
+  AuthMechanism.MONGODB_SCRAM_SHA1,
+  AuthMechanism.MONGODB_SCRAM_SHA256,
+  AuthMechanism.MONGODB_PLAIN,
+]);
+
+/** The options that make the client read a file of the machine the probe runs on. */
+const LOCAL_FILE_OPTIONS = [
+  "tlsCAFile",
+  "tlsCRLFile",
+  "tlsCertificateKeyFile",
+] as const;
+
+/**
+ * Refuses, before anything connects, the options the driver parsed from the URL that would sign
+ * in or connect with what the probing machine holds rather than what the URL carries: a mechanism
+ * that reads the machine's AWS credentials, metadata service, Kerberos ticket, workload identity or
+ * client certificate, or a file path. A `mongodb+srv` TXT record can set only `authSource`,
+ * `replicaSet` and `loadBalanced`, so DNS can add none of them.
+ */
+function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
+  const mechanism = options.credentials?.mechanism;
+  if (mechanism !== undefined && !URL_MECHANISMS.has(mechanism)) {
+    return {
+      outcome: "refused",
+      refusal: "other",
+      message: `The probe signs in only with the user name and password in the URL, not with ${mechanism}.`,
+    };
+  }
+  const file = LOCAL_FILE_OPTIONS.find(
+    (option) => options[option] !== undefined,
+  );
+  if (file !== undefined) {
+    return {
+      outcome: "refused",
+      refusal: "other",
+      message: `The probe reads no file of the machine it runs on, and the URL sets ${file}.`,
+    };
+  }
+  return undefined;
+}
 
 /** The answer to a probe whose `signal` aborted before it answered. */
 function Aborted(): ProbeAnswer {
@@ -155,6 +205,10 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
     });
   } catch (error) {
     return Failure(error);
+  }
+  const refusal = MachineCredentialUse(client.options);
+  if (refusal !== undefined) {
+    return refusal;
   }
   const sockets = new OwnedSockets();
   let abort: () => void = () => undefined;

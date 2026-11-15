@@ -210,6 +210,18 @@ function AccountCases() {
     });
   });
 
+  it("signs in with the URL's user name and password when the URL names SCRAM-SHA-256", async () => {
+    const answer = await Probe(
+      `${UrlOf("writer")}&authMechanism=SCRAM-SHA-256`,
+    );
+    expect(Measured(answer)).to.deep.equal({
+      outcome: "signed-in",
+      user: "writer",
+      canRead: true,
+      canWrite: true,
+    });
+  });
+
   it("answers find through an inherited custom role to a user named with @, and no write from a grant on another database", async () => {
     expect(Measured(await Probe(UrlOf(NAMED_WITH_AT)))).to.deep.equal({
       outcome: "signed-in",

@@ -195,6 +195,16 @@ It decides what the account may do the way the catalog does. It reads the accoun
 
 A database that does not exist is an empty one to MongoDB, so `probe` never answers `unreadable: "no-database"`.
 
+`probe` signs in with the user name and password in the URL and nothing else. Before it connects, it answers `refused`, `other` to a URL that would sign in or connect with something the machine it runs on holds:
+
+- `authMechanism=MONGODB-AWS`, which reads the machine's AWS variables and metadata service
+- `GSSAPI`, which uses the machine's Kerberos ticket
+- `MONGODB-OIDC`, which uses the machine's workload identity
+- `MONGODB-X509`, which presents a client certificate
+- `tlsCertificateKeyFile`, `tlsCAFile` or `tlsCRLFile`, which name files of that machine
+
+The default mechanism, `SCRAM-SHA-1`, `SCRAM-SHA-256` and `PLAIN` are accepted. A `mongodb+srv` TXT record can set only `authSource`, `replicaSet` and `loadBalanced`, and the client rejects a record that sets anything else, so DNS cannot turn any of these on.
+
 ## The catalog
 
 An external instance also implements `@antelopejs/interface-database-catalog`. The catalog describes and profiles the database for a generator. It lists collections, fields, keys, and row estimates, and computes aggregates over the data. It answers with the registration rules of this module. A collection that it lists with a key registers with `_id`, and the declarations that it lists for a field are the ones that registration reads.
