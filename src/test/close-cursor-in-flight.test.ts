@@ -127,11 +127,7 @@ describe("closing a cursor during its first read", () => {
       "the close landed while the delayed aggregate was in flight",
     );
     assert.equal(open, 0, "no server cursor stays open after the close");
-    assert.deepEqual(
-      settled.value,
-      { done: true, value: undefined },
-      "the read yields no row",
-    );
+    assert.deepEqual(settled.value, [], "the read yields no row");
   });
 
   it("closes a change stream's server cursor once its delayed aggregate returns", async function () {
