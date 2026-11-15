@@ -57,12 +57,12 @@ function SignedIn(
   return answer;
 }
 
-/** The relations of `db` as the catalog lists them, or the server's refusal to list them. */
+/** The relations of `db` as the catalog lists them, or the server error that refused or failed the listing. */
 async function Listed(db: Db): Promise<ListedRelation[] | MongoServerError> {
   try {
     return await ReadRelations(db);
   } catch (error) {
-    if (error instanceof MongoServerError && error.code === UNAUTHORIZED) {
+    if (error instanceof MongoServerError) {
       return error;
     }
     throw error;
@@ -72,7 +72,9 @@ async function Listed(db: Db): Promise<ListedRelation[] | MongoServerError> {
 /**
  * Signs in, reads the account with `connectionStatus`, the query `latencyMs` times, and lists the
  * relations. A connection no user signed in to is on a server without access control once its
- * listing succeeds, and has full access there, whatever the database holds.
+ * listing succeeds, and has full access there, whatever the database holds. A server error on the
+ * listing answers `cannot-list`, except `Unauthorized` to such a connection, which is a server
+ * that asks for an account the URL does not give.
  */
 async function Answer(
   client: MongoClient,
@@ -89,7 +91,7 @@ async function Answer(
   }
   const relations = await Listed(db);
   if (relations instanceof MongoServerError) {
-    return user === ""
+    return user === "" && relations.code === UNAUTHORIZED
       ? {
           outcome: "refused",
           refusal: "sign-in-required",

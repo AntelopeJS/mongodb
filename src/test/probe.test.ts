@@ -27,6 +27,8 @@ const ROOT = "root";
 const DATABASE = "shop";
 const NAMED_WITH_AT = "ana@shop";
 const OVERLONG_DATABASE = "d".repeat(100);
+const INTERNAL_ERROR = 1;
+const FAILING_APP = "probe-failing-listing";
 
 let secured: MongoMemoryServer;
 let open: MongoMemoryServer;
@@ -42,6 +44,10 @@ function UrlOf(
   database = DATABASE,
 ): string {
   return `mongodb://${encodeURIComponent(user)}:${encodeURIComponent(password)}@127.0.0.1:${port}/${database}?authSource=${DATABASE}`;
+}
+
+function RootUrl(): string {
+  return `mongodb://${ROOT}:${SecretOf(ROOT)}@127.0.0.1:${PortOf(secured)}/admin`;
 }
 
 function OpenUrl(database: string, port = PortOf(open)): string {
@@ -127,13 +133,12 @@ async function StartServers() {
         customRootName: ROOT,
         customRootPwd: SecretOf(ROOT),
       },
+      instance: { args: ["--setParameter", "enableTestCommands=1"] },
       binary: { version: MONGODB_VERSION },
     }),
     MongoMemoryServer.create({ binary: { version: MONGODB_VERSION } }),
   ]);
-  const root = await MongoClient.connect(
-    `mongodb://${ROOT}:${SecretOf(ROOT)}@127.0.0.1:${PortOf(secured)}/admin`,
-  );
+  const root = await MongoClient.connect(RootUrl());
   const shop = root.db(DATABASE);
   await Seed(shop);
   await CreateAccounts(shop);
@@ -202,6 +207,34 @@ function AccountCases() {
       canWrite: false,
       unreadable: "cannot-list",
     });
+  });
+
+  it("answers no access to a signed-in account whose listing the server fails", async () => {
+    const root = await MongoClient.connect(RootUrl());
+    const failListing = (mode: { times: number } | "off") =>
+      root.db("admin").command({
+        configureFailPoint: "failCommand",
+        mode,
+        data: {
+          failCommands: ["listCollections"],
+          errorCode: INTERNAL_ERROR,
+          appName: FAILING_APP,
+        },
+      });
+    try {
+      await failListing({ times: 1 });
+      const answer = await Probe(`${UrlOf("writer")}&appName=${FAILING_APP}`);
+      expect(Measured(answer)).to.deep.equal({
+        outcome: "signed-in",
+        user: "writer",
+        canRead: false,
+        canWrite: false,
+        unreadable: "cannot-list",
+      });
+    } finally {
+      await failListing("off");
+      await root.close();
+    }
   });
 
   it("answers no access to a URL that names no database", async () => {
