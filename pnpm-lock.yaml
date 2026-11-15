@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@antelopejs/interface-database': file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz
-
 importers:
 
   .:
@@ -15,8 +12,8 @@ importers:
         specifier: '>=0.5.1 <0.6.0'
         version: 0.5.1
       '@antelopejs/interface-database':
-        specifier: file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz
-        version: file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz(@antelopejs/interface-core@0.5.1)
+        specifier: '>=0.4.1 <0.5.0'
+        version: 0.4.1(@antelopejs/interface-core@0.5.1)
       '@antelopejs/interface-database-catalog':
         specifier: '>=0.1.0 <0.2.0'
         version: 0.1.0(@antelopejs/interface-core@0.5.1)
@@ -122,9 +119,8 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.5.0 <0.6.0'
 
-  '@antelopejs/interface-database@file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz':
-    resolution: {integrity: sha512-B9E471ocHmSDNB4mlSMY9zNANvc+BA5bxNsDNFtgkTd1+KDZ1XhRcHS55to7jxMNj5KAucHe2H7gabtg+tD1lA==, tarball: file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz}
-    version: 0.4.0
+  '@antelopejs/interface-database@0.4.1':
+    resolution: {integrity: sha512-Ad+a93DNl9zbdsKHCSaHCtrTwLnZB7Fv7S3+LmnplStrPFVLHZFVW6hCr8bB7Cv8cqpS1MjJVqm07/E/l82QGg==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.5.1 <0.6.0'
 
@@ -2865,7 +2861,7 @@ snapshots:
     dependencies:
       '@antelopejs/interface-core': 0.5.1
 
-  '@antelopejs/interface-database@file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz(@antelopejs/interface-core@0.5.1)':
+  '@antelopejs/interface-database@0.4.1(@antelopejs/interface-core@0.5.1)':
     dependencies:
       '@antelopejs/interface-core': 0.5.1
 

@@ -3,5 +3,3 @@ packages:
   - "playground"
 allowBuilds:
   lefthook: false
-overrides:
-  "@antelopejs/interface-database": "file:.tgz-deps/antelopejs-interface-database-14a9c93.tgz"
