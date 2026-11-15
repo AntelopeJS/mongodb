@@ -259,6 +259,48 @@ async function SeedSpecialCollections(db: Db) {
   );
 }
 
+/**
+ * How many documents hold each `tallies` label: a category, the smallest count still named, and
+ * two records that fold into `other`.
+ */
+export const TALLIES = {
+  many: 20,
+  five: 5,
+  four: 4,
+  solo: 1,
+} satisfies Record<string, number>;
+
+/**
+ * How many documents hold each `ranks` label: 27 values, so the 26th, `r26`, counted 6 times,
+ * folds into `other` and the 27th is not read.
+ */
+export function RankRows(rank: number): number {
+  return rank <= 24 ? 10 : rank === 25 ? 7 : 6;
+}
+
+export const RANK_COUNT = 27;
+
+export function RankLabel(rank: number): string {
+  return `r${String(rank).padStart(2, "0")}`;
+}
+
+async function SeedCategories(db: Db) {
+  await db
+    .collection("tallies")
+    .insertMany(
+      Object.entries(TALLIES).flatMap(([label, rows]) =>
+        Range(rows, () => ({ label })),
+      ),
+    );
+  await db
+    .collection("ranks")
+    .insertMany(
+      Range(RANK_COUNT, (index) => index + 1).flatMap((rank) =>
+        Range(RankRows(rank), () => ({ label: RankLabel(rank) })),
+      ),
+    );
+}
+
 async function SeedEvents(db: Db) {
   for (let start = 0; start < EVENT_COUNT; start += EVENT_BATCH) {
     await db.collection("events").insertMany(
@@ -304,6 +346,7 @@ export async function SeedClientDatabase(adminUrl: string) {
     await SeedCollections(db);
     await SeedSpecialCollections(db);
     await SeedEvents(db);
+    await SeedCategories(db);
     await CreateAccounts(db);
     await db.command({ profile: 2 });
   } finally {
