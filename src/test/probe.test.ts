@@ -29,6 +29,7 @@ const NAMED_WITH_AT = "ana@shop";
 const OVERLONG_DATABASE = "d".repeat(100);
 const INTERNAL_ERROR = 1;
 const FAILING_APP = "probe-failing-listing";
+const TEST_COMMANDS = ["--setParameter", "enableTestCommands=1"];
 
 let secured: MongoMemoryServer;
 let open: MongoMemoryServer;
@@ -133,10 +134,13 @@ async function StartServers() {
         customRootName: ROOT,
         customRootPwd: SecretOf(ROOT),
       },
-      instance: { args: ["--setParameter", "enableTestCommands=1"] },
+      instance: { args: TEST_COMMANDS },
       binary: { version: MONGODB_VERSION },
     }),
-    MongoMemoryServer.create({ binary: { version: MONGODB_VERSION } }),
+    MongoMemoryServer.create({
+      instance: { args: TEST_COMMANDS },
+      binary: { version: MONGODB_VERSION },
+    }),
   ]);
   const root = await MongoClient.connect(RootUrl());
   const shop = root.db(DATABASE);
@@ -159,6 +163,31 @@ async function DatabaseNames(server: MongoMemoryServer): Promise<string[]> {
     return databases.map(({ name }) => name);
   } finally {
     await client.close();
+  }
+}
+
+/** Runs `work` while the server at `adminUrl` fails the next `listCollections` of {@link FAILING_APP}. */
+async function WithFailingListing(
+  adminUrl: string,
+  work: () => Promise<ProbeAnswer>,
+): Promise<ProbeAnswer> {
+  const admin = await MongoClient.connect(adminUrl);
+  const failListing = (mode: { times: number } | "off") =>
+    admin.db("admin").command({
+      configureFailPoint: "failCommand",
+      mode,
+      data: {
+        failCommands: ["listCollections"],
+        errorCode: INTERNAL_ERROR,
+        appName: FAILING_APP,
+      },
+    });
+  try {
+    await failListing({ times: 1 });
+    return await work();
+  } finally {
+    await failListing("off");
+    await admin.close();
   }
 }
 
@@ -210,31 +239,16 @@ function AccountCases() {
   });
 
   it("answers no access to a signed-in account whose listing the server fails", async () => {
-    const root = await MongoClient.connect(RootUrl());
-    const failListing = (mode: { times: number } | "off") =>
-      root.db("admin").command({
-        configureFailPoint: "failCommand",
-        mode,
-        data: {
-          failCommands: ["listCollections"],
-          errorCode: INTERNAL_ERROR,
-          appName: FAILING_APP,
-        },
-      });
-    try {
-      await failListing({ times: 1 });
-      const answer = await Probe(`${UrlOf("writer")}&appName=${FAILING_APP}`);
-      expect(Measured(answer)).to.deep.equal({
-        outcome: "signed-in",
-        user: "writer",
-        canRead: false,
-        canWrite: false,
-        unreadable: "cannot-list",
-      });
-    } finally {
-      await failListing("off");
-      await root.close();
-    }
+    const answer = await WithFailingListing(RootUrl(), () =>
+      Probe(`${UrlOf("writer")}&appName=${FAILING_APP}`),
+    );
+    expect(Measured(answer)).to.deep.equal({
+      outcome: "signed-in",
+      user: "writer",
+      canRead: false,
+      canWrite: false,
+      unreadable: "cannot-list",
+    });
   });
 
   it("answers no access to a URL that names no database", async () => {
@@ -279,6 +293,18 @@ function RefusalCases() {
 }
 
 function OpenServerCases() {
+  it("answers no access and no user when a server without access control fails the listing", async () => {
+    const answer = await WithFailingListing(open.getUri(), () =>
+      Probe(`${OpenUrl(DATABASE)}?appName=${FAILING_APP}`),
+    );
+    expect(Measured(answer)).to.deep.equal({
+      outcome: "signed-in",
+      canRead: false,
+      canWrite: false,
+      unreadable: "cannot-list",
+    });
+  });
+
   it("answers full access and no user on a server without access control", async () => {
     expect(Measured(await Probe(OpenUrl(DATABASE)))).to.deep.equal({
       outcome: "signed-in",
