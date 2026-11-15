@@ -183,15 +183,15 @@ MongoDB has no read-only session. The module sends only reads, apart from the wr
 
 It decides what the account may do the way the catalog does. It reads the account's privileges with `connectionStatus` and checks them against each collection that it lists, `system.` collections left out. The account can write when it may insert, update or remove in a collection that is not a view. It can read when it may `find` in a collection, or when the database has none.
 
-| The server                                                | `probe` answers                                                         |
-| --------------------------------------------------------- | ----------------------------------------------------------------------- |
-| refuses the user name or password                         | `refused`, `credentials`                                                |
-| asks for an account that the URL does not give            | `refused`, `sign-in-required`                                           |
-| refuses with any other error                              | `refused`, `other`                                                      |
-| does not answer                                           | `unreachable`                                                           |
-| signs the account in, but it may not list the collections | `signed-in`, no access, `unreadable: "cannot-list"`                     |
-| signs the account in, and the URL names no database       | `signed-in`, no access, `unreadable: "no-database-named"`               |
-| runs without access control                               | `signed-in` with no `user` and full access, whatever the database holds |
+| The server                                                                 | `probe` answers                                                         |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| refuses the user name or password                                          | `refused`, `credentials`                                                |
+| asks for an account that the URL does not give                             | `refused`, `sign-in-required`                                           |
+| refuses with any other error                                               | `refused`, `other`                                                      |
+| does not answer                                                            | `unreachable`                                                           |
+| signs the account in, then refuses or fails the listing of the collections | `signed-in`, no access, `unreadable: "cannot-list"`                     |
+| signs the account in, and the URL names no database                        | `signed-in`, no access, `unreadable: "no-database-named"`               |
+| runs without access control                                                | `signed-in` with no `user` and full access, whatever the database holds |
 
 A database that does not exist is an empty one to MongoDB, so `probe` never answers `unreadable: "no-database"`.
 
