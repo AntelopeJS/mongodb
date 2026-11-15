@@ -257,12 +257,12 @@ describe("the change feed of an instance", () => {
     const named = Table(NAMED);
     const fallback = Table(undefined);
     let expected: Seen[][] = [];
-    await SetPreImages(false);
     try {
       const seen = await Feeds([undefined, NAMED], async (readers) => {
         for (const reader of readers) {
           await reader.settle();
         }
+        await SetPreImages(false);
         await named.insert({ _id: id, n: 1 }).run();
         const inserted = await named.get(id).run();
         await named.get(id).update({ n: 2 }).run();
@@ -275,6 +275,24 @@ describe("the change feed of an instance", () => {
         ];
       });
       expect(seen).to.deep.equal(expected);
+    } finally {
+      await SetPreImages(true);
+    }
+  });
+
+  it("refuses to open the feed of an instance on a collection that records no pre-images, and says how to enable them", async () => {
+    await SetPreImages(false);
+    try {
+      for (const instance of [undefined, NAMED]) {
+        const feed = Table(instance).changes().cursor();
+        const refusal = await feed.next().then(
+          () => "opened",
+          (error: unknown) => String(error),
+        );
+        expect(refusal, `the feed of ${instance ?? "the default instance"}`)
+          .to.contain("pre-images")
+          .and.to.contain(`collMod: "${collectionName(SCHEMA_ID, "rows")}"`);
+      }
     } finally {
       await SetPreImages(true);
     }
