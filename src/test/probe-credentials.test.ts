@@ -113,14 +113,21 @@ describe("probing with nothing but what the URL carries", () => {
     });
   }
 
-  it("refuses an authMechanism that is no mechanism's name at once, before the client parses it", async () => {
-    const started = performance.now();
-    const answer = await Probe(
-      `mongodb://${ACCOUNT}127.0.0.1:${host.port}/shop?authMechanism=${BACKTRACKING_MECHANISM}`,
-    );
-    expect(performance.now() - started).to.be.lessThan(AT_ONCE_MS);
-    expect(answer).to.include({ outcome: "refused", refusal: "other" });
-  });
+  for (const key of [
+    "authMechanism",
+    "AUTHMECHANISM",
+    "auth\tMechanism",
+    "\tauthMechanism",
+  ]) {
+    it(`refuses an authMechanism that is no mechanism's name at once, before the client parses it (key ${JSON.stringify(key)})`, async () => {
+      const started = performance.now();
+      const answer = await Probe(
+        `mongodb://${ACCOUNT}127.0.0.1:${host.port}/shop?${key}=${BACKTRACKING_MECHANISM}`,
+      );
+      expect(performance.now() - started).to.be.lessThan(AT_ONCE_MS);
+      expect(answer).to.include({ outcome: "refused", refusal: "other" });
+    });
+  }
 
   for (const record of MACHINE_TXT_RECORDS) {
     it(`takes no ${record.split("=")[0]} from a mongodb+srv TXT record, and connects to nothing`, async () => {

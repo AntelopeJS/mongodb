@@ -10,6 +10,7 @@ import {
   type MongoOptions,
   MongoServerError,
 } from "mongodb";
+import { ConnectionString } from "mongodb-connection-string-url";
 
 import {
   AuthenticatedRole,
@@ -25,7 +26,7 @@ const UNAUTHORIZED = 13;
 const NOT_AN_ERROR = "The probe failed with a value that is not an Error.";
 const DATABASE_IN_PATH = /^[^:]+:\/\/[^/?#]*\/[^?#]/;
 const CLOSE_GRACE_MS = 250;
-const AUTH_MECHANISM_OPTION = "authmechanism";
+const AUTH_MECHANISM_OPTION = "authMechanism";
 
 type SignedInAnswer = Extract<ProbeAnswer, { outcome: "signed-in" }>;
 type Access = Pick<SignedInAnswer, "canRead" | "canWrite">;
@@ -51,15 +52,15 @@ function MechanismRefusal(mechanism: string): ProbeAnswer {
 
 /**
  * Refuses, before the client parses the URL, an `authMechanism` that is not the exact name of a
- * mechanism of {@link URL_MECHANISMS}: the driver matches the value as a regular expression, and a
- * crafted one blocks the event loop while it parses, out of reach of `timeoutMs` and `signal`.
+ * mechanism of {@link URL_MECHANISMS}, read with the parser the client reads it with, which drops
+ * tabs and newlines and ignores the case of keys. The driver matches the value as a regular
+ * expression, and a crafted one blocks the event loop while it parses, out of reach of
+ * `timeoutMs` and `signal`.
  */
 function NamedMechanismRefusal(url: string): ProbeAnswer | undefined {
-  const query = url.indexOf("?");
-  const options = new URLSearchParams(query < 0 ? "" : url.slice(query + 1));
-  const named = [...options]
-    .filter(([key]) => key.toLowerCase() === AUTH_MECHANISM_OPTION)
-    .map(([, value]) => value.toUpperCase())
+  const named = new ConnectionString(url).searchParams
+    .getAll(AUTH_MECHANISM_OPTION)
+    .map((value) => value.toUpperCase())
     .find((mechanism) => !URL_MECHANISMS.has(mechanism));
   return named === undefined ? undefined : MechanismRefusal(named);
 }
@@ -223,12 +224,12 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
   if (signal.aborted) {
     return Aborted();
   }
-  const named = NamedMechanismRefusal(url);
-  if (named !== undefined) {
-    return named;
-  }
   let client: MongoClient;
   try {
+    const named = NamedMechanismRefusal(url);
+    if (named !== undefined) {
+      return named;
+    }
     client = new MongoClient(url, {
       serverSelectionTimeoutMS: timeoutMs,
       connectTimeoutMS: timeoutMs,
