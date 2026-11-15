@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.4
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.3...v1.8.4)
+
+### 🚀 Enhancements
+
+- **database:** Hand over cursor rows in batches ([#137](https://github.com/AntelopeJS/mongodb/pull/137))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.3
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.2...v1.8.3)
