@@ -179,7 +179,7 @@ MongoDB has no read-only session. The module sends only reads, apart from the wr
 
 ## Checking a connection
 
-`require("@antelopejs/mongodb/dist/probe")` exports `probe`, the `Probe` of `@antelopejs/interface-database-catalog`. It checks a connection string before any module is configured, and it loads without the AntelopeJS runtime. It opens its own client on the database that the URL's path names, runs no command that writes, and never rejects. It closes the client once it has answered, and at once when its `signal` aborts.
+`require("@antelopejs/mongodb/dist/probe")` exports `probe`, the `Probe` of `@antelopejs/interface-database-catalog`. It checks a connection string before any module is configured, and it loads without the AntelopeJS runtime. It opens its own client on the database that the URL's path names, runs no command that writes, and never rejects. It closes the client once it has answered. When its `signal` aborts first, it answers `unreachable` with the message `The probe was aborted.` at once, whatever the server has said so far, and shuts every socket it opened. When the `signal` has aborted already, it opens nothing.
 
 It decides what the account may do the way the catalog does. It reads the account's privileges with `connectionStatus` and checks them against each collection that it lists, `system.` collections left out. The account can write when it may insert, update or remove in a collection that is not a view. It can read when it may `find` in a collection, or when the database has none.
 
