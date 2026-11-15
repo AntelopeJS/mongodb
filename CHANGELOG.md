@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.5
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.4...v1.8.5)
+
+### 🩹 Fixes
+
+- **catalog:** Fold rare category values in the aggregation pipeline ([#138](https://github.com/AntelopeJS/mongodb/pull/138))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.4
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.3...v1.8.4)
