@@ -1,4 +1,8 @@
-import type { AnyBulkWriteOperation, Collection } from "mongodb";
+import {
+  type AnyBulkWriteOperation,
+  type Collection,
+  MongoBulkWriteError,
+} from "mongodb";
 
 import { PrimaryKeyDuplicateAt } from "./indexes";
 
@@ -19,7 +23,10 @@ export async function UpsertAll(
       await collection.bulkWrite(operations.slice(start));
       return;
     } catch (error) {
-      const at = PrimaryKeyDuplicateAt(error);
+      const at =
+        error instanceof MongoBulkWriteError
+          ? PrimaryKeyDuplicateAt(error)
+          : undefined;
       if (at === undefined || start + at === refused) {
         throw error;
       }

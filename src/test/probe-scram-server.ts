@@ -36,8 +36,9 @@ function CommandOf(message: Buffer): Document {
   return BSON.deserialize(message.subarray(name + 1 + OP_QUERY_SKIPPED_BYTES));
 }
 
-/** The server's first SCRAM message: the client's nonce, a salt, and `iterations`. */
-function ScramStart(payload: unknown, iterations: number): Document {
+/** The server's first SCRAM message to `request`: the client's nonce, a salt, and `iterations`. */
+function ScramStart(request: Document, iterations: number): Document {
+  const payload: unknown = request.payload;
   const text =
     payload instanceof Binary ? Buffer.from(payload.buffer).toString() : "";
   const nonce = /r=([^,]+)/.exec(text)?.[1] ?? "";
@@ -53,7 +54,7 @@ function ScramStart(payload: unknown, iterations: number): Document {
 function Answer(command: Document, iterations: number): Document {
   const speculative: unknown = command.speculativeAuthenticate;
   if (command.saslStart !== undefined) {
-    return { ...ScramStart(command.payload, iterations), ok: 1 };
+    return { ...ScramStart(command, iterations), ok: 1 };
   }
   if (["hello", "ismaster", "isMaster"].some((name) => name in command)) {
     const hello: Document = {
@@ -65,10 +66,7 @@ function Answer(command: Document, iterations: number): Document {
       ok: 1,
     };
     if (isDocument(speculative)) {
-      hello.speculativeAuthenticate = ScramStart(
-        speculative.payload,
-        iterations,
-      );
+      hello.speculativeAuthenticate = ScramStart(speculative, iterations);
     }
     return hello;
   }

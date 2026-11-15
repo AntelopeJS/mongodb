@@ -79,10 +79,7 @@ const config: VerifyConfig = {
       ],
       files: [`${FORMAL_QUERY_INDEX_REBUILD}/**`],
       command: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`, "--full"],
-      baseCommand: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`],
       violation: /^(?:finding|BROKEN|HOLDS) +(\w+)/gm,
-      passing: /(?<=^holds +(?:\w+, )*)(\w+)(?=,| \()/gm,
-      behaviour: { kind: "emit" },
     },
   ],
 };
