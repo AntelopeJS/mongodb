@@ -3,3 +3,5 @@ packages:
   - "playground"
 allowBuilds:
   lefthook: false
+minimumReleaseAgeExclude:
+  - "@antelopejs/interface-*"
