@@ -6,6 +6,7 @@ import { expect } from "chai";
 import { probe } from "../probe";
 import { SCRAM_ITERATION_LIMIT } from "../probe-scram";
 import { StartScramServer } from "./probe-scram-server";
+import { StartListener } from "./probe-servers";
 
 const TIMEOUT_MS = 1000;
 const AT_ONCE_MS = 500;
@@ -40,6 +41,28 @@ describe("probing a server that sets the SCRAM iteration count", () => {
   it("derives the iterations a server asks for up to the limit", async () => {
     const answer = await ProbeAsking(SCRAM_ITERATION_LIMIT);
     expect(answer).to.include({ outcome: "refused", refusal: "credentials" });
+  });
+
+  it("leaves pbkdf2Sync unbounded outside a probe while a probe is in flight", async () => {
+    const host = await StartListener();
+    try {
+      const pending = probe({
+        url: `mongodb://user:secret@127.0.0.1:${host.port}/shop`,
+        timeoutMs: TIMEOUT_MS,
+        signal: new AbortController().signal,
+      });
+      const key = crypto.pbkdf2Sync(
+        "password",
+        "salt",
+        SCRAM_ITERATION_LIMIT * 2,
+        KEY_BYTES,
+        "sha256",
+      );
+      expect(key).to.have.length(KEY_BYTES);
+      expect((await pending).outcome).to.equal("unreachable");
+    } finally {
+      await host.close();
+    }
   });
 
   it("leaves pbkdf2Sync unbounded outside a probe", async () => {
