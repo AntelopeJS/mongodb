@@ -210,6 +210,28 @@ function AccountCases() {
     });
   });
 
+  it("signs in with the URL's password when authMechanismProperties names an OIDC environment without authMechanism", async () => {
+    const saved = process.env.OIDC_TOKEN_FILE;
+    process.env.OIDC_TOKEN_FILE = path.join(__dirname, "no-such-token");
+    try {
+      const answer = await Probe(
+        `${UrlOf("writer")}&authMechanismProperties=ENVIRONMENT:test`,
+      );
+      expect(Measured(answer)).to.deep.equal({
+        outcome: "signed-in",
+        user: "writer",
+        canRead: true,
+        canWrite: true,
+      });
+    } finally {
+      if (saved === undefined) {
+        delete process.env.OIDC_TOKEN_FILE;
+      } else {
+        process.env.OIDC_TOKEN_FILE = saved;
+      }
+    }
+  });
+
   it("signs in with the URL's user name and password when the URL names SCRAM-SHA-256", async () => {
     const answer = await Probe(
       `${UrlOf("writer")}&authMechanism=SCRAM-SHA-256`,

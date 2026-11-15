@@ -25,6 +25,7 @@ const UNAUTHORIZED = 13;
 const NOT_AN_ERROR = "The probe failed with a value that is not an Error.";
 const DATABASE_IN_PATH = /^[^:]+:\/\/[^/?#]*\/[^?#]/;
 const CLOSE_GRACE_MS = 250;
+const AUTH_MECHANISM_OPTION = "authmechanism";
 
 type SignedInAnswer = Extract<ProbeAnswer, { outcome: "signed-in" }>;
 type Access = Pick<SignedInAnswer, "canRead" | "canWrite">;
@@ -33,12 +34,35 @@ const FULL_ACCESS: Access = { canRead: true, canWrite: true };
 const NO_ACCESS: Access = { canRead: false, canWrite: false };
 
 /** The mechanisms that sign in with the user name and password the URL carries, and nothing else. */
-const URL_MECHANISMS: ReadonlySet<AuthMechanism> = new Set([
+const URL_MECHANISMS: ReadonlySet<string> = new Set<string>([
   AuthMechanism.MONGODB_DEFAULT,
   AuthMechanism.MONGODB_SCRAM_SHA1,
   AuthMechanism.MONGODB_SCRAM_SHA256,
   AuthMechanism.MONGODB_PLAIN,
 ]);
+
+function MechanismRefusal(mechanism: string): ProbeAnswer {
+  return {
+    outcome: "refused",
+    refusal: "other",
+    message: `The probe signs in only with the user name and password in the URL, not with ${mechanism}.`,
+  };
+}
+
+/**
+ * Refuses, before the client parses the URL, an `authMechanism` that is not the exact name of a
+ * mechanism of {@link URL_MECHANISMS}: the driver matches the value as a regular expression, and a
+ * crafted one blocks the event loop while it parses, out of reach of `timeoutMs` and `signal`.
+ */
+function NamedMechanismRefusal(url: string): ProbeAnswer | undefined {
+  const query = url.indexOf("?");
+  const options = new URLSearchParams(query < 0 ? "" : url.slice(query + 1));
+  const named = [...options]
+    .filter(([key]) => key.toLowerCase() === AUTH_MECHANISM_OPTION)
+    .map(([, value]) => value.toUpperCase())
+    .find((mechanism) => !URL_MECHANISMS.has(mechanism));
+  return named === undefined ? undefined : MechanismRefusal(named);
+}
 
 /** The options that make the client read a file of the machine the probe runs on. */
 const LOCAL_FILE_OPTIONS = [
@@ -57,11 +81,7 @@ const LOCAL_FILE_OPTIONS = [
 function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
   const mechanism = options.credentials?.mechanism;
   if (mechanism !== undefined && !URL_MECHANISMS.has(mechanism)) {
-    return {
-      outcome: "refused",
-      refusal: "other",
-      message: `The probe signs in only with the user name and password in the URL, not with ${mechanism}.`,
-    };
+    return MechanismRefusal(mechanism);
   }
   const file = LOCAL_FILE_OPTIONS.find(
     (option) => options[option] !== undefined,
@@ -194,6 +214,10 @@ async function Close(client: MongoClient, sockets: OwnedSockets) {
 export const probe: Probe = async ({ url, timeoutMs, signal }) => {
   if (signal.aborted) {
     return Aborted();
+  }
+  const named = NamedMechanismRefusal(url);
+  if (named !== undefined) {
+    return named;
   }
   let client: MongoClient;
   try {

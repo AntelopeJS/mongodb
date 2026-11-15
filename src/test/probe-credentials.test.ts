@@ -12,7 +12,12 @@ const MACHINE_VARIABLES = [
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
   "AWS_SESSION_TOKEN",
+  "OIDC_TOKEN_FILE",
 ];
+const OIDC_ENVIRONMENTS = ["test", "k8s", "azure", "gcp"];
+/** An `authMechanism` the driver would match as a regular expression for seconds, blocking the event loop. */
+const BACKTRACKING_MECHANISM = `${".*".repeat(19)}Z`;
+const AT_ONCE_MS = 500;
 const ACCOUNT = `writer:${SecretOf("writer")}@`;
 const KEY_FILE = "/etc/ssl/private/dms-host.pem";
 const SRV_HOST = "cluster.probe.test";
@@ -22,11 +27,11 @@ const MACHINE_OPTIONS: [string, string, string][] = [
   ["", "authMechanism=MONGODB-AWS", "MONGODB-AWS"],
   [ACCOUNT, "authmechanism=mongodb-aws", "MONGODB-AWS"],
   ["dms@", "authMechanism=GSSAPI", "GSSAPI"],
-  [
+  ...OIDC_ENVIRONMENTS.map((environment): [string, string, string] => [
     "",
-    "authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:k8s",
+    `authMechanism=MONGODB-OIDC&authMechanismProperties=ENVIRONMENT:${environment}`,
     "MONGODB-OIDC",
-  ],
+  ]),
   ["", "authMechanism=MONGODB-X509&tls=true", "MONGODB-X509"],
   [
     ACCOUNT,
@@ -90,6 +95,15 @@ describe("probing with nothing but what the URL carries", () => {
       expect(host.accepted()).to.equal(acceptedBefore);
     });
   }
+
+  it("refuses an authMechanism that is no mechanism's name at once, before the client parses it", async () => {
+    const started = performance.now();
+    const answer = await Probe(
+      `mongodb://${ACCOUNT}127.0.0.1:${host.port}/shop?authMechanism=${BACKTRACKING_MECHANISM}`,
+    );
+    expect(performance.now() - started).to.be.lessThan(AT_ONCE_MS);
+    expect(answer).to.include({ outcome: "refused", refusal: "other" });
+  });
 
   for (const record of MACHINE_TXT_RECORDS) {
     it(`takes no ${record.split("=")[0]} from a mongodb+srv TXT record, and connects to nothing`, async () => {
