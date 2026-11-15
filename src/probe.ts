@@ -75,7 +75,7 @@ const LOCAL_FILE_OPTIONS = [
  * Refuses, before anything connects, the options the driver parsed from the URL that would sign
  * in or connect with what the probing machine holds rather than what the URL carries: a mechanism
  * that reads the machine's AWS credentials, metadata service, Kerberos ticket, workload identity or
- * client certificate, or a file path. A `mongodb+srv` TXT record can set only `authSource`,
+ * client certificate, a file path, or a socket file as a host. A `mongodb+srv` TXT record can set only `authSource`,
  * `replicaSet` and `loadBalanced`, so DNS can add none of them.
  */
 function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
@@ -91,6 +91,14 @@ function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
       outcome: "refused",
       refusal: "other",
       message: `The probe reads no file of the machine it runs on, and the URL sets ${file}.`,
+    };
+  }
+  if (options.hosts.some((host) => host.socketPath !== undefined)) {
+    return {
+      outcome: "refused",
+      refusal: "other",
+      message:
+        "The probe connects only to network hosts, and the URL names a socket file of the machine it runs on.",
     };
   }
   return undefined;

@@ -202,6 +202,7 @@ A database that does not exist is an empty one to MongoDB, so `probe` never answ
 - `MONGODB-OIDC`, which uses the machine's workload identity
 - `MONGODB-X509`, which presents a client certificate
 - `tlsCertificateKeyFile`, `tlsCAFile` or `tlsCRLFile`, which name files of that machine
+- a host that is a socket file of that machine, such as `%2Fvar%2Frun%2Fmongodb-27017.sock`
 
 The default mechanism, `SCRAM-SHA-1`, `SCRAM-SHA-256` and `PLAIN` are accepted, and any other `authMechanism` value is refused. TLS options are kept, so a URL that asks for TLS never sends its password in clear. A `mongodb+srv` TXT record can set only `authSource`, `replicaSet` and `loadBalanced`, and the client rejects a record that sets anything else, so DNS cannot turn any of these on.
 

@@ -21,6 +21,8 @@ const AT_ONCE_MS = 500;
 const ACCOUNT = `writer:${SecretOf("writer")}@`;
 const KEY_FILE = "/etc/ssl/private/dms-host.pem";
 const SRV_HOST = "cluster.probe.test";
+const SOCKET_FILE = "/var/run/mongodb-27017.sock";
+const PORT_PLACEHOLDER = "PORT";
 
 /** URL options that would sign in or connect with what the probing machine holds, and what the refusal names. */
 const MACHINE_OPTIONS: [string, string, string][] = [
@@ -92,6 +94,21 @@ describe("probing with nothing but what the URL carries", () => {
       );
       expect(answer).to.include({ outcome: "refused", refusal: "other" });
       expect(answer).to.have.property("message").that.includes(named);
+      expect(host.accepted()).to.equal(acceptedBefore);
+    });
+  }
+
+  for (const hosts of [
+    encodeURIComponent(SOCKET_FILE),
+    `127.0.0.1:${PORT_PLACEHOLDER},${encodeURIComponent(SOCKET_FILE)}`,
+  ]) {
+    it(`refuses a socket file of the machine as a host (${hosts.includes(",") ? "beside a network host" : "alone"}) before connecting`, async () => {
+      const acceptedBefore = host.accepted();
+      const answer = await Probe(
+        `mongodb://${ACCOUNT}${hosts.replace(PORT_PLACEHOLDER, String(host.port))}/shop`,
+      );
+      expect(answer).to.include({ outcome: "refused", refusal: "other" });
+      expect(answer).to.have.property("message").that.includes("socket file");
       expect(host.accepted()).to.equal(acceptedBefore);
     });
   }
