@@ -17,28 +17,23 @@ export function resolveInstanceContext(
 }
 
 /**
- * Whether a change event belongs to `instanceId`: the instance field of the document after the
- * change, or before it when the change left none (a delete), equals it. A stored `null` is the
- * default instance; an event whose document is unknown, with no image, belongs to no instance.
+ * Whether a change event belongs to `instanceId`: it carries the document after the change or
+ * before it, and the instance field of each one it carries equals `instanceId`. A stored `null`
+ * is the default instance. The document after an update is read when the event is, so it can be
+ * a row another instance created since under the same `_id`; such an event belongs to no
+ * instance, and neither does one that carries no document.
  */
 function ChangeOfInstance(instanceId: string | null): Document {
+  const owns = (image: string) => ({
+    $eq: [`${image}.${INSTANCE_FIELD}`, { $literal: instanceId }],
+  });
+  const hasAfter = { $eq: [{ $type: "$fullDocument" }, "object"] };
+  const hasBefore = { $ne: ["$fullDocumentBeforeChange", "$documentKey"] };
   return {
-    $eq: [
-      {
-        $let: {
-          vars: {
-            image: {
-              $cond: [
-                { $eq: [{ $type: "$fullDocument" }, "object"] },
-                "$fullDocument",
-                "$fullDocumentBeforeChange",
-              ],
-            },
-          },
-          in: `$$image.${INSTANCE_FIELD}`,
-        },
-      },
-      { $literal: instanceId },
+    $and: [
+      { $or: [hasAfter, hasBefore] },
+      { $or: [{ $not: [hasAfter] }, owns("$fullDocument")] },
+      { $or: [{ $not: [hasBefore] }, owns("$fullDocumentBeforeChange")] },
     ],
   };
 }

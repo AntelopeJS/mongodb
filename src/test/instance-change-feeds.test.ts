@@ -1,6 +1,9 @@
 import { expect } from "chai";
 import { CROSS_INSTANCE, Schema } from "@antelopejs/interface-database/schema";
 
+import { GetCollection } from "../connection";
+import { collectionName } from "../implementations/database/utils";
+
 interface Row {
   _id: string;
   n: number;
@@ -65,7 +68,7 @@ function SettlesWithin(
 class Reader {
   private readonly feed: Feed;
   private pending: Promise<Step>;
-  private readonly deadline = Date.now() + FEED_TIMEOUT_MS;
+  private deadline = 0;
   private probes = 0;
   private readonly probeId: string;
 
@@ -77,6 +80,7 @@ class Reader {
   }
 
   public async open(): Promise<void> {
+    this.arm();
     await Table(this.instance).insert({ _id: this.probeId, n: 0 }).run();
     while (!(await SettlesWithin(this.pending, PROBE_INTERVAL_MS))) {
       expect(Date.now(), "the feed opens").to.be.below(this.deadline);
@@ -87,6 +91,7 @@ class Reader {
 
   /** Every event other than the probe's, up to an update of the probe written after them. */
   public async drain(): Promise<Seen[]> {
+    this.arm();
     const marker = await this.probe();
     const seen: Seen[] = [];
     for (;;) {
@@ -100,9 +105,25 @@ class Reader {
     }
   }
 
+  /**
+   * Waits until the feed has read an event and leaves no read in flight, so the feed reads the
+   * events written next, and looks up their documents, only once the test drains it.
+   */
+  public async settle(): Promise<void> {
+    await this.probe();
+    expect(
+      await SettlesWithin(this.pending, FEED_TIMEOUT_MS),
+      "the feed reads the settling probe",
+    ).to.equal(true);
+  }
+
   public async close(): Promise<void> {
     await this.feed.return();
     await Table(this.instance).get(this.probeId).delete().run();
+  }
+
+  private arm(): void {
+    this.deadline = Date.now() + FEED_TIMEOUT_MS;
   }
 
   private async probe(): Promise<number> {
@@ -157,33 +178,97 @@ async function Write(instance: Instance) {
   };
 }
 
+/** Opens a feed of each instance, runs `work`, and answers what each feed read of it. */
+async function Feeds(
+  instances: Instance[],
+  work: (readers: Reader[]) => Promise<void>,
+): Promise<Seen[][]> {
+  const readers = instances.map((instance) => new Reader(instance));
+  try {
+    for (const reader of readers) {
+      await reader.open();
+    }
+    await work(readers);
+    const seen: Seen[][] = [];
+    for (const reader of readers) {
+      seen.push(await reader.drain());
+    }
+    return seen;
+  } finally {
+    for (const reader of readers) {
+      await reader.close();
+    }
+  }
+}
+
+async function SetPreImages(enabled: boolean): Promise<void> {
+  const collection = await GetCollection(collectionName(SCHEMA_ID, "rows"));
+  await collection.db.command({
+    collMod: collection.collectionName,
+    changeStreamPreAndPostImages: { enabled },
+  });
+}
+
 describe("the change feed of an instance", () => {
   beforeEach(async () => {
     await schema.instance(CROSS_INSTANCE).table("rows").delete().run();
   });
 
   it("delivers the default instance and a named one their own inserts, updates and deletes, and none of the other's", async () => {
-    const readers = [new Reader(undefined), new Reader(NAMED)];
-    try {
+    let ownDefault: Seen[] = [];
+    let ownNamed: Seen[] = [];
+    const [onDefault, onNamed] = await Feeds([undefined, NAMED], async () => {
+      ownDefault = (await Write(undefined)).events;
+      ownNamed = (await Write(NAMED)).events;
+    });
+    expect(onDefault, "the default instance's feed").to.deep.equal(ownDefault);
+    expect(onNamed, "the named instance's feed").to.deep.equal(ownNamed);
+  });
+
+  it("delivers no instance the update of a row another instance re-created under its _id before the feed read it", async () => {
+    const id = "reused";
+    const named = Table(NAMED);
+    const fallback = Table(undefined);
+    let expected: Seen[][] = [];
+    const seen = await Feeds([undefined, NAMED], async (readers) => {
       for (const reader of readers) {
-        await reader.open();
+        await reader.settle();
       }
-      const ownDefault = await Write(undefined);
-      const ownNamed = await Write(NAMED);
-      const [onDefault, onNamed] = [
-        await readers[0].drain(),
-        await readers[1].drain(),
+      await named.insert({ _id: id, n: 1 }).run();
+      const inserted = await named.get(id).run();
+      await named.get(id).update({ n: 2 }).run();
+      const updated = await named.get(id).run();
+      await named.get(id).delete().run();
+      await fallback.insert({ _id: id, n: 3 }).run();
+      const recreated = await fallback.get(id).run();
+      expected = [
+        [{ type: "added", id, old: undefined, new: recreated }],
+        [
+          { type: "added", id, old: undefined, new: inserted },
+          { type: "removed", id, old: updated, new: undefined },
+        ],
       ];
-      expect(onDefault, "the default instance's feed").to.deep.equal(
-        ownDefault.events,
-      );
-      expect(onNamed, "the named instance's feed").to.deep.equal(
-        ownNamed.events,
-      );
+    });
+    expect(seen).to.deep.equal(expected);
+  });
+
+  it("delivers no instance a delete whose document the change stream lost", async () => {
+    const id = "unseen";
+    const named = Table(NAMED);
+    let inserted: unknown;
+    await SetPreImages(false);
+    try {
+      const seen = await Feeds([undefined, NAMED], async () => {
+        await named.insert({ _id: id, n: 1 }).run();
+        inserted = await named.get(id).run();
+        await named.get(id).delete().run();
+      });
+      expect(seen).to.deep.equal([
+        [],
+        [{ type: "added", id, old: undefined, new: inserted }],
+      ]);
     } finally {
-      for (const reader of readers) {
-        await reader.close();
-      }
+      await SetPreImages(true);
     }
   });
 });
