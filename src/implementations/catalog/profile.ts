@@ -206,29 +206,23 @@ export async function CategoriesOf(
       { $group: { _id: "$v", rows: { $sum: 1 } } },
       { $sort: order },
       { $limit: CATEGORY_LIMIT + 1 },
-      {
-        $setWindowFields: {
-          sortBy: order,
-          output: {
-            rank: { $sum: 1, window: { documents: ["unbounded", "current"] } },
-          },
-        },
-      },
+      { $group: { _id: null, top: { $push: "$$ROOT" } } },
+      { $unwind: { path: "$top", includeArrayIndex: "index" } },
       {
         $group: {
           _id: {
             $cond: [
               {
                 $and: [
-                  { $gte: ["$rows", CATEGORY_MIN_ROWS] },
-                  { $lte: ["$rank", CATEGORY_LIMIT] },
+                  { $gte: ["$top.rows", CATEGORY_MIN_ROWS] },
+                  { $lt: ["$index", CATEGORY_LIMIT] },
                 ],
               },
-              "$_id",
+              "$top._id",
               null,
             ],
           },
-          rows: { $sum: "$rows" },
+          rows: { $sum: "$top.rows" },
         },
       },
       { $sort: order },
