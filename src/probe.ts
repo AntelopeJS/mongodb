@@ -19,6 +19,7 @@ import {
   Reads,
   Writes,
 } from "./implementations/catalog/discovery";
+import { LimitScramIterations, ScramIterationLimit } from "./probe-scram";
 import { OwnedSockets } from "./probe-sockets";
 
 const AUTHENTICATION_FAILED = 18;
@@ -182,6 +183,9 @@ async function Answer(
 }
 
 function Failure(error: unknown): ProbeAnswer {
+  if (error instanceof ScramIterationLimit) {
+    return { outcome: "refused", refusal: "other", message: error.message };
+  }
   const message = error instanceof Error ? error.message : NOT_AN_ERROR;
   if (!(error instanceof MongoServerError)) {
     return { outcome: "unreachable", message };
@@ -230,6 +234,7 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
   if (signal.aborted) {
     return Aborted();
   }
+  LimitScramIterations();
   let client: MongoClient;
   try {
     const named = NamedMechanismRefusal(url);

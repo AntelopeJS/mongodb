@@ -8,6 +8,11 @@ const SOCKET_CHANNEL = "net.client.socket";
 
 const OWNER = new AsyncLocalStorage<OwnedSockets>();
 
+/** Whether the code running now was started by {@link OwnedSockets.run} of some probe. */
+export function InProbe(): boolean {
+  return OWNER.getStore() !== undefined;
+}
+
 /**
  * The client sockets, TLS included, that the work run through {@link OwnedSockets.run} opens,
  * timers and the driver's monitors it starts included. A `MongoClient` cancels a monitor's
