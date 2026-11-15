@@ -30,6 +30,8 @@ const CATEGORY_LIMIT = 25;
 const CATEGORY_MIN_ROWS = 5;
 const SAMPLE_SIZE = 50_000;
 const GROUP_STAGE = '"rows":{"$sum":1}';
+/** The keys of a reply that hold its documents, without the signed cluster time and its random hash. */
+const REPLY_KEYS = ["cursor", "firstBatch", "nextBatch", "_id", "rows"];
 
 interface ReferenceRow {
   _id: string;
@@ -70,7 +72,7 @@ async function Reference(
   }
 }
 
-/** Every reply the module's client receives to a category measure while `work` runs, as EJSON. */
+/** The cursor of every reply the module's client receives to a category measure while `work` runs, as EJSON. */
 async function Received<T>(
   work: () => Promise<T>,
 ): Promise<{ answer: T; replies: string }> {
@@ -88,7 +90,7 @@ async function Received<T>(
   };
   const succeeded = (event: CommandSucceededEvent) => {
     if (measures.has(event.requestId)) {
-      replies.push(BSON.EJSON.stringify(event.reply));
+      replies.push(BSON.EJSON.stringify(event.reply, REPLY_KEYS));
     }
   };
   client.on("commandStarted", started);
