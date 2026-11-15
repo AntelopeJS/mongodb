@@ -203,7 +203,7 @@ A database that does not exist is an empty one to MongoDB, so `probe` never answ
 - `MONGODB-X509`, which presents a client certificate
 - `tlsCertificateKeyFile`, `tlsCAFile` or `tlsCRLFile`, which name files of that machine
 
-The default mechanism, `SCRAM-SHA-1`, `SCRAM-SHA-256` and `PLAIN` are accepted. A `mongodb+srv` TXT record can set only `authSource`, `replicaSet` and `loadBalanced`, and the client rejects a record that sets anything else, so DNS cannot turn any of these on.
+The default mechanism, `SCRAM-SHA-1`, `SCRAM-SHA-256` and `PLAIN` are accepted, and any other `authMechanism` value is refused. TLS options are kept, so a URL that asks for TLS never sends its password in clear. A `mongodb+srv` TXT record can set only `authSource`, `replicaSet` and `loadBalanced`, and the client rejects a record that sets anything else, so DNS cannot turn any of these on.
 
 ## The catalog
 
