@@ -149,6 +149,7 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
       serverSelectionTimeoutMS: timeoutMs,
       connectTimeoutMS: timeoutMs,
       socketTimeoutMS: timeoutMs,
+      retryReads: false,
     });
   } catch (error) {
     return Failure(error);

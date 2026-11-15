@@ -311,6 +311,15 @@ function ClosingCases() {
     expect(leftOpen).to.equal(0);
   });
 
+  it("answers within one timeout, without retrying, when the listing never comes back", async () => {
+    const { answer, elapsedMs, leftOpen } = await ProbeThroughRelay(
+      (chunk, fromClient) => fromClient && chunk.includes("listCollections"),
+    );
+    expect(answer.outcome).to.equal("unreachable");
+    expect(elapsedMs).to.be.lessThan(TIMEOUT_MS * 1.5);
+    expect(leftOpen).to.equal(0);
+  });
+
   for (const [moment, stall] of [
     ["during the handshake", () => true],
     [
