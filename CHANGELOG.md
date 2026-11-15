@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.7
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.6...v1.8.7)
+
+### 📦 Build
+
+- Move to the next model with @antelopejs/tooling-configs 0.8 ([#140](https://github.com/AntelopeJS/mongodb/pull/140))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.6
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.5...v1.8.6)
