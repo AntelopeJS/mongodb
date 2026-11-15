@@ -117,7 +117,7 @@ Schema initialization drops an index only in two cases. The index has the name t
 | ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | `@antelopejs/interface-core`             | `>=0.5.1 <0.6.0`                                                   | `0.5.1`                                                            |
 | `@antelopejs/interface-database`         | `>=0.4.0 <0.5.0`                                                   | `0.4.0`                                                            |
-| `@antelopejs/interface-database-catalog` | `file:.tgz-deps/antelopejs-interface-database-catalog-46e94f6.tgz` | `file:.tgz-deps/antelopejs-interface-database-catalog-46e94f6.tgz` |
+| `@antelopejs/interface-database-catalog` | `file:.tgz-deps/antelopejs-interface-database-catalog-1a5695f.tgz` | `file:.tgz-deps/antelopejs-interface-database-catalog-1a5695f.tgz` |
 | `@antelopejs/interface-mongodb`          | `>=0.0.7 <0.1.0`                                                   | `0.0.7`                                                            |
 
 <!-- antelopejs-docs-compat:end -->

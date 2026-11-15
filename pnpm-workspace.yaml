@@ -4,4 +4,4 @@ packages:
 allowBuilds:
   lefthook: false
 overrides:
-  "@antelopejs/interface-database-catalog": "file:.tgz-deps/antelopejs-interface-database-catalog-46e94f6.tgz"
+  "@antelopejs/interface-database-catalog": "file:.tgz-deps/antelopejs-interface-database-catalog-1a5695f.tgz"
