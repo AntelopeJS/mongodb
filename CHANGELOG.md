@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.6
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.5...v1.8.6)
+
+### 🩹 Fixes
+
+- **database:** Deliver inserts on the default instance's change feed ([#139](https://github.com/AntelopeJS/mongodb/pull/139))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.5
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.4...v1.8.5)
