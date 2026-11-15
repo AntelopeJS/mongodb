@@ -20,8 +20,9 @@ export function resolveInstanceContext(
  * Whether a change event belongs to `instanceId`: it carries the document after the change or
  * before it, and the instance field of each one it carries equals `instanceId`. A stored `null`
  * is the default instance. The document after an update is read when the event is, so it can be
- * a row another instance created since under the same `_id`; such an event belongs to no
- * instance, and neither does one that carries no document.
+ * a row another instance created since under the same `_id`: an update belongs to an instance
+ * only with the document before it, which the write recorded. An event that carries no document
+ * belongs to no instance.
  */
 function ChangeOfInstance(instanceId: string | null): Document {
   const owns = (image: string) => ({
@@ -32,6 +33,7 @@ function ChangeOfInstance(instanceId: string | null): Document {
   return {
     $and: [
       { $or: [hasAfter, hasBefore] },
+      { $or: [{ $ne: ["$operationType", "update"] }, hasBefore] },
       { $or: [{ $not: [hasAfter] }, owns("$fullDocument")] },
       { $or: [{ $not: [hasBefore] }, owns("$fullDocumentBeforeChange")] },
     ],

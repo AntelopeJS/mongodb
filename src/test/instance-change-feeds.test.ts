@@ -62,7 +62,7 @@ function SettlesWithin(
 }
 
 /**
- * One instance's change feed of `rows`. It opens and drains by updating a probe row, never by an
+ * One instance's change feed of `rows`. It opens and drains by replacing a probe row, never by an
  * insert, so a feed that drops inserts still opens and the test fails on the missing insert.
  */
 class Reader {
@@ -130,7 +130,7 @@ class Reader {
     this.probes += 1;
     await Table(this.instance)
       .get(this.probeId)
-      .update({ n: this.probes })
+      .replace({ _id: this.probeId, n: this.probes })
       .run();
     return this.probes;
   }
@@ -252,21 +252,29 @@ describe("the change feed of an instance", () => {
     expect(seen).to.deep.equal(expected);
   });
 
-  it("delivers no instance a delete whose document the change stream lost", async () => {
+  it("delivers no instance an update or a delete that recorded no earlier document, even when its _id is re-created", async () => {
     const id = "unseen";
     const named = Table(NAMED);
-    let inserted: unknown;
+    const fallback = Table(undefined);
+    let expected: Seen[][] = [];
     await SetPreImages(false);
     try {
-      const seen = await Feeds([undefined, NAMED], async () => {
+      const seen = await Feeds([undefined, NAMED], async (readers) => {
+        for (const reader of readers) {
+          await reader.settle();
+        }
         await named.insert({ _id: id, n: 1 }).run();
-        inserted = await named.get(id).run();
+        const inserted = await named.get(id).run();
+        await named.get(id).update({ n: 2 }).run();
         await named.get(id).delete().run();
+        await fallback.insert({ _id: id, n: 3 }).run();
+        const recreated = await fallback.get(id).run();
+        expected = [
+          [{ type: "added", id, old: undefined, new: recreated }],
+          [{ type: "added", id, old: undefined, new: inserted }],
+        ];
       });
-      expect(seen).to.deep.equal([
-        [],
-        [{ type: "added", id, old: undefined, new: inserted }],
-      ]);
+      expect(seen).to.deep.equal(expected);
     } finally {
       await SetPreImages(true);
     }
