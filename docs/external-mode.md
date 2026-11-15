@@ -177,6 +177,24 @@ db.getSiblingDB("erp").createUser({
 
 MongoDB has no read-only session. The module sends only reads, apart from the writes it is asked for, and an account with the built-in `read` role is the guarantee. A write to a collection that the account was not granted fails as `forbidden`. Also set `statementTimeoutMs`, because these are someone else's production collections. The module sends it as `maxTimeMS` with every read and write.
 
+## Checking a connection
+
+`require("@antelopejs/mongodb/dist/probe")` exports `probe`, the `Probe` of `@antelopejs/interface-database-catalog`. It checks a connection string before any module is configured, and it loads without the AntelopeJS runtime. It opens its own client on the database that the URL's path names, runs no command that writes, and never rejects. It closes the client once it has answered, and at once when its `signal` aborts.
+
+It decides what the account may do the way the catalog does. It reads the account's privileges with `connectionStatus` and checks them against each collection that it lists, `system.` collections left out. The account can write when it may insert, update or remove in a collection that is not a view. It can read when it may `find` in a collection, or when the database has none.
+
+| The server                                                | `probe` answers                                                         |
+| --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| refuses the user name or password                         | `refused`, `credentials`                                                |
+| asks for an account that the URL does not give            | `refused`, `sign-in-required`                                           |
+| refuses with any other error                              | `refused`, `other`                                                      |
+| does not answer                                           | `unreachable`                                                           |
+| signs the account in, but it may not list the collections | `signed-in`, no access, `unreadable: "cannot-list"`                     |
+| signs the account in, and the URL names no database       | `signed-in`, no access, `unreadable: "no-database-named"`               |
+| runs without access control                               | `signed-in` with no `user` and full access, whatever the database holds |
+
+A database that does not exist is an empty one to MongoDB, so `probe` never answers `unreadable: "no-database"`.
+
 ## The catalog
 
 An external instance also implements `@antelopejs/interface-database-catalog`. The catalog describes and profiles the database for a generator. It lists collections, fields, keys, and row estimates, and computes aggregates over the data. It answers with the registration rules of this module. A collection that it lists with a key registers with `_id`, and the declarations that it lists for a field are the ones that registration reads.
