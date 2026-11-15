@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.8
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.7...v1.8.8)
+
+### 🩹 Fixes
+
+- **connection:** Tolerate a refused collMod after a lost collection create race ([#142](https://github.com/AntelopeJS/mongodb/pull/142))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.7
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.6...v1.8.7)
