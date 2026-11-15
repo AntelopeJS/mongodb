@@ -137,6 +137,11 @@ function isNamespaceExistsError(err: unknown): err is MongoServerError {
   return isServerError(err, NAMESPACE_EXISTS_CODE);
 }
 
+/**
+ * Creates the collection with pre-images. One that exists, listed before or created by another
+ * writer since, is kept as it is: a `readWrite` account may not `collMod` it, and
+ * `RequirePreImages` refuses a scoped feed on it when it records none.
+ */
 async function ensureCollection(
   db: Db,
   collectionId: string,
@@ -149,7 +154,6 @@ async function ensureCollection(
     await db.createCollection(collectionId, COLLECTION_OPTIONS);
   } catch (err) {
     if (!isNamespaceExistsError(err)) throw err;
-    await db.command({ collMod: collectionId, ...COLLECTION_OPTIONS });
   }
 }
 
