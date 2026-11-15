@@ -1,4 +1,9 @@
+import { execFile } from "node:child_process";
 import dns from "node:dns";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import type { ProbeAnswer } from "@antelopejs/interface-database-catalog";
 import { expect } from "chai";
@@ -7,7 +12,34 @@ import sinon from "sinon";
 import { probe } from "../probe";
 import { type Listener, SecretOf, StartListener } from "./probe-servers";
 
+const run = promisify(execFile);
 const TIMEOUT_MS = 1000;
+const CHILD_TIMEOUT_MS = 5000;
+const FILE_OPTIONS = ["tlsCAFile", "tlsCRLFile", "tlsCertificateKeyFile"];
+/** FIFOs exist on POSIX systems only; Windows has no file that blocks whoever opens it. */
+const posixIt = process.platform === "win32" ? it.skip : it;
+
+/**
+ * A Node script that probes the URL once per file option, each naming `fifo`, and prints one line
+ * per option: the option, the milliseconds it took, the outcome and the refusal. It exits only if
+ * nothing opened the FIFO.
+ */
+function FifoScript(port: number, fifo: string): string {
+  const probePath = JSON.stringify(path.join(__dirname, "..", "probe.js"));
+  return `
+    const { probe } = require(${probePath});
+    (async () => {
+      for (const option of ${JSON.stringify(FILE_OPTIONS)}) {
+        const started = performance.now();
+        const answer = await probe({
+          url: "mongodb://127.0.0.1:${port}/shop?tls=true&" + option + "=" + ${JSON.stringify(fifo)},
+          timeoutMs: ${TIMEOUT_MS},
+          signal: new AbortController().signal,
+        });
+        console.log([option, performance.now() - started, answer.outcome, answer.refusal].join(" "));
+      }
+    })();`;
+}
 const MACHINE_VARIABLES = [
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
@@ -128,6 +160,34 @@ describe("probing with nothing but what the URL carries", () => {
       expect(answer).to.include({ outcome: "refused", refusal: "other" });
     });
   }
+
+  posixIt(
+    "refuses each file option naming a FIFO at once, and never opens it",
+    async () => {
+      const directory = await mkdtemp(path.join(os.tmpdir(), "probe-fifo-"));
+      const fifo = path.join(directory, "blocks.pem");
+      try {
+        await run("mkfifo", [fifo]);
+        const { stdout } = await run(
+          process.execPath,
+          ["-e", FifoScript(host.port, fifo)],
+          { timeout: CHILD_TIMEOUT_MS },
+        );
+        const lines = stdout.trim().split("\n");
+        expect(lines).to.have.length(FILE_OPTIONS.length);
+        for (const line of lines) {
+          const [option, ms, outcome, refusal] = line.split(" ");
+          expect([outcome, refusal], option).to.deep.equal([
+            "refused",
+            "other",
+          ]);
+          expect(Number(ms), option).to.be.below(AT_ONCE_MS);
+        }
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
 
   for (const record of MACHINE_TXT_RECORDS) {
     it(`takes no ${record.split("=")[0]} from a mongodb+srv TXT record, and connects to nothing`, async () => {
