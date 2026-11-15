@@ -37,11 +37,6 @@ export type QueryAnswer = BsonValue | unknown[];
 /** What a cursor yields for one row: the row's value, or its change event on a change stream. */
 export type CursorValue = BsonValue | ReturnType<typeof ToChangeEvent>;
 
-/** One read of a cursor: its next value, or the end, which no value of a row stands for. */
-export type CursorRead = IteratorResult<CursorValue, void>;
-
-const CURSOR_END: CursorRead = { done: true, value: undefined };
-
 /** Kills the server cursor `cursor` still names, if any; one the driver killed or exhausted names none. */
 async function KillServerCursor(
   collection: Collection,
@@ -164,11 +159,20 @@ export class PipelineCore {
     return results;
   }
 
-  public async readCursor(): Promise<CursorRead> {
+  /**
+   * The cursor's next batch: the row it waits for, then every row the driver already holds, without
+   * fetching more. An empty batch means the cursor is exhausted or closed.
+   */
+  public async readCursor(): Promise<CursorValue[]> {
     const row = await this.nextRow();
-    return row === null
-      ? CURSOR_END
-      : { done: false, value: this.cursorValue(row) };
+    if (row === null) {
+      return [];
+    }
+    const batch = [this.cursorValue(row)];
+    for (const buffered of this.cursor?.readBufferedDocuments() ?? []) {
+      batch.push(this.cursorValue(buffered));
+    }
+    return batch;
   }
 
   /** The value the cursor yields for one row: its change event on a change stream, else its row value. */

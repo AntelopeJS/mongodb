@@ -19,7 +19,7 @@ const INSTANCE = "t";
 
 let schema: Schema<{ rows: Row; nested: NestedRow }>;
 
-describe("reading a cursor past its last row", () => {
+describe("reading a cursor in batches", () => {
   before(async () => {
     schema = new Schema<{ rows: Row; nested: NestedRow }>(SCHEMA_ID, {
       rows: { fields: {}, indexes: {} },
@@ -52,16 +52,29 @@ describe("reading a cursor past its last row", () => {
       const reqId = 7200 + index;
       try {
         const first = await ReadCursor(reqId, stages);
-        assert.equal(first.done, false, `stream ${index} yields its row`);
+        assert.equal(first.length, 1, `stream ${index} yields its row`);
         const last = await ReadCursor(reqId, stages);
-        assert.deepEqual(
-          last,
-          { done: true, value: undefined },
-          `stream ${index} ends`,
-        );
+        assert.deepEqual(last, [], `stream ${index} ends`);
       } finally {
         await CloseCursor(reqId);
       }
+    }
+  });
+
+  it("hands over every row of the server's first reply in one read", async () => {
+    const stages = schema
+      .instance(INSTANCE)
+      .table("nested")
+      .orderBy("n")
+      .map((row) => row.key("n"))
+      .build();
+    const reqId = 7210;
+    try {
+      const batch = await ReadCursor(reqId, stages);
+      assert.deepEqual(batch, [1, 2, 3, 4, 5, 6], "one read holds every row");
+      assert.deepEqual(await ReadCursor(reqId, stages), [], "the next ends");
+    } finally {
+      await CloseCursor(reqId);
     }
   });
 
