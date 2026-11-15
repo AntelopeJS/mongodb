@@ -22,6 +22,7 @@ const MONGODB_VERSION = "8.0.8";
 const START_TIMEOUT_MS = 180_000;
 const TIMEOUT_MS = 1000;
 const ABORT_AFTER_MS = 200;
+const ABORTED = { outcome: "unreachable", message: "The probe was aborted." };
 const ROOT = "root";
 const DATABASE = "shop";
 const NAMED_WITH_AT = "ana@shop";
@@ -310,15 +311,24 @@ function ClosingCases() {
     expect(leftOpen).to.equal(0);
   });
 
-  it("answers at once, and shuts its sockets, when the signal aborts while the server is silent", async () => {
-    const { answer, elapsedMs, leftOpen } = await ProbeThroughRelay(
-      (chunk, fromClient) => fromClient && chunk.includes("connectionStatus"),
-      ABORT_AFTER_MS,
-    );
-    expect(answer.outcome).to.equal("unreachable");
-    expect(elapsedMs).to.be.lessThan(ABORT_AFTER_MS + TIMEOUT_MS);
-    expect(leftOpen).to.equal(0);
-  });
+  for (const [moment, stall] of [
+    ["during the handshake", () => true],
+    [
+      "after the sign-in",
+      (chunk: Buffer, fromClient: boolean) =>
+        fromClient && chunk.includes("connectionStatus"),
+    ],
+  ] satisfies [string, Stall][]) {
+    it(`answers aborted at once, and shuts its sockets, when the signal aborts ${moment}`, async () => {
+      const { answer, elapsedMs, leftOpen } = await ProbeThroughRelay(
+        stall,
+        ABORT_AFTER_MS,
+      );
+      expect(answer).to.deep.equal(ABORTED);
+      expect(elapsedMs).to.be.lessThan(ABORT_AFTER_MS + TIMEOUT_MS);
+      expect(leftOpen).to.equal(0);
+    });
+  }
 
   it("opens nothing when the signal has aborted already", async () => {
     const sockets = WatchClientSockets(Number(PortOf(open)));
@@ -328,7 +338,7 @@ function ClosingCases() {
         timeoutMs: TIMEOUT_MS,
         signal: AbortSignal.abort(),
       });
-      expect(answer.outcome).to.equal("unreachable");
+      expect(answer).to.deep.equal(ABORTED);
       expect(sockets.opened()).to.equal(0);
     } finally {
       sockets.stop();
