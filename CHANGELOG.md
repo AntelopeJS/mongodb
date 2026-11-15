@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.8.2
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.1...v1.8.2)
+
+### 🩹 Fixes
+
+- **database:** Retry a conflict insert that loses an _id race ([#135](https://github.com/AntelopeJS/mongodb/pull/135))
+
+### ✅ Tests
+
+- Give each mocha test and hook 10 s instead of 2 s ([#134](https://github.com/AntelopeJS/mongodb/pull/134))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.1
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.0...v1.8.1)
