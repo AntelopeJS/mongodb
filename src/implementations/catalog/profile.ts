@@ -77,8 +77,9 @@ interface LengthRow {
   max: number;
 }
 
+/** A named category, or with a `null` id the rows of every value folded into `other`. */
 interface GroupRow {
-  _id: string | number | boolean;
+  _id: string | number | boolean | null;
   rows: number;
 }
 
@@ -179,32 +180,52 @@ async function Length(
     : { status: "error", code: "empty" };
 }
 
-/** Values counted often enough to be categories; every rarer value only adds to `other`. */
 function AsCategories(rows: GroupRow[]): Categories {
   return {
-    values: rows
-      .filter((row) => row.rows >= CATEGORY_MIN_ROWS)
-      .slice(0, CATEGORY_LIMIT)
-      .map((row) => ({ value: row._id, rows: row.rows })),
-    other: rows
-      .filter(
-        (row, index) => row.rows < CATEGORY_MIN_ROWS || index >= CATEGORY_LIMIT,
-      )
-      .reduce((total, row) => total + row.rows, 0),
+    values: rows.flatMap(({ _id, rows: count }) =>
+      _id === null ? [] : [{ value: _id, rows: count }],
+    ),
+    other: rows.find((row) => row._id === null)?.rows ?? 0,
   };
 }
 
-async function CategoriesOf(
+/**
+ * The categories of the values `value` projects as `v`: the {@link CATEGORY_LIMIT} most frequent
+ * values counted at least {@link CATEGORY_MIN_ROWS} times. The next most frequent value and every
+ * rarer one are folded into one `_id: null` row by the server, so they never leave the database.
+ */
+export async function CategoriesOf(
   source: Source,
-  column: ProfiledColumn,
+  value: Document,
 ): Promise<Measure<Categories>> {
+  const order = { rows: -1, _id: 1 };
   return Mapped(
     await Measured<GroupRow>(source, [
-      column.value,
+      value,
       { $match: { v: { $ne: null } } },
       { $group: { _id: "$v", rows: { $sum: 1 } } },
-      { $sort: { rows: -1, _id: 1 } },
+      { $sort: order },
       { $limit: CATEGORY_LIMIT + 1 },
+      { $group: { _id: null, top: { $push: "$$ROOT" } } },
+      { $unwind: { path: "$top", includeArrayIndex: "index" } },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              {
+                $and: [
+                  { $gte: ["$top.rows", CATEGORY_MIN_ROWS] },
+                  { $lt: ["$index", CATEGORY_LIMIT] },
+                ],
+              },
+              "$top._id",
+              null,
+            ],
+          },
+          rows: { $sum: "$top.rows" },
+        },
+      },
+      { $sort: order },
     ]),
     AsCategories,
   );
@@ -320,7 +341,7 @@ async function ProfileColumn(
     !column.isIdentifier &&
     isCategorical
   ) {
-    profile.categories = await CategoriesOf(source, column);
+    profile.categories = await CategoriesOf(source, column.value);
   }
   if (column.kind === "date") {
     profile.months = await Months(source, column);
