@@ -29,6 +29,38 @@ async function Listening(server: net.Server): Promise<number> {
   return PortOf(server);
 }
 
+async function ListeningAt(server: net.Server, socketPath: string) {
+  await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+}
+
+/** A server, and how to close it with every socket it accepted. */
+interface Served {
+  server: net.Server;
+  close: () => Promise<void>;
+}
+
+function Serving(
+  options: net.ServerOpts,
+  accept: (socket: net.Socket, track: (socket: net.Socket) => void) => void,
+): Served {
+  const sockets = new Set<net.Socket>();
+  const track = (socket: net.Socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+    socket.on("error", () => undefined);
+  };
+  const server = net.createServer(options, (socket) => accept(socket, track));
+  return {
+    server,
+    close: async () => {
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await new Promise((resolve) => server.close(resolve));
+    },
+  };
+}
+
 /** A local port nothing listens on. */
 export async function ClosedPort(): Promise<number> {
   const server = net.createServer();
@@ -46,23 +78,21 @@ export interface Listener {
 
 /** Starts a {@link Listener} on a free local port. */
 export async function StartListener(): Promise<Listener> {
-  const sockets = new Set<net.Socket>();
   let accepted = 0;
-  const server = net.createServer((socket) => {
+  const { server, close } = Serving({}, (socket, track) => {
     accepted += 1;
-    sockets.add(socket);
-    socket.on("error", () => undefined);
+    track(socket);
   });
-  return {
-    port: await Listening(server),
-    accepted: () => accepted,
-    close: async () => {
-      for (const socket of sockets) {
-        socket.destroy();
-      }
-      await new Promise((resolve) => server.close(resolve));
-    },
-  };
+  return { port: await Listening(server), accepted: () => accepted, close };
+}
+
+/** A socket file that accepts connections and never answers; returns how to close it. */
+export async function StartSilentSocket(
+  socketPath: string,
+): Promise<() => Promise<void>> {
+  const { server, close } = Serving({}, (socket, track) => track(socket));
+  await ListeningAt(server, socketPath);
+  return close;
 }
 
 /**
@@ -81,12 +111,8 @@ export interface Relay {
  * Forwards each connection to the server on `targetPort` until `stall` answers `true`, as a server
  * does that hangs mid-conversation or ignores the client leaving.
  */
-export async function StartRelay(
-  targetPort: number,
-  stall: Stall = () => false,
-): Promise<Relay> {
-  const sockets = new Set<net.Socket>();
-  const server = net.createServer({ allowHalfOpen: true }, (client) => {
+function Relaying(targetPort: number, stall: Stall): Served {
+  return Serving({ allowHalfOpen: true }, (client, track) => {
     const upstream = net.connect(targetPort, "127.0.0.1");
     let stalled = false;
     const forward = (chunk: Buffer, fromClient: boolean) => {
@@ -95,23 +121,29 @@ export async function StartRelay(
         (fromClient ? upstream : client).write(chunk);
       }
     };
-    for (const socket of [client, upstream]) {
-      sockets.add(socket);
-      socket.on("close", () => sockets.delete(socket));
-      socket.on("error", () => undefined);
-    }
+    track(client);
+    track(upstream);
     client.on("data", (chunk) => forward(Buffer.from(chunk), true));
     upstream.on("data", (chunk) => forward(Buffer.from(chunk), false));
   });
-  return {
-    port: await Listening(server),
-    close: async () => {
-      for (const socket of sockets) {
-        socket.destroy();
-      }
-      await new Promise((resolve) => server.close(resolve));
-    },
-  };
+}
+
+export async function StartRelay(
+  targetPort: number,
+  stall: Stall = () => false,
+): Promise<Relay> {
+  const { server, close } = Relaying(targetPort, stall);
+  return { port: await Listening(server), close };
+}
+
+/** A socket file that relays each connection to the server on `targetPort`; returns how to close it. */
+export async function StartSocketRelay(
+  targetPort: number,
+  socketPath: string,
+): Promise<() => Promise<void>> {
+  const { server, close } = Relaying(targetPort, () => false);
+  await ListeningAt(server, socketPath);
+  return close;
 }
 
 /** The client sockets this process opens to one port, whichever library opens them. */

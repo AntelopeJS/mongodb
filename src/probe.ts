@@ -24,6 +24,7 @@ import { OwnedSockets } from "./probe-sockets";
 const AUTHENTICATION_FAILED = 18;
 const UNAUTHORIZED = 13;
 const NOT_AN_ERROR = "The probe failed with a value that is not an Error.";
+const NO_SOCKET_SERVER = "No MongoDB server answered at the hosts of the URL.";
 const DATABASE_IN_PATH = /^[^:]+:\/\/[^/?#]*\/[^?#]/;
 const CLOSE_GRACE_MS = 250;
 const AUTH_MECHANISM_OPTION = "authMechanism";
@@ -76,7 +77,7 @@ const LOCAL_FILE_OPTIONS = [
  * Refuses, before anything connects, the options the driver parsed from the URL that would sign
  * in or connect with what the probing machine holds rather than what the URL carries: a mechanism
  * that reads the machine's AWS credentials, metadata service, Kerberos ticket, workload identity or
- * client certificate, a file path, or a socket file as a host. A `mongodb+srv` TXT record can set only `authSource`,
+ * client certificate, or a file path. A `mongodb+srv` TXT record can set only `authSource`,
  * `replicaSet` and `loadBalanced`, so DNS can add none of them.
  */
 function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
@@ -92,14 +93,6 @@ function MachineCredentialUse(options: MongoOptions): ProbeAnswer | undefined {
       outcome: "refused",
       refusal: "other",
       message: `The probe reads no file of the machine it runs on, and the URL sets ${file}.`,
-    };
-  }
-  if (options.hosts.some((host) => host.socketPath !== undefined)) {
-    return {
-      outcome: "refused",
-      refusal: "other",
-      message:
-        "The probe connects only to network hosts, and the URL names a socket file of the machine it runs on.",
     };
   }
   return undefined;
@@ -201,6 +194,19 @@ function Failure(error: unknown): ProbeAnswer {
 }
 
 /**
+ * {@link Failure}, for a URL that names a socket file as a host: no server answered it says one
+ * fixed sentence, so the answers to a missing path, a file, a locked directory or a socket nothing
+ * listens on are the same, and tell nothing of the machine's files. A server that answers there
+ * answers as anywhere else.
+ */
+function SocketFailure(error: unknown): ProbeAnswer {
+  const answer = Failure(error);
+  return answer.outcome === "unreachable"
+    ? { outcome: "unreachable", message: NO_SOCKET_SERVER }
+    : answer;
+}
+
+/**
  * Says goodbye with `client.close()`, then destroys each socket still open once the close has
  * ended or {@link CLOSE_GRACE_MS} has passed, whichever comes first. It never rejects.
  */
@@ -253,7 +259,11 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
     return await Promise.race([
       sockets
         .run(() => Answer(client, DATABASE_IN_PATH.test(url)))
-        .catch(Failure),
+        .catch(
+          client.options.hosts.some((host) => host.socketPath !== undefined)
+            ? SocketFailure
+            : Failure,
+        ),
       aborted,
     ]);
   } finally {
