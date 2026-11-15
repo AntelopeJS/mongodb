@@ -16,6 +16,33 @@ export function resolveInstanceContext(
   return { kind: "scoped", instanceId: normalizeInstanceId(instanceId) };
 }
 
+/**
+ * Whether a change event belongs to `instanceId`: the instance field of the document after the
+ * change, or before it when the change left none (a delete), equals it. A stored `null` is the
+ * default instance; an event whose document is unknown, with no image, belongs to no instance.
+ */
+function ChangeOfInstance(instanceId: string | null): Document {
+  return {
+    $eq: [
+      {
+        $let: {
+          vars: {
+            image: {
+              $cond: [
+                { $eq: [{ $type: "$fullDocument" }, "object"] },
+                "$fullDocument",
+                "$fullDocumentBeforeChange",
+              ],
+            },
+          },
+          in: `$$image.${INSTANCE_FIELD}`,
+        },
+      },
+      { $literal: instanceId },
+    ],
+  };
+}
+
 export function buildInitialPipeline(
   instance: InstanceContext,
   isChangeStream: boolean,
@@ -24,23 +51,7 @@ export function buildInitialPipeline(
     return [];
   }
   if (isChangeStream) {
-    return [
-      {
-        $match: {
-          $expr: {
-            $eq: [
-              {
-                $ifNull: [
-                  `$fullDocument.${INSTANCE_FIELD}`,
-                  `$fullDocumentBeforeChange.${INSTANCE_FIELD}`,
-                ],
-              },
-              { $literal: instance.instanceId },
-            ],
-          },
-        },
-      },
-    ];
+    return [{ $match: { $expr: ChangeOfInstance(instance.instanceId) } }];
   }
   return [{ $match: { [INSTANCE_FIELD]: instance.instanceId } }];
 }
