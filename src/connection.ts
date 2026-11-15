@@ -18,6 +18,7 @@ import { IsExternal } from "./config";
 const INSTANCE_INDEX = "_instance";
 const BOOKKEEPING_INDEX = "schemaId_instanceId";
 const NAMESPACE_EXISTS_CODE = 48;
+const UNAUTHORIZED_CODE = 13;
 const INDEX_NOT_FOUND_CODE = 27;
 const INDEX_OPTIONS_CONFLICT_CODE = 85;
 const TABLE_CONCURRENCY = 8;
@@ -137,6 +138,11 @@ function isNamespaceExistsError(err: unknown): err is MongoServerError {
   return isServerError(err, NAMESPACE_EXISTS_CODE);
 }
 
+/**
+ * Creates the collection with pre-images. When another writer created it since the listing with
+ * other options, turns them on with `collMod`, or keeps it as it is when the account may not run
+ * `collMod`, as a `readWrite` one may not: `RequirePreImages` then refuses a scoped feed on it.
+ */
 async function ensureCollection(
   db: Db,
   collectionId: string,
@@ -149,7 +155,11 @@ async function ensureCollection(
     await db.createCollection(collectionId, COLLECTION_OPTIONS);
   } catch (err) {
     if (!isNamespaceExistsError(err)) throw err;
-    await db.command({ collMod: collectionId, ...COLLECTION_OPTIONS });
+    await db
+      .command({ collMod: collectionId, ...COLLECTION_OPTIONS })
+      .catch((refusal: unknown) => {
+        if (!isServerError(refusal, UNAUTHORIZED_CODE)) throw refusal;
+      });
   }
 }
 
