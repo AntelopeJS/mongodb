@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.3
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.2...v1.8.3)
+
+### 🚀 Enhancements
+
+- **probe:** Export a connection probe that decides access with the catalog's rule ([#136](https://github.com/AntelopeJS/mongodb/pull/136))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli ([@Upd4ting](http://github.com/Upd4ting))
+
 ## v1.8.2
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.1...v1.8.2)
