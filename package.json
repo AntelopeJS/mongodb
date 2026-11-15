@@ -49,7 +49,7 @@
   "dependencies": {
     "@antelopejs/interface-core": ">=0.5.1 <0.6.0",
     "@antelopejs/interface-database": ">=0.4.0 <0.5.0",
-    "@antelopejs/interface-database-catalog": "file:.tgz-deps/antelopejs-interface-database-catalog-1a5695f.tgz",
+    "@antelopejs/interface-database-catalog": ">=0.1.0 <0.2.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",
     "mongodb-connection-string-url": "^3.0.2",
@@ -84,11 +84,6 @@
     "@antelopejs/interface-mongodb": ">=0.0.7 <0.1.0"
   },
   "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "overrides": {
-      "@antelopejs/interface-database-catalog": "file:.tgz-deps/antelopejs-interface-database-catalog-1a5695f.tgz"
-    }
-  },
   "antelopeJs": {
     "implements": [
       "@antelopejs/interface-database",
