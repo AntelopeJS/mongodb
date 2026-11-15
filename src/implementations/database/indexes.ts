@@ -77,11 +77,8 @@ function declaredIndexId(physicalName: string): string {
 }
 
 /** The physical index named by a write MongoDB refused for a duplicate key (E11000). */
-function duplicatedIndex(error: unknown): string | undefined {
-  if (
-    !(error instanceof MongoServerError) ||
-    error.code !== DUPLICATE_KEY_CODE
-  ) {
+function duplicatedIndex(error: MongoServerError): string | undefined {
+  if (error.code !== DUPLICATE_KEY_CODE) {
     return undefined;
   }
   return DUPLICATE_INDEX_PATTERN.exec(error.message)?.[1];
@@ -89,13 +86,12 @@ function duplicatedIndex(error: unknown): string | undefined {
 
 /**
  * The position, in its batch, of the first operation of a bulk write that
- * MongoDB refused because its `_id` already exists; undefined for any other error.
+ * MongoDB refused because its `_id` already exists; undefined for any other refusal.
  */
-export function PrimaryKeyDuplicateAt(error: unknown): number | undefined {
-  if (
-    !(error instanceof MongoBulkWriteError) ||
-    duplicatedIndex(error) !== PRIMARY_KEY_INDEX
-  ) {
+export function PrimaryKeyDuplicateAt(
+  error: MongoBulkWriteError,
+): number | undefined {
+  if (duplicatedIndex(error) !== PRIMARY_KEY_INDEX) {
     return undefined;
   }
   return [error.writeErrors].flat()[0]?.index;
@@ -111,7 +107,8 @@ export function TypedWriteError<WriteFailure>(
   tableName: string,
   error: WriteFailure,
 ): WriteFailure | DuplicateKeyError {
-  const physicalName = duplicatedIndex(error);
+  const physicalName =
+    error instanceof MongoServerError ? duplicatedIndex(error) : undefined;
   if (!physicalName) {
     return error;
   }

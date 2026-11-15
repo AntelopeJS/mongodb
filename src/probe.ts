@@ -182,18 +182,17 @@ async function Answer(
   );
 }
 
-function Failure(error: unknown): ProbeAnswer {
+function Failure(error: Error): ProbeAnswer {
   if (error instanceof ScramIterationLimit) {
     return { outcome: "refused", refusal: "other", message: error.message };
   }
-  const message = error instanceof Error ? error.message : NOT_AN_ERROR;
   if (!(error instanceof MongoServerError)) {
-    return { outcome: "unreachable", message };
+    return { outcome: "unreachable", message: error.message };
   }
   return {
     outcome: "refused",
     refusal: error.code === AUTHENTICATION_FAILED ? "credentials" : "other",
-    message,
+    message: error.message,
   };
 }
 
@@ -203,7 +202,7 @@ function Failure(error: unknown): ProbeAnswer {
  * listens on are the same, and tell nothing of the machine's files. A server that answers there
  * answers as anywhere else.
  */
-function SocketFailure(error: unknown): ProbeAnswer {
+function SocketFailure(error: Error): ProbeAnswer {
   const answer = Failure(error);
   return answer.outcome === "unreachable"
     ? { outcome: "unreachable", message: NO_SOCKET_SERVER }
@@ -248,7 +247,7 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
       retryReads: false,
     });
   } catch (error) {
-    return Failure(error);
+    return Failure(error instanceof Error ? error : new Error(NOT_AN_ERROR));
   }
   const refusal = MachineCredentialUse(client.options);
   if (refusal !== undefined) {
@@ -264,11 +263,15 @@ export const probe: Probe = async ({ url, timeoutMs, signal }) => {
     return await Promise.race([
       sockets
         .run(() => Answer(client, DATABASE_IN_PATH.test(url)))
-        .catch(
-          client.options.hosts.some((host) => host.socketPath !== undefined)
-            ? SocketFailure
-            : Failure,
-        ),
+        .catch((reason: unknown) => {
+          const error =
+            reason instanceof Error ? reason : new Error(NOT_AN_ERROR);
+          return client.options.hosts.some(
+            (host) => host.socketPath !== undefined,
+          )
+            ? SocketFailure(error)
+            : Failure(error);
+        }),
       aborted,
     ]);
   } finally {

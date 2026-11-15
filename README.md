@@ -44,7 +44,7 @@ export default defineConfig({
       source: {
         type: "package",
         package: "@antelopejs/mongodb",
-        version: "^1.4.2",
+        version: "~1.8.6",
       },
       config: {
         url: "mongodb://localhost:27017/?replicaSet=rs0",
