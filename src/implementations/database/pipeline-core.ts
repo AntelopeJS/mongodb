@@ -14,6 +14,7 @@ import {
 } from "./indexes";
 import { GetCollection } from "../../connection";
 import { ToChangeEvent } from "./change-event";
+import { RequirePreImages } from "./instance-scope";
 import type { BsonDocument, BsonValue } from "./external-read";
 import type { DecodingContext } from "./utils";
 import { DecodeFunction, DecodeValue } from "./expression";
@@ -25,6 +26,8 @@ export interface PipelineSource {
   collection: string;
   initialFilter: Document[];
   isChangeStream: boolean;
+  /** Whether the change stream's filter reads pre-images, so its collection must record them. */
+  needsPreImages?: boolean;
   context: DecodingContext;
 }
 
@@ -63,6 +66,7 @@ export class PipelineCore {
   public readonly tableName: string;
   public readonly collection: string;
   public readonly isChangeStream: boolean;
+  private readonly needsPreImages: boolean;
   public readonly context: DecodingContext;
   public resultType = "stream";
 
@@ -97,6 +101,7 @@ export class PipelineCore {
     this.tableName = source.tableName;
     this.collection = source.collection;
     this.isChangeStream = source.isChangeStream;
+    this.needsPreImages = source.needsPreImages ?? false;
     this.context = source.context;
     this.initialFilter = source.initialFilter;
     this.pipeline = [...source.initialFilter];
@@ -181,12 +186,18 @@ export class PipelineCore {
     return this.isChangeStream ? ToChangeEvent(row) : this.rowValue(row);
   }
 
-  /** The cursor's next row, or `null` past the last one or when closed before its first row arrived. */
+  /**
+   * The cursor's next row, or `null` past the last one or when closed before its first row arrived.
+   * The first read of a feed of one instance rejects when its collection records no pre-images.
+   */
   protected async nextRow(): Promise<Document | null> {
     if (this.cursor) {
       return this.cursor.next();
     }
     const collection = await GetCollection(this.collection);
+    if (this.needsPreImages) {
+      await RequirePreImages(collection);
+    }
     if (this.isClosed) {
       return null;
     }

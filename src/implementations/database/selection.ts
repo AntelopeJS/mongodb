@@ -103,6 +103,8 @@ export class SelectionQuery extends AggregationPipeline {
           ? []
           : buildInitialPipeline(instance, isChangeStream),
         isChangeStream,
+        needsPreImages:
+          !external && isChangeStream && instance.kind === "scoped",
         context,
       },
       ReadTable,
