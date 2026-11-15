@@ -70,7 +70,7 @@ export default defineConfig({
 
 An external instance requires a non-empty `url` and `database`. It reads and writes the documents of the client's own collections and never changes their structure. See [External mode](docs/external-mode.md).
 
-Change feeds use MongoDB change streams, which need a replica set. A single-node replica set is enough in development.
+Change feeds use MongoDB change streams, which need a replica set. A single-node replica set is enough in development. A feed of one instance also needs its collection to record change stream pre-images: the module creates its collections with them, and refuses `changes()` of one instance on a collection that has none, naming the `collMod` that enables them.
 
 ## Quick start
 

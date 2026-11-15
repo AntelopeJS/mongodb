@@ -280,18 +280,51 @@ describe("the change feed of an instance", () => {
     }
   });
 
-  it("refuses to open the feed of an instance on a collection that records no pre-images, and says how to enable them", async () => {
+  it("refuses to open the feed of an instance on a collection that records no pre-images, says how to enable them, and still opens a cross-instance feed", async () => {
     await SetPreImages(false);
     try {
       for (const instance of [undefined, NAMED]) {
         const feed = Table(instance).changes().cursor();
-        const refusal = await feed.next().then(
-          () => "opened",
-          (error: unknown) => String(error),
-        );
-        expect(refusal, `the feed of ${instance ?? "the default instance"}`)
-          .to.contain("pre-images")
-          .and.to.contain(`collMod: "${collectionName(SCHEMA_ID, "rows")}"`);
+        try {
+          const pending = feed.next().then(
+            () => "opened",
+            (error: unknown) => String(error),
+          );
+          expect(
+            await SettlesWithin(pending, FEED_TIMEOUT_MS),
+            "the feed answers its first read",
+          ).to.equal(true);
+          expect(
+            await pending,
+            `the feed of ${instance ?? "the default instance"}`,
+          )
+            .to.contain("pre-images")
+            .and.to.contain(`collMod: "${collectionName(SCHEMA_ID, "rows")}"`);
+        } finally {
+          await feed.return();
+        }
+      }
+      const cross = schema
+        .instance(CROSS_INSTANCE)
+        .table("rows")
+        .changes()
+        .cursor();
+      try {
+        const pending = cross.next();
+        let written = 0;
+        while (!(await SettlesWithin(pending, PROBE_INTERVAL_MS))) {
+          expect(written, "the cross-instance feed opens").to.be.below(
+            FEED_TIMEOUT_MS / PROBE_INTERVAL_MS,
+          );
+          written += 1;
+          await Table(NAMED)
+            .insert({ _id: `cross-${written}`, n: written })
+            .run();
+        }
+        const step = await pending;
+        expect(step.done, "the cross-instance feed delivers").to.equal(false);
+      } finally {
+        await cross.return();
       }
     } finally {
       await SetPreImages(true);

@@ -186,7 +186,10 @@ export class PipelineCore {
     return this.isChangeStream ? ToChangeEvent(row) : this.rowValue(row);
   }
 
-  /** The cursor's next row, or `null` past the last one or when closed before its first row arrived. */
+  /**
+   * The cursor's next row, or `null` past the last one or when closed before its first row arrived.
+   * The first read of a feed of one instance rejects when its collection records no pre-images.
+   */
   protected async nextRow(): Promise<Document | null> {
     if (this.cursor) {
       return this.cursor.next();

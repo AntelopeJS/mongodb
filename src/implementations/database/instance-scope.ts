@@ -58,7 +58,7 @@ export function buildInitialPipeline(
  * instance an update or a delete belongs to from the document before it, so without them the feed
  * would silently miss every update and delete. The module creates its collections with pre-images;
  * one created outside it, or with them turned off, needs a `collMod`, which the module does not run
- * because a `readWrite` account may not.
+ * on an existing collection because a `readWrite` account may not.
  */
 export async function RequirePreImages(collection: Collection): Promise<void> {
   const name = collection.collectionName;
