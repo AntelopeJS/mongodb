@@ -57,7 +57,7 @@ export function ListRelations(schemas?: string[]): Promise<RelationSummary[]> {
     if (schemas && !schemas.includes(db.databaseName)) {
       return [];
     }
-    return Sequentially(await ReadRelations(), Summarize);
+    return Sequentially(await ReadRelations(db), Summarize);
   });
 }
 
@@ -71,7 +71,7 @@ export function DescribeRelations(
         ? relation.slice(db.databaseName.length + 1)
         : "",
     );
-    const listed = await ReadRelations(names);
+    const listed = await ReadRelations(db, names);
     const found = new Set(listed.map(RelationName));
     const missing = relations.filter((relation) => !found.has(relation));
     if (missing.length > 0) {

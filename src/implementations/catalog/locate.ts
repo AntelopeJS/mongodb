@@ -30,7 +30,7 @@ export async function Locate(relation: string): Promise<Located> {
   const name = relation.slice(dot + 1);
   const [listed] =
     dot > 0 && relation.slice(0, dot) === db.databaseName
-      ? await ReadRelations([name])
+      ? await ReadRelations(db, [name])
       : [];
   if (!listed) {
     throw new Error(

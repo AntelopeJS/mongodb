@@ -18,6 +18,7 @@ import { DescribeColumns } from "./columns";
 import { EstimatedRows, MeasuredCollection } from "./measures";
 
 const SYSTEM_PREFIX = "system.";
+const READ_ACTION = "find";
 const WRITE_ACTIONS: Record<keyof RelationWrites, string> = {
   insert: "insert",
   update: "update",
@@ -36,8 +37,8 @@ export interface ListedRelation {
   privileges: Privilege[];
 }
 
-/** The name of the first user the connection authenticated as, or none. */
-function AuthenticatedRole(status: Document): string {
+/** The name of the first user the connection authenticated as, or `""` when none is. */
+export function AuthenticatedRole(status: Document): string {
   const users: unknown = status.authInfo?.authenticatedUsers;
   const user: unknown = Array.isArray(users) ? users.at(0) : undefined;
   const name: unknown = isDocument(user) ? user.user : undefined;
@@ -103,11 +104,11 @@ async function Privileges(db: Db): Promise<Privilege[]> {
   return Array.isArray(privileges) ? privileges.filter(isPrivilege) : [];
 }
 
-/** Every collection and view the connection lists, `system.*` left out, in name order. */
+/** Every collection and view of `db` the connection lists, `system.*` left out, in name order. */
 export async function ReadRelations(
+  db: Db,
   names?: string[],
 ): Promise<ListedRelation[]> {
-  const db = await GetDatabase();
   const filter = names ? { name: { $in: names } } : {};
   const infos = await db.listCollections(filter, { nameOnly: false }).toArray();
   const privileges = await Privileges(db);
@@ -134,7 +135,13 @@ function Allows(relation: ListedRelation, action: string): boolean {
   );
 }
 
-function Writes(relation: ListedRelation): RelationWrites {
+/** Whether the connection may read the relation's documents. */
+export function Reads(relation: ListedRelation): boolean {
+  return Allows(relation, READ_ACTION);
+}
+
+/** Which writes the connection may run on the relation; none on a view. */
+export function Writes(relation: ListedRelation): RelationWrites {
   const isView = KindOf(relation.info) === "view";
   return {
     insert: !isView && Allows(relation, WRITE_ACTIONS.insert),

@@ -177,6 +177,34 @@ db.getSiblingDB("erp").createUser({
 
 MongoDB has no read-only session. The module sends only reads, apart from the writes it is asked for, and an account with the built-in `read` role is the guarantee. A write to a collection that the account was not granted fails as `forbidden`. Also set `statementTimeoutMs`, because these are someone else's production collections. The module sends it as `maxTimeMS` with every read and write.
 
+## Checking a connection
+
+`require("@antelopejs/mongodb/dist/probe")` exports `probe`, the `Probe` of `@antelopejs/interface-database-catalog`. It checks a connection string before any module is configured, and it loads without the AntelopeJS runtime. It opens its own client on the database that the URL's path names, runs no command that writes, and never rejects. It closes the client once it has answered. When its `signal` aborts first, it answers `unreachable` with the message `The probe was aborted.` at once, whatever the server has said so far, and shuts every socket it opened. When the `signal` has aborted already, it opens nothing.
+
+It decides what the account may do the way the catalog does. It reads the account's privileges with `connectionStatus` and checks them against each collection that it lists, `system.` collections left out. The account can write when it may insert, update or remove in a collection that is not a view. It can read when it may `find` in a collection, or when the database has none.
+
+| The server                                                                 | `probe` answers                                                         |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| refuses the user name or password                                          | `refused`, `credentials`                                                |
+| asks for an account that the URL does not give                             | `refused`, `sign-in-required`                                           |
+| refuses with any other error                                               | `refused`, `other`                                                      |
+| does not answer                                                            | `unreachable`                                                           |
+| signs the account in, then refuses or fails the listing of the collections | `signed-in`, no access, `unreadable: "cannot-list"`                     |
+| signs the account in, and the URL names no database                        | `signed-in`, no access, `unreadable: "no-database-named"`               |
+| runs without access control                                                | `signed-in` with no `user` and full access, whatever the database holds |
+
+A database that does not exist is an empty one to MongoDB, so `probe` never answers `unreadable: "no-database"`.
+
+`probe` signs in with the user name and password in the URL and nothing else. Before it connects, it answers `refused`, `other` to a URL that would sign in or connect with something the machine it runs on holds:
+
+- `authMechanism=MONGODB-AWS`, which reads the machine's AWS variables and metadata service
+- `GSSAPI`, which uses the machine's Kerberos ticket
+- `MONGODB-OIDC`, which uses the machine's workload identity
+- `MONGODB-X509`, which presents a client certificate
+- `tlsCertificateKeyFile`, `tlsCAFile` or `tlsCRLFile`, which name files of that machine
+
+The default mechanism, `SCRAM-SHA-1`, `SCRAM-SHA-256` and `PLAIN` are accepted, and any other `authMechanism` value is refused. TLS options are kept, so a URL that asks for TLS never sends its password in clear. A server that asks to derive the password with more than 100,000 SCRAM iterations answers `refused`, `other`: the client derives on the event loop, and a larger count would freeze the process. `probe` connects to whatever host the URL names, a socket file such as `%2Fvar%2Frun%2Fmongodb-27017.sock`, loopback and private addresses included. When the URL names a socket file and no MongoDB server answers, the answer is `unreachable` with one fixed message, whether the path is missing, a file, in a locked directory or a socket nothing serves, so it tells nothing of the machine's files. A `mongodb+srv` TXT record can set only `authSource`, `replicaSet` and `loadBalanced`, and the client rejects a record that sets anything else, so DNS cannot turn any of these on.
+
 ## The catalog
 
 An external instance also implements `@antelopejs/interface-database-catalog`. The catalog describes and profiles the database for a generator. It lists collections, fields, keys, and row estimates, and computes aggregates over the data. It answers with the registration rules of this module. A collection that it lists with a key registers with `_id`, and the declarations that it lists for a field are the ones that registration reads.
