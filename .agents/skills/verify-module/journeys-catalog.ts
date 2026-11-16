@@ -21,6 +21,10 @@ async function lists(stack: Stack): Promise<void> {
       ["big_customers", "view", null, null],
       ["customers", "table", { columns: ["_id"], source: "primary" }, 2],
     ]),
+    same("the collection allows insert, update and remove and the view none, on a mongod with access control off", each(relations.value, ["name", "writes"]), [
+      ["big_customers", { insert: false, update: false, delete: false }],
+      ["customers", { insert: true, update: true, delete: true }],
+    ]),
   ]);
 }
 

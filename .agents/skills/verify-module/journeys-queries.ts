@@ -153,8 +153,13 @@ async function waitForStream(context: JourneyContext): Promise<{ folder: string;
   return { folder, opened: false };
 }
 
+/** How many changes one `ReadCursor` answer holds. */
+function batchSize(value: Json | undefined): Json {
+  return Array.isArray(value) ? value.length : null;
+}
+
 function changeOf(value: Json | undefined): Json {
-  return [pick(value, "done") ?? null, pick(value, "value", "changeType") ?? null, pick(value, "value", "oldValue") ?? null, pick(value, "value", "newValue") ?? null];
+  return [batchSize(value), pick(value, 0, "changeType") ?? null, pick(value, 0, "oldValue") ?? null, pick(value, 0, "newValue") ?? null];
 }
 
 const changeFeed: Journey = {
@@ -176,9 +181,9 @@ const changeFeed: Journey = {
     await run(stack, "delete in tenant-a", FEED_EVENTS.get("e1").delete());
     const removed = await queryEntry(stack, "ReadCursor reads the third change", "ReadCursor", [CURSOR, changes]);
     context.expect(removed.folder, [
-      same("the first change is tenant-a's insert, not tenant-b's", changeOf(added.value), [false, "added", null, { _id: "e1", _instance: "tenant-a", title: "first" }]),
-      same("the second is the update with the row before and after", changeOf(modified.value), [false, "modified", { _id: "e1", _instance: "tenant-a", title: "first" }, { _id: "e1", _instance: "tenant-a", title: "second" }]),
-      same("the third is the delete with the row before it", changeOf(removed.value), [false, "removed", { _id: "e1", _instance: "tenant-a", title: "second" }, null]),
+      same("the first change is tenant-a's insert, not tenant-b's", changeOf(added.value), [1, "added", null, { _id: "e1", _instance: "tenant-a", title: "first" }]),
+      same("the second is the update with the row before and after", changeOf(modified.value), [1, "modified", { _id: "e1", _instance: "tenant-a", title: "first" }, { _id: "e1", _instance: "tenant-a", title: "second" }]),
+      same("the third is the delete with the row before it", changeOf(removed.value), [1, "removed", { _id: "e1", _instance: "tenant-a", title: "second" }, null]),
     ]);
     const closed = await queryEntry(stack, "CloseCursor", "CloseCursor", [CURSOR]);
     const left = await openStreams(context, "mongosh looks for the change stream after CloseCursor");
@@ -186,4 +191,47 @@ const changeFeed: Journey = {
   },
 };
 
-export const queryJourneys = { "rows-across-instances": rowsAcrossInstances, "change-feed": changeFeed };
+const DEFAULT_FEED = new Schema<{ events: Event }>("defaultfeed", { events: { fields: { title: "string" }, indexes: {} } });
+const DEFAULT_EVENTS = DEFAULT_FEED.instance(undefined).table("events");
+const DEFAULT_OPEN_STREAMS = `db.getSiblingDB("admin").aggregate([{ $currentOp: { idleCursors: true } }, { $match: { ns: "${OWNED_DATABASE}.defaultfeed__events" } }]).toArray().length`;
+
+/** Polls `$currentOp` until the default instance's change stream shows up. */
+async function waitForDefaultStream(context: JourneyContext): Promise<{ folder: string; opened: boolean }> {
+  let folder = "";
+  for (let poll = 1; poll <= OPEN_POLLS; poll += 1) {
+    const open = await mongosh(context, `mongosh polls for the default instance's change stream (${poll})`, OWNED_DATABASE, DEFAULT_OPEN_STREAMS);
+    folder = open.folder;
+    if (isNumber(open.value) && open.value > 0) return { folder, opened: true };
+  }
+  return { folder, opened: false };
+}
+
+const changeFeedDefaultInstance: Journey = {
+  title: "a change feed on the default instance streams its insert, update and delete in order and nothing a named instance writes",
+  entryPoint: "`ReadCursor` and `CloseCursor` of `@antelopejs/interface-database` through core on `schema.table(name).changes()` with no instance",
+  async run(context) {
+    const stack = await start(context);
+    const registered = await register(stack, DEFAULT_FEED);
+    context.expect(registered.folder, [answered(registered)], { critical: true });
+    const changes = stages(DEFAULT_EVENTS.changes());
+    const first = queryEntry(stack, "ReadCursor waits for the first change", "ReadCursor", [CURSOR, changes]);
+    const { folder, opened } = await waitForDefaultStream(context);
+    context.expect(folder, [{ name: "the change stream opened on defaultfeed__events", pass: opened, detail: opened ? "open" : `not open after ${OPEN_POLLS} polls` }], { critical: true });
+    await run(stack, "insert into a named instance", DEFAULT_FEED.instance("tenant-a").table("events").insert({ _id: "named", title: "elsewhere" }));
+    await run(stack, "insert into the default instance", DEFAULT_EVENTS.insert({ _id: "d1", title: "first" }));
+    const added = await first;
+    await run(stack, "update in the default instance", DEFAULT_EVENTS.get("d1").update({ title: "second" }));
+    const modified = await queryEntry(stack, "ReadCursor reads the second change", "ReadCursor", [CURSOR, changes]);
+    await run(stack, "delete in the default instance", DEFAULT_EVENTS.get("d1").delete());
+    const removed = await queryEntry(stack, "ReadCursor reads the third change", "ReadCursor", [CURSOR, changes]);
+    context.expect(removed.folder, [
+      same("the first change is the default instance's insert, not the named instance's", [batchSize(added.value), pick(added.value, 0, "changeType") ?? null, pick(added.value, 0, "newValue", "_id") ?? null], [1, "added", "d1"]),
+      same("the second is the update with the row before and after", [pick(modified.value, 0, "changeType") ?? null, pick(modified.value, 0, "oldValue", "title") ?? null, pick(modified.value, 0, "newValue", "title") ?? null], ["modified", "first", "second"]),
+      same("the third is the delete with the row before it", [pick(removed.value, 0, "changeType") ?? null, pick(removed.value, 0, "oldValue", "title") ?? null, pick(removed.value, 0, "newValue") ?? null], ["removed", "second", null]),
+    ]);
+    const closed = await queryEntry(stack, "CloseCursor", "CloseCursor", [CURSOR]);
+    context.expect(closed.folder, [answered(closed)]);
+  },
+};
+
+export const queryJourneys = { "rows-across-instances": rowsAcrossInstances, "change-feed": changeFeed, "change-feed-default-instance": changeFeedDefaultInstance };
