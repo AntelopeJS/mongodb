@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.8.9
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.8...v1.8.9)
+
+### 🩹 Fixes
+
+- **catalog:** End a number range at values counted 5 times ([#148](https://github.com/AntelopeJS/mongodb/pull/148))
+- **database:** Read a dotted top-level field name as one field in key() ([#147](https://github.com/AntelopeJS/mongodb/pull/147))
+
+### ✅ Tests
+
+- **verify:** Upkeep of the verify skill and two journeys ([#144](https://github.com/AntelopeJS/mongodb/pull/144))
+- **formal:** Add targets for conflict inserts, cursor close and add/sub ([#145](https://github.com/AntelopeJS/mongodb/pull/145))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.8
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.7...v1.8.8)
