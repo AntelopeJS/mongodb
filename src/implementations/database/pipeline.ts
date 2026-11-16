@@ -13,6 +13,7 @@ import {
   hasKey,
   isCallable,
   isString,
+  ReadField,
   Temporary,
 } from "./utils";
 import { DecodeFunction, DecodeLiteralValue, DecodeValue } from "./expression";
@@ -160,7 +161,7 @@ export class AggregationPipeline extends PipelineCore {
       DefaultConstant(
         name instanceof ValueProxy
           ? { $getField: { field, input: root } }
-          : `${root}.${String(name)}`,
+          : ReadField(root, String(name)),
         defaultValue,
       );
 

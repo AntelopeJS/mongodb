@@ -121,6 +121,16 @@ export function DefaultExpression(data: string | Document, def: any) {
   return data;
 }
 
+/**
+ * Reads the top-level field `name` of `root`. A name that holds a dot is one field name, never a
+ * nested path, so it goes through `$getField`.
+ */
+export function ReadField(root: string, name: string): string | Document {
+  return name.includes(".")
+    ? { $getField: { field: { $literal: name }, input: root } }
+    : `${root}.${name}`;
+}
+
 export function DefaultConstant(
   data: string | Document,
   def: QueryStage<"key">["args"][1],
