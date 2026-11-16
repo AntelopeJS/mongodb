@@ -8,7 +8,7 @@ const DOTTED = "a.b";
 
 interface Row {
   _id: string;
-  "a.b": string;
+  "a.b"?: string;
   a: { b: string };
   other?: string;
 }
@@ -28,6 +28,7 @@ describe("key on a top-level field whose name holds a dot", () => {
       .insert([
         { _id: "one", "a.b": "flat-one", a: { b: "nested-one" } },
         { _id: "two", "a.b": "flat-two", a: { b: "nested-two" } },
+        { _id: "three", a: { b: "nested-three" } },
       ])
       .run();
   });
@@ -37,16 +38,20 @@ describe("key on a top-level field whose name holds a dot", () => {
   });
 
   it("a key stage reads the flat field, not the nested path", async () => {
-    assert.deepEqual(await Rows().orderBy("_id").key(DOTTED).run(), [
+    assert.deepEqual(await Rows().orderBy("_id").key(DOTTED, "none").run(), [
       "flat-one",
+      "none",
       "flat-two",
     ]);
   });
 
   it("a key stage named by an expression reads the flat field", async () => {
     assert.deepEqual(
-      await Rows().orderBy("_id").key(ValueProxy.constant<"a.b">(DOTTED)).run(),
-      ["flat-one", "flat-two"],
+      await Rows()
+        .orderBy("_id")
+        .key(ValueProxy.constant<"a.b">(DOTTED), "none")
+        .run(),
+      ["flat-one", "none", "flat-two"],
     );
   });
 
@@ -60,21 +65,14 @@ describe("key on a top-level field whose name holds a dot", () => {
     );
   });
 
-  it("a key in a map reads the flat field", async () => {
+  it("a key in a map with a default reads the flat field", async () => {
     assert.deepEqual(
       await Rows()
         .orderBy("_id")
-        .map((row) => row.key(DOTTED))
+        .map((row) => row.key(DOTTED, "none"))
         .run(),
-      ["flat-one", "flat-two"],
+      ["flat-one", "none", "flat-two"],
     );
-  });
-
-  it("a key with a default falls back only when the flat field is absent", async () => {
-    assert.deepEqual(await Rows().orderBy("_id").key("other", "none").run(), [
-      "none",
-      "none",
-    ]);
   });
 
   it("a key chain still reads a nested path", async () => {
@@ -83,7 +81,7 @@ describe("key on a top-level field whose name holds a dot", () => {
         .orderBy("_id")
         .map((row) => row.key("a").key("b"))
         .run(),
-      ["nested-one", "nested-two"],
+      ["nested-one", "nested-three", "nested-two"],
     );
   });
 });
