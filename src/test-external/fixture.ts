@@ -285,7 +285,7 @@ export function RankLabel(rank: number): string {
 }
 
 /** How many documents hold each `levels.level`: the ends 7001 and 7009 are counted 4 times. */
-export const LEVELS = {
+const LEVELS = {
   7001: 4,
   7002: 5,
   7008: 5,
@@ -293,12 +293,12 @@ export const LEVELS = {
 } satisfies Record<number, number>;
 
 /** Five Longs one double cannot tell apart, each stored once. */
-export const SNOWFLAKES = Range(5, (index) =>
+const SNOWFLAKES = Range(5, (index) =>
   Long.fromString(`150000000000000000${index + 1}`),
 );
 
 /** `stamps.at`: the earliest and the latest date are each stored once, the one between 5 times. */
-export const STAMPS = [
+const STAMPS = [
   new Date("2024-01-01T00:00:00Z"),
   ...Range(5, () => new Date("2024-02-01T00:00:00Z")),
   new Date("2024-03-01T00:00:00Z"),
