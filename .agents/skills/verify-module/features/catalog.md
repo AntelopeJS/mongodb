@@ -3,6 +3,9 @@ covers:
   - src/implementations/catalog/**
   - src/implementations/database/external-descriptor.ts
   - src/implementations/database/external-probe.ts
+  - src/probe.ts
+  - src/probe-scram.ts
+  - src/probe-sockets.ts
 docs:
   - docs/external-mode.md
 journeys:
@@ -16,7 +19,7 @@ journeys:
 
 ## Sub-features
 
-- `catalog-describes`: `Info` names the engine, server version and database; `ListRelations` lists the collection keyed by `_id` and the view with no key; `DescribeRelations` lists each sampled field's native types, the declarations that read it with the lossy note on Long, the validator's description and enum as comment and labels, and the collection's indexes; `CheckReference` finds every `_id` in the key `_id` and no `name` in `city`; `Profile` counts every row exactly and names no category counted fewer than 5 times; `SampleRows` answers each value as text.
+- `catalog-describes`: `Info` names the engine, server version and database; `ListRelations` lists the collection keyed by `_id` and the view with no key, and the write flags: insert, update and delete true for the collection and false for the view on this auth-off mongod; `DescribeRelations` lists each sampled field's native types, the declarations that read it with the lossy note on Long, the validator's description and enum as comment and labels, and the collection's indexes; `CheckReference` finds every `_id` in the key `_id` and no `name` in `city`; `Profile` counts every row exactly and names no category counted fewer than 5 times; `SampleRows` answers each value as text.
 - `catalog-owned-refusal`: an owned instance refuses `Info` with the reason.
 
 ## How to get to it (user POV)

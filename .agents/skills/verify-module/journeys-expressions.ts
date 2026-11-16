@@ -9,27 +9,27 @@ const SCENARIO = `const shop = new db.Schema("calc", {
   orders: { fields: { productId: "string", quantity: "number" }, indexes: {} },
   bundles: { fields: { items: "array" }, indexes: {} },
 });
-await shop.createInstance("a");
-await shop.createInstance("b");
+await shop.createInstance("a").run();
+await shop.createInstance("b").run();
 const a = shop.instance("a");
 const products = a.table("products");
 await products.insert([
   { _id: "pen", name: "Pen", price: 2, tags: ["office", "cheap"] },
   { _id: "ink", name: "Ink", price: 5, tags: ["office"] },
   { _id: "pad", name: "Pad", price: 3, tags: [] },
-]);
+]).run();
 const other = shop.instance("b").table("products");
-const sharedKey = await other.insert({ _id: "pen", name: "Other pen", price: 99, tags: [] }).then(() => "inserted", (error) => error.name);
-await other.insert({ _id: "pen-b", name: "Other pen", price: 99, tags: [] });
-await other.insert({ _id: "x", name: "b's x", price: 1, tags: [] });
-await a.table("orders").insert([{ _id: "o1", productId: "pen", quantity: 3 }, { _id: "o2", productId: "ink", quantity: 1 }]);
-await a.table("bundles").insert({ _id: "b1", items: ["pad", "x", "pen"] });
+const sharedKey = await other.insert({ _id: "pen", name: "Other pen", price: 99, tags: [] }).run().then(() => "inserted", (error) => error.name);
+await other.insert({ _id: "pen-b", name: "Other pen", price: 99, tags: [] }).run();
+await other.insert({ _id: "x", name: "b's x", price: 1, tags: [] }).run();
+await a.table("orders").insert([{ _id: "o1", productId: "pen", quantity: 3 }, { _id: "o2", productId: "ink", quantity: 1 }]).run();
+await a.table("bundles").insert({ _id: "b1", items: ["pad", "x", "pen"] }).run();
 return {
   sharedKey,
-  dearer: await products.filter((p) => p.key("price").gt(2)).orderBy("_id").key("_id"),
-  computed: await products.orderBy("_id").map((p) => ({ id: p.key("_id"), label: p.key("name").upcase(), doubled: p.key("price").mul(2), office: p.key("tags").includes("office"), tags: p.key("tags").count() })),
-  joined: await a.table("orders").orderBy("_id").map((o) => o.merge({ product: products.get(o.key("productId")).key("name") })).pluck("_id", "product"),
-  bundled: await a.table("bundles").get("b1").do((bundle) => bundle.key("items").map((id) => products.get(id))),
+  dearer: await products.filter((p) => p.key("price").gt(2)).orderBy("_id").key("_id").run(),
+  computed: await products.orderBy("_id").map((p) => ({ id: p.key("_id"), label: p.key("name").upcase(), doubled: p.key("price").mul(2), office: p.key("tags").includes("office"), tags: p.key("tags").count() })).run(),
+  joined: await a.table("orders").orderBy("_id").map((o) => o.merge({ product: products.get(o.key("productId")).key("name") })).pluck("_id", "product").run(),
+  bundled: await a.table("bundles").get("b1").do((bundle) => bundle.key("items").map((id) => products.get(id))).run(),
 };`;
 
 const pen = { _id: "pen", _instance: "a", name: "Pen", price: 2, tags: ["office", "cheap"] };
