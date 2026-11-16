@@ -426,7 +426,8 @@ class Expression {
       isString(this.value) &&
       isString(key) &&
       this.value.startsWith("$") &&
-      !key.startsWith("$")
+      !key.startsWith("$") &&
+      !key.includes(".")
         ? `${this.value}.${key}`
         : { $getField: { field: key, input: this.value } };
     if (def) {

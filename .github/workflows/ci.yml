@@ -23,7 +23,11 @@ jobs:
         docs
       docs-typescript-project: docs/tsconfig.json
       renovate-sync: false
-      extra-commands: node .agents/skills/formal-query-index-rebuild/check.mjs
+      extra-commands: |
+        node .agents/skills/formal-query-index-rebuild/check.mjs
+        node .agents/skills/formal-conflict-insert-race/check.mjs
+        node .agents/skills/formal-cursor-close/check.mjs
+        node .agents/skills/formal-add-sub-contract/check.mjs
       test-job: true
   renovate-sync:
     if: >-

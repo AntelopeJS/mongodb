@@ -134,14 +134,33 @@ function RangeEnd(value: number | Date): number | string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+/**
+ * The stages of a range. The ends of a number field are taken over the stored values counted at
+ * least {@link CATEGORY_MIN_ROWS} times, so a value seen fewer times is never an end. A date keeps
+ * its true ends, which the `time-axis` trait reads.
+ */
+function RangeStages(column: ProfiledColumn): Document[] {
+  if (column.kind !== "number") {
+    return [
+      column.value,
+      { $group: { _id: null, min: { $min: "$v" }, max: { $max: "$v" } } },
+    ];
+  }
+  const path = `$${column.description.name}`;
+  return [
+    { $match: { $expr: { $isNumber: path } } },
+    { $group: { _id: path, rows: { $sum: 1 } } },
+    { $match: { rows: { $gte: CATEGORY_MIN_ROWS } } },
+    { $group: { _id: null, min: { $min: "$_id" }, max: { $max: "$_id" } } },
+    { $project: { min: { $toDouble: "$min" }, max: { $toDouble: "$max" } } },
+  ];
+}
+
 async function Range(
   source: Source,
   column: ProfiledColumn,
 ): Promise<Measure<ValueRange>> {
-  const measured = await Measured<RangeRow>(source, [
-    column.value,
-    { $group: { _id: null, min: { $min: "$v" }, max: { $max: "$v" } } },
-  ]);
+  const measured = await Measured<RangeRow>(source, RangeStages(column));
   const row = ValueOf(measured)?.[0];
   if (measured.status !== "ok") {
     return measured;
