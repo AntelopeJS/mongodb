@@ -284,6 +284,32 @@ export function RankLabel(rank: number): string {
   return `r${String(rank).padStart(2, "0")}`;
 }
 
+/** How many documents hold each `levels.level`: the ends 7001 and 7009 are counted 4 times. */
+export const LEVELS = {
+  7001: 4,
+  7002: 5,
+  7008: 5,
+  7009: 4,
+} satisfies Record<number, number>;
+
+/** Five Longs one double cannot tell apart, each stored once. */
+export const SNOWFLAKES = Range(5, (index) =>
+  Long.fromString(`150000000000000000${index + 1}`),
+);
+
+async function SeedRanges(db: Db) {
+  await db
+    .collection("levels")
+    .insertMany(
+      Object.entries(LEVELS).flatMap(([level, rows]) =>
+        Range(rows, () => ({ level: Number(level) })),
+      ),
+    );
+  await db
+    .collection("snowflakes")
+    .insertMany(SNOWFLAKES.map((ref) => ({ ref })));
+}
+
 async function SeedCategories(db: Db) {
   await db
     .collection("tallies")
@@ -347,6 +373,7 @@ export async function SeedClientDatabase(adminUrl: string) {
     await SeedSpecialCollections(db);
     await SeedEvents(db);
     await SeedCategories(db);
+    await SeedRanges(db);
     await CreateAccounts(db);
     await db.command({ profile: 2 });
   } finally {
