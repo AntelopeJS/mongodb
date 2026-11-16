@@ -297,7 +297,15 @@ export const SNOWFLAKES = Range(5, (index) =>
   Long.fromString(`150000000000000000${index + 1}`),
 );
 
+/** `stamps.at`: the earliest and the latest date are each stored once, the one between 5 times. */
+export const STAMPS = [
+  new Date("2024-01-01T00:00:00Z"),
+  ...Range(5, () => new Date("2024-02-01T00:00:00Z")),
+  new Date("2024-03-01T00:00:00Z"),
+];
+
 async function SeedRanges(db: Db) {
+  await db.collection("stamps").insertMany(STAMPS.map((at) => ({ at })));
   await db
     .collection("levels")
     .insertMany(

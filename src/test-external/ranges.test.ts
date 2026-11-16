@@ -40,8 +40,13 @@ describe("the range of an external MongoDB number field", () => {
     });
   });
 
-  it("keeps the true ends of a date, which the time-axis trait reads", async () => {
-    const range = await RangeOf("orders", "orderedAt");
-    expect(range?.status).to.equal("ok");
+  it("keeps the true ends of a date seen once, which the time-axis trait reads", async () => {
+    expect(await RangeOf("stamps", "at")).to.deep.equal({
+      status: "ok",
+      value: {
+        min: "2024-01-01T00:00:00.000Z",
+        max: "2024-03-01T00:00:00.000Z",
+      },
+    });
   });
 });
