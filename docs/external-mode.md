@@ -223,6 +223,7 @@ The catalog is a development tool. It answers under `ajs project dev` and `ajs p
 **Profiles answer aggregates, not documents.**
 
 - Text and ObjectId fields answer no minimum or maximum.
+- The range of a number field ends at values counted at least 5 times, so no value seen fewer times is an end. When no value is counted 5 times, the range answers `empty`. A date keeps its true minimum and maximum.
 - A profile names a value only as a category of a field with at most 25 distinct values, and only if the value is counted at least 5 times. The server folds every rarer value into `other`, so it never leaves the database. ObjectId and UUID fields have no categories.
 
 **A sample of rows is for a person.** `SampleRows` is the one catalog function that answers values. It is for a person to look at, never for a generator or a model. It answers at most 20 documents, with every value as text cut at 200 characters, an embedded document as JSON text, and a binary value as its length.
