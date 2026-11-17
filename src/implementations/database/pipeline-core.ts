@@ -377,7 +377,7 @@ export class PipelineCore {
           },
         },
         {
-          $project: {
+          $addFields: {
             [wrapped]: { $size: `$${wrapped}` },
           },
         },

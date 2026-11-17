@@ -52,6 +52,11 @@ describe("group mapper stages before a reduction", () => {
     await schema.destroyInstance(SECOND).run();
   });
 
+  filterCases();
+  orderCases();
+});
+
+function filterCases() {
   it("a filter of one field leaves its sibling fields and the group keys whole", async () => {
     const result = await Invoices(FIRST)
       .group("currency", (rows, currency) => ({
@@ -86,6 +91,20 @@ describe("group mapper stages before a reduction", () => {
     ]);
   });
 
+  it("a count of distinct values keeps its sibling fields and the group key", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        all: rows.count(),
+        totals: rows.count("total"),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency"), [
+      { currency: "EUR", all: 3, totals: 2 },
+      { currency: "USD", all: 1, totals: 1 },
+    ]);
+  });
+
   it("a map after a filter never runs on the rows the filter dropped", async () => {
     const result = await Invoices(FIRST)
       .group("currency", (rows, currency) => ({
@@ -116,7 +135,9 @@ describe("group mapper stages before a reduction", () => {
       { message: /Unsupported group mapper/ },
     );
   });
+}
 
+function orderCases() {
   it("an orderBy and nth of a mapper pick one row in every group", async () => {
     const result = await schema
       .instance(CROSS_INSTANCE)
@@ -145,4 +166,4 @@ describe("group mapper stages before a reduction", () => {
       { currency: "USD", latest: "usd-0", oldestTwo: ["usd-0"] },
     ]);
   });
-});
+}
