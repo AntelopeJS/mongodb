@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.10
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.9...v1.8.10)
+
+### 🩹 Fixes
+
+- **database:** Answer false when match reads a non-text cell ([#149](https://github.com/AntelopeJS/mongodb/pull/149))
+- **database:** Apply a group mapper's per-field stages to that field only ([#150](https://github.com/AntelopeJS/mongodb/pull/150))
+- **database:** Rank an empty array first in an ascending group mapper orderBy ([#151](https://github.com/AntelopeJS/mongodb/pull/151))
+- **database:** Rank a group mapper orderBy on an array key as $sort does ([#152](https://github.com/AntelopeJS/mongodb/pull/152))
+- **database:** Let $sort rank the rows of a group mapper orderBy ([#153](https://github.com/AntelopeJS/mongodb/pull/153))
+- **database:** Rank a lone group mapper orderBy before the group and slice as top-level ([#154](https://github.com/AntelopeJS/mongodb/pull/154))
+
+### 📖 Documentation
+
+- **changelog:** Name MongoDB 6.0 and the per-group mapper slice answer ([#155](https://github.com/AntelopeJS/mongodb/pull/155))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## Unreleased
 
 ### Upgrade notes
