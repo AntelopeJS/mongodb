@@ -43,34 +43,32 @@ export class AggregationPipeline extends PipelineCore {
     this.readTable = readTable;
   }
 
-  /** Decodes an argument query, the only query that reads no table. */
-  public static async decodeArgument(
+  /**
+   * Decodes an argument query over the rows of this pipeline's table into the field `wrappedObject`
+   * of a compound document, so its indexes resolve on this pipeline's table.
+   */
+  private async decodeArgument(
     stages: QueryStage[],
-    readTable: TableReader,
-    context?: DecodingContext,
-    modifier?: (pipeline: AggregationPipeline) => any,
+    context: DecodingContext,
+    wrappedObject: string,
   ): Promise<AggregationPipeline> {
-    if (stages[0]?.stage === "arg") {
-      assert(context, "Arg query without context?");
-      const argRef = String(stages[0].args[0]);
-      const query = new AggregationPipeline(
-        {
-          schemaId: "",
-          tableName: argRef,
-          collection: argRef,
-          initialFilter: [],
-          isChangeStream: false,
-          context,
-        },
-        readTable,
-      );
-      if (modifier) {
-        await modifier(query);
-      }
-      await query.addStages(stages.slice(1));
-      return query;
-    }
-    throw new Error("Invalid query");
+    assert(stages[0]?.stage === "arg", "Invalid query");
+    const argRef = String(stages[0].args[0]);
+    const query = new AggregationPipeline(
+      {
+        schemaId: this.schemaId,
+        tableName: this.tableName,
+        collection: argRef,
+        initialFilter: [],
+        isChangeStream: false,
+        context,
+      },
+      this.readTable,
+    );
+    query.wrappedObject = wrappedObject;
+    query.inCompoundObject = true;
+    await query.addStages(stages.slice(1));
+    return query;
   }
 
   public async addStages(stages: QueryStage[]) {
@@ -380,15 +378,7 @@ export class AggregationPipeline extends PipelineCore {
     const fields: GroupMapperField[] = [];
     const pipelineInserter: ArgumentProvider = async (stages, scope) => {
       const tmp = Temporary("groupstream");
-      const subquery = await AggregationPipeline.decodeArgument(
-        stages,
-        this.readTable,
-        scope,
-        (subquery) => {
-          subquery.wrappedObject = tmp;
-          subquery.inCompoundObject = true;
-        },
-      );
+      const subquery = await this.decodeArgument(stages, scope, tmp);
       fields.push({
         field: tmp,
         pipeline: subquery.pipeline,

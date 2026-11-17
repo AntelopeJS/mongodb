@@ -120,29 +120,27 @@ export class SelectionQuery extends AggregationPipeline {
   public static async decode(
     stages: QueryStage[],
     context?: DecodingContext,
-  ): Promise<AggregationPipeline> {
-    if (stages[0]?.stage === "schema") {
-      const schemaId = stages[0]?.options?.id;
-      const instanceId = StageId(stages[1]);
-      assert(stages[0]?.stage === "schema" && schemaId, "Unknown schema");
-      await SchemaInitialized(schemaId);
-      assert(
-        stages[1].stage === "instance" && stages[2]?.stage === "table",
-        "Invalid request",
-      );
-      const tableName = stages[2].options.id;
-      const selection = new SelectionQuery(
-        schemaId,
-        instanceId,
-        tableName,
-        stages[stages.length - 1]?.stage === "changes",
-        context ?? new DecodingContext(),
-      );
-      await selection.addStages(stages.slice(3));
-      selection.external?.finish(selection.resultType);
-      return selection;
-    }
-    return AggregationPipeline.decodeArgument(stages, ReadTable, context);
+  ): Promise<SelectionQuery> {
+    const [schema] = stages;
+    assert(schema?.stage === "schema" && schema.options?.id, "Unknown schema");
+    const schemaId = schema.options.id;
+    const instanceId = StageId(stages[1]);
+    await SchemaInitialized(schemaId);
+    assert(
+      stages[1].stage === "instance" && stages[2]?.stage === "table",
+      "Invalid request",
+    );
+    const tableName = stages[2].options.id;
+    const selection = new SelectionQuery(
+      schemaId,
+      instanceId,
+      tableName,
+      stages[stages.length - 1]?.stage === "changes",
+      context ?? new DecodingContext(),
+    );
+    await selection.addStages(stages.slice(3));
+    selection.external?.finish(selection.resultType);
+    return selection;
   }
 
   private getFilter() {
@@ -521,6 +519,8 @@ async function ReadTable(
   stages: QueryStage[],
   context: DecodingContext,
 ): Promise<SelectionQuery | undefined> {
-  const stream = await SelectionQuery.decode(stages, context);
-  return stream instanceof SelectionQuery ? stream : undefined;
+  if (stages[0]?.stage !== "schema") {
+    return undefined;
+  }
+  return SelectionQuery.decode(stages, context);
 }
