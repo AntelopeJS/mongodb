@@ -77,7 +77,7 @@ The check runs the translation on a real mongod, so the server answers are real;
 | stages of a field | `stage_filter`, `stage_orderBy`, `stage_nth`, `stage_count`, `stage_sum`, `stage_avg`, `stage_min`, `stage_distinct` (implementations/database/pipeline-core.ts), `stage_map` (implementations/database/pipeline.ts) and their selection overrides (implementations/database/selection.ts) |
 | query | `RunQuery` (implementations/database/query.ts) over a real mongod |
 
-The sync commit is `1221a6d` on AntelopeJS/mongodb `next`, the commit before the fix of ANT-3422. Move it to the fix commit once the check runs green there.
+The sync commit is `ac61a11`, the fix of ANT-3422 (AntelopeJS/mongodb#150).
 
 ## Bounds and what is left out
 
