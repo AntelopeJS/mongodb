@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.8.11
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.10...v1.8.11)
+
+### 🩹 Fixes
+
+- **database:** Bind each function body's arguments in its own scope ([#158](https://github.com/AntelopeJS/mongodb/pull/158))
+- **database:** Let a group mapper map to an object replace the row it maps ([#157](https://github.com/AntelopeJS/mongodb/pull/157))
+- **database:** Resolve a group mapper's orderBy index on the grouped table ([#160](https://github.com/AntelopeJS/mongodb/pull/160))
+
+### ✅ Tests
+
+- **schema-readiness:** Await the resumed build instead of bounding it to 600ms ([#159](https://github.com/AntelopeJS/mongodb/pull/159))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.10
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.9...v1.8.10)
