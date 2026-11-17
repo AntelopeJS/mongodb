@@ -6,7 +6,7 @@ const INSTANCE = "sort-tenant";
 const GROUPS = ["a", "b"] as const;
 const DIRECTIONS = ["asc", "desc"] as const;
 const SEED = 1705;
-const DRAWN_CASES = 60;
+const DRAWN_CASES = 200;
 const MAX_ROWS = 8;
 const MAX_ARRAY = 3;
 
