@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Upgrade notes
+
+- **Behavior change:** an `orderBy` inside a `group` mapper on a field that holds arrays now ranks the rows as a top-level `orderBy` does ([#152](https://github.com/AntelopeJS/mongodb/pull/152)). An array ranks by its least element ascending and its greatest descending, null elements included, in BSON type order, and an empty array ranks before null and a missing field ascending and after them descending. Before, an ascending order ranked `[null, 5]` by 5 instead of null, and a descending order ranked `[]` with null and a missing field.
+
 ## v1.8.9
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.8...v1.8.9)

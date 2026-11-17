@@ -58,20 +58,18 @@ function Body(stage: Document, operator: string): Document {
 }
 
 /**
- * The value `$sort` orders a row by: an array sorts by its least element ascending, its greatest descending,
- * and an empty array ascending ranks before null and a missing key.
+ * The value `$sort` orders a row by: an array sorts by its least element in BSON order ascending and its
+ * greatest descending, null elements included, and an empty array keys on `MinKey`, below null and a missing
+ * key, in both directions.
  */
 function SortValue(path: string, descending: boolean): Document {
-  const extreme = { [descending ? "$max" : "$min"]: path };
-  const ofArray = descending
-    ? extreme
-    : {
-        $cond: [
-          { $eq: [{ $size: path }, 0] },
-          { $literal: new MinKey() },
-          extreme,
-        ],
-      };
+  const ofArray = {
+    $cond: [
+      { $eq: [{ $size: path }, 0] },
+      { $literal: new MinKey() },
+      { $first: { $sortArray: { input: path, sortBy: descending ? -1 : 1 } } },
+    ],
+  };
   return { $cond: [{ $isArray: path }, ofArray, path] };
 }
 
