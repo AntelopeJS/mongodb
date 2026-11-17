@@ -6,6 +6,9 @@ const SCHEMA_ID = "group-mapper-stages";
 const FIRST = "first-tenant";
 const SECOND = "second-tenant";
 const MIXED = "mixed-tenant";
+const LARGE = "large-tenant";
+const LARGE_ROWS = 110;
+const LARGE_NOTE_BYTES = 1_000_000;
 
 interface Invoice {
   _id: string;
@@ -66,6 +69,7 @@ describe("group mapper stages before a reduction", () => {
   filterCases();
   orderCases();
   refusalCases();
+  sizeCases();
 });
 
 function filterCases() {
@@ -222,6 +226,24 @@ function orderCases() {
     ]);
   });
 
+  it("an orderBy of one field leaves the row order of its unordered sibling fields", async () => {
+    const result = await Invoices(FIRST)
+      .orderBy("updatedAt", "desc")
+      .group("currency", (rows, currency) => ({
+        currency,
+        byTags: rows.orderBy("tags", "asc").map((row) => row.key("_id")),
+        ids: rows.map((row) => row.key("_id")),
+        first: rows.nth(0).key("_id"),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency")[0], {
+      currency: "EUR",
+      byTags: ["eur-500", "eur-0-b", "eur-0-a"],
+      ids: ["eur-0-a", "eur-0-b", "eur-500"],
+      first: "eur-0-a",
+    });
+  });
+
   it("nth past the first row skips the rows before it", async () => {
     const result = await Invoices(FIRST)
       .group("currency", (rows, currency) => ({
@@ -291,6 +313,37 @@ function orderCases() {
       assert.deepEqual(mixed[0].ids, mixedTop);
     } finally {
       await schema.destroyInstance(MIXED).run();
+    }
+  });
+}
+
+function sizeCases() {
+  it("an ordered field collects its sort key, not the whole row, so a group past the 100 MB $push limit still answers", async () => {
+    try {
+      await schema.createInstance(LARGE).run();
+      const note = "x".repeat(LARGE_NOTE_BYTES);
+      await Invoices(LARGE)
+        .insert(
+          Array.from({ length: LARGE_ROWS }, (_, at) => ({
+            _id: `large-${at}`,
+            currency: "EUR",
+            total: 0,
+            updatedAt: at,
+            note,
+          })),
+        )
+        .run();
+      const result = await Invoices(LARGE)
+        .group("currency", (rows, currency) => ({
+          currency,
+          latest: rows.orderBy("updatedAt", "desc").nth(0).key("_id"),
+        }))
+        .run();
+      assert.deepEqual(result, [
+        { currency: "EUR", latest: `large-${LARGE_ROWS - 1}` },
+      ]);
+    } finally {
+      await schema.destroyInstance(LARGE).run();
     }
   });
 }

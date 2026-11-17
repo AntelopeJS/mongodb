@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { Schema } from "@antelopejs/interface-database/schema";
 
+import * as connection from "../connection";
+import { collectionName } from "../implementations/database/utils";
+
 const SCHEMA_ID = "group-orderby-array-sort";
 const INSTANCE = "sort-tenant";
 const GROUPS = ["a", "b"] as const;
@@ -9,15 +12,20 @@ const SEED = 1705;
 const DRAWN_CASES = 200;
 const MAX_ROWS = 8;
 const MAX_ARRAY = 3;
+const LARGE_ROWS = 110;
+const LARGE_PAD_BYTES = 1_000_000;
 
 type Group = (typeof GROUPS)[number];
 type Direction = (typeof DIRECTIONS)[number];
 type Scalar = number | string | boolean | Date | { x: number } | null;
 type Key = Scalar | Scalar[];
+type Leaf = Key | (Scalar | Scalar[])[];
+type Item = { n?: Leaf; pad?: string } | Scalar;
 
 interface Drawn {
   g: Group;
   k?: Key;
+  items?: Item | Item[];
 }
 
 interface Row extends Drawn {
@@ -35,11 +43,32 @@ const schema = new Schema<{ rows: Row }>(SCHEMA_ID, {
       k: {},
       ks: { fields: ["k", "s"] },
       kr: { fields: ["k", "r"] },
+      "items.n": {},
+      ns: { fields: ["items.n", "s"] },
+      nr: { fields: ["items.n", "r"] },
+      "items.0": {},
+      i0s: { fields: ["items.0", "s"] },
+      i0r: { fields: ["items.0", "r"] },
     },
   },
 });
 
 const table = () => schema.instance(INSTANCE).table("rows");
+
+/**
+ * A key the rows are ordered by: the index named `path` orders on `path` alone, and the indexes
+ * `sequence` and `reverse` break a tie on `path` by `s` and by `r`.
+ */
+interface Order {
+  path: string;
+  sequence: string;
+  reverse: string;
+}
+
+const ORDERS: Order[] = [
+  { path: "k", sequence: "ks", reverse: "kr" },
+  { path: "items.n", sequence: "ns", reverse: "nr" },
+];
 
 const SCALARS: (() => Scalar)[] = [
   () => 0,
@@ -81,11 +110,33 @@ function DrawCases(): Drawn[][] {
     () => [null],
     () => Array.from({ length: 1 + below(MAX_ARRAY) }, scalar),
   ];
+  const leaves: (() => Leaf | undefined)[] = [
+    ...keys,
+    () => [scalar(), [scalar()]],
+  ];
+  const item = (): Item => {
+    const n = pick(leaves)();
+    return below(4) === 0 ? scalar() : n === undefined ? {} : { n };
+  };
+  const itemsDraws: (() => Item | Item[] | undefined)[] = [
+    () => undefined,
+    item,
+    () => [],
+    () => Array.from({ length: 1 + below(MAX_ARRAY) }, item),
+    () => Array.from({ length: 1 + below(MAX_ARRAY) }, item),
+  ];
   return Array.from({ length: DRAWN_CASES }, () =>
     Array.from({ length: 1 + below(MAX_ROWS) }, () => {
       const k = pick(keys)();
-      const g = pick(GROUPS);
-      return k === undefined ? { g } : { g, k };
+      const items = pick(itemsDraws)();
+      const row: Drawn = { g: pick(GROUPS) };
+      if (k !== undefined) {
+        row.k = k;
+      }
+      if (items !== undefined) {
+        row.items = items;
+      }
+      return row;
     }),
   );
 }
@@ -108,12 +159,7 @@ async function Store(drawn: Drawn[]): Promise<number> {
   return run;
 }
 
-async function TopLevel(run: number, index: string, direction: Direction) {
-  const rows = await table()
-    .filter((row) => row.key("run").eq(run))
-    .orderBy(index, direction)
-    .map((row) => ({ g: row.key("g"), id: row.key("_id") }))
-    .run();
+function ByGroup(rows: { g: Group; id: string }[]) {
   return new Map(
     GROUPS.map((g) => [
       g,
@@ -122,20 +168,42 @@ async function TopLevel(run: number, index: string, direction: Direction) {
   );
 }
 
-async function Grouped(run: number, direction: Direction) {
+async function TopLevel(run: number, index: string, direction: Direction) {
+  return ByGroup(
+    await table()
+      .filter((row) => row.key("run").eq(run))
+      .orderBy(index, direction)
+      .map((row) => ({ g: row.key("g"), id: row.key("_id") }))
+      .run(),
+  );
+}
+
+async function Native(run: number, path: string, direction: Direction) {
+  const collection = await connection.GetCollection(
+    collectionName(SCHEMA_ID, "rows"),
+  );
+  const rows = await collection
+    .find<Pick<Row, "_id" | "g">>({ run })
+    .sort({ [path]: direction === "asc" ? 1 : -1 })
+    .toArray();
+  return ByGroup(rows.map((row) => ({ g: row.g, id: row._id })));
+}
+
+async function Grouped(run: number, index: string, direction: Direction) {
   const groups = await table()
     .filter((row) => row.key("run").eq(run))
     .group("g", (rows, g) => ({
       g,
-      ids: rows.orderBy("k", direction).map((row) => row.key("_id")),
+      ids: rows.orderBy(index, direction).map((row) => row.key("_id")),
+      first: rows.orderBy(index, direction).nth(0).key("_id"),
     }))
     .run();
   return new Map(groups.map((group) => [group.g, group]));
 }
 
 /**
- * The rows of `bySequence` that top-level `$sort` ranks equal on `k`: `ks` breaks a tie on `k` by `s`
- * and `kr` by `r`, which is `-s`, so two rows tie exactly when `ks` and `kr` order them apart.
+ * The rows of `bySequence` that top-level `$sort` ranks equal on a key: `bySequence` breaks a tie on the
+ * key by `s` and `byReverse` by `r`, which is `-s`, so two rows tie exactly when they order them apart.
  */
 function TieClasses(bySequence: string[], byReverse: string[]): string[][] {
   const reversePosition = new Map(byReverse.map((id, at) => [id, at]));
@@ -166,33 +234,45 @@ function Chunks(order: string[], classes: string[][]): string[][] {
   return chunks;
 }
 
-async function AnswersTopLevelOrder(drawn: Drawn[]) {
+async function AnswersTopLevelOrder(drawn: Drawn[], orders = ORDERS) {
   const run = await Store(drawn);
-  for (const direction of DIRECTIONS) {
-    const [single, sequence, reverse, grouped] = await Promise.all([
-      TopLevel(run, "k", direction),
-      TopLevel(run, "ks", direction),
-      TopLevel(run, "kr", direction),
-      Grouped(run, direction),
-    ]);
-    for (const g of GROUPS) {
-      const bySequence = sequence.get(g) ?? [];
-      const byReverse = reverse.get(g) ?? [];
-      const group = grouped.get(g);
-      if (bySequence.length === 0) {
-        assert.equal(group, undefined);
-        continue;
+  for (const order of orders) {
+    for (const direction of DIRECTIONS) {
+      const [single, sequence, reverse, native, grouped] = await Promise.all([
+        TopLevel(run, order.path, direction),
+        TopLevel(run, order.sequence, direction),
+        TopLevel(run, order.reverse, direction),
+        Native(run, order.path, direction),
+        Grouped(run, order.path, direction),
+      ]);
+      for (const g of GROUPS) {
+        const bySequence = sequence.get(g) ?? [];
+        const byReverse = reverse.get(g) ?? [];
+        const group = grouped.get(g);
+        if (bySequence.length === 0) {
+          assert.equal(group, undefined);
+          continue;
+        }
+        assert.ok(group, `group ${g} answers`);
+        const context = `group ${g} ${order.path} ${direction}`;
+        const classes = TieClasses(bySequence, byReverse);
+        const expected = classes.map((tie) => [...tie].sort());
+        assert.deepEqual(
+          Chunks(single.get(g) ?? [], classes),
+          expected,
+          `${context} top-level`,
+        );
+        assert.deepEqual(
+          Chunks(native.get(g) ?? [], classes),
+          expected,
+          `${context} find().sort()`,
+        );
+        assert.deepEqual(Chunks(group.ids, classes), expected, context);
+        assert.ok(
+          expected[0].includes(group.first),
+          `${context} nth(0) is ${group.first}, not one of ${expected[0].join(", ")}`,
+        );
       }
-      assert.ok(group, `group ${g} answers`);
-      const context = `group ${g} ${direction}`;
-      const classes = TieClasses(bySequence, byReverse);
-      const expected = classes.map((tie) => [...tie].sort());
-      assert.deepEqual(
-        Chunks(single.get(g) ?? [], classes),
-        expected,
-        `${context} top-level by k`,
-      );
-      assert.deepEqual(Chunks(group.ids, classes), expected, context);
     }
   }
 }
@@ -212,6 +292,14 @@ const FIXED_CASES: Drawn[][] = [
     { g: "a", k: null },
   ],
   [{ g: "a", k: [] }, { g: "a", k: [2, 0] }, { g: "a" }, { g: "a", k: -1 }],
+  [
+    { g: "a", items: [{ n: 2 }, {}] },
+    { g: "a", items: [{ n: 1 }] },
+  ],
+  [
+    { g: "a", items: [{ n: [5, -1] }] },
+    { g: "a", items: [{ n: 0 }] },
+  ],
 ];
 
 describe("group mapper orderBy on an array key", () => {
@@ -223,12 +311,44 @@ describe("group mapper orderBy on an array key", () => {
     await schema.destroyInstance(INSTANCE).run();
   });
 
-  it("ranks an array key by its null element and an empty array as a top-level orderBy does, not by $min or $max", async () => {
+  it("ranks an array key, and a dotted key through an array of subdocuments, as a top-level orderBy and find().sort() do", async () => {
     for (const drawn of [...FIXED_CASES, ...DrawCases()]) {
       await assert.doesNotReject(
         AnswersTopLevelOrder(drawn),
         `rows ${JSON.stringify(drawn)}`,
       );
     }
+  });
+
+  it("ranks a key through an array index, such as items.0, by that element as a top-level orderBy and find().sort() do", async () => {
+    await assert.doesNotReject(
+      AnswersTopLevelOrder(
+        [
+          { g: "a", items: [{ n: 3 }, { n: 0 }] },
+          { g: "a", items: [{ n: 2 }] },
+          { g: "a", items: [] },
+          { g: "a", items: [5, { n: 1 }] },
+        ],
+        [{ path: "items.0", sequence: "i0s", reverse: "i0r" }],
+      ),
+    );
+  });
+
+  it("collects only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
+    const pad = "x".repeat(LARGE_PAD_BYTES);
+    const run = await Store(
+      Array.from({ length: LARGE_ROWS }, (_, n) => ({
+        g: "a",
+        items: [{ n, pad }],
+      })),
+    );
+    const groups = await table()
+      .filter((row) => row.key("run").eq(run))
+      .group("g", (rows, g) => ({
+        g,
+        last: rows.orderBy("items.n", "desc").nth(0).key("_id"),
+      }))
+      .run();
+    assert.deepEqual(groups, [{ g: "a", last: `${run}-${LARGE_ROWS - 1}` }]);
   });
 });
