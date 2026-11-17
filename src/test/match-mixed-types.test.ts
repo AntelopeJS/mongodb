@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { ValueProxy } from "@antelopejs/interface-database";
 import { Schema } from "@antelopejs/interface-database/schema";
 
 const SCHEMA_ID = "match-mixed-types";
@@ -46,6 +47,26 @@ describe("match on a column holding text and non-text cells", () => {
         .key("_id")
         .run(),
       ["text-hit"],
+    );
+  });
+
+  it("a pattern matching a non-text cell's rendering still skips that cell", async () => {
+    assert.deepEqual(
+      await Rows()
+        .filter((row) => row.key("label").cast<string>().match("4|true|alpha"))
+        .key("_id")
+        .run(),
+      ["text-hit"],
+    );
+  });
+
+  it("a constant array receiver answers false", async () => {
+    assert.deepEqual(
+      await Rows()
+        .filter(() => ValueProxy.constant([1, 2]).cast<string>().match("^a"))
+        .key("_id")
+        .run(),
+      [],
     );
   });
 

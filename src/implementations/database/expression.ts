@@ -366,6 +366,7 @@ class Expression {
   stage_str_upcase = "$toUpper";
   stage_str_downcase = "$toLower";
   stage_str_len = "$strLenCP";
+  @CondenseValue
   stage_str_match(regex: DecodedOperand) {
     return {
       $cond: [
