@@ -334,7 +334,7 @@ describe("group mapper orderBy on an array key", () => {
     );
   });
 
-  it("collects only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
+  it("two ordered fields collect only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
     const pad = "x".repeat(LARGE_PAD_BYTES);
     const run = await Store(
       Array.from({ length: LARGE_ROWS }, (_, n) => ({
@@ -347,8 +347,11 @@ describe("group mapper orderBy on an array key", () => {
       .group("g", (rows, g) => ({
         g,
         last: rows.orderBy("items.n", "desc").nth(0).key("_id"),
+        first: rows.orderBy("items.n", "asc").nth(0).key("_id"),
       }))
       .run();
-    assert.deepEqual(groups, [{ g: "a", last: `${run}-${LARGE_ROWS - 1}` }]);
+    assert.deepEqual(groups, [
+      { g: "a", last: `${run}-${LARGE_ROWS - 1}`, first: `${run}-0` },
+    ]);
   });
 });

@@ -5,7 +5,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
 import { ArrayLookup } from "./array-lookup";
-import { SplitGroupField } from "./group-field";
+import { type GroupMapperField, SplitGroupFields } from "./group-field";
 import {
   type DecodedOperand,
   type DecodingContext,
@@ -372,8 +372,7 @@ export class AggregationPipeline extends PipelineCore {
       _id: groupKey,
       [group]: { $first: `$${group}` },
     };
-    const beforeGroup: Document[] = [];
-    const afterGroup: Document[] = [];
+    const fields: GroupMapperField[] = [];
     const pipelineInserter = async (stages: QueryStage[]) => {
       const tmp = Temporary("groupstream");
       const subquery = await AggregationPipeline.decodeArgument(
@@ -385,14 +384,11 @@ export class AggregationPipeline extends PipelineCore {
           subquery.inCompoundObject = true;
         },
       );
-      const split = SplitGroupField(
-        subquery.pipeline,
-        tmp,
-        subquery.singleElement,
-      );
-      beforeGroup.push(...split.beforeGroup);
-      Object.assign(groupStage, split.accumulators);
-      afterGroup.push(...split.afterGroup);
+      fields.push({
+        field: tmp,
+        pipeline: subquery.pipeline,
+        singleElement: subquery.singleElement,
+      });
       setupStage[tmp] = root;
       return `$${tmp}`;
     };
@@ -400,7 +396,13 @@ export class AggregationPipeline extends PipelineCore {
       pipelineInserter,
       `$${group}`,
     ]);
-    this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
+    const split = SplitGroupFields(fields);
+    Object.assign(groupStage, split.accumulators);
+    this.pipeline.push(
+      ...split.beforeGroup,
+      { $group: groupStage },
+      ...split.afterGroup,
+    );
     this.setRoot(result);
     return this;
   }
