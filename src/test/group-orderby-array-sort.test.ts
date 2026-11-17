@@ -334,6 +334,30 @@ describe("group mapper orderBy on an array key", () => {
     );
   });
 
+  it("orders by a compound index, such as ks, on its fields k then s as a top-level orderBy does", async () => {
+    const run = await Store([
+      { g: "a", k: 3 },
+      { g: "a", k: 1 },
+      { g: "b", k: 0 },
+      { g: "a", k: 2 },
+      { g: "a", k: 1 },
+      { g: "b", k: -1 },
+    ]);
+    for (const direction of DIRECTIONS) {
+      const [topLevel, grouped] = await Promise.all([
+        TopLevel(run, "ks", direction),
+        Grouped(run, "ks", direction),
+      ]);
+      for (const g of GROUPS) {
+        assert.deepEqual(
+          grouped.get(g)?.ids,
+          topLevel.get(g),
+          `group ${g} ks ${direction}`,
+        );
+      }
+    }
+  });
+
   it("two ordered fields collect only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
     const pad = "x".repeat(LARGE_PAD_BYTES);
     const run = await Store(
