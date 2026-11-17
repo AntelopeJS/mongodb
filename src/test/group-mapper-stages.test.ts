@@ -318,7 +318,7 @@ function orderCases() {
 }
 
 function sizeCases() {
-  it("an ordered field collects its sort key, not the whole row, so a group past the 100 MB $push limit still answers", async () => {
+  it("two ordered fields collect their sort keys, not the whole rows, so a group past the 100 MB $push limit still answers", async () => {
     try {
       await schema.createInstance(LARGE).run();
       const note = "x".repeat(LARGE_NOTE_BYTES);
@@ -337,10 +337,15 @@ function sizeCases() {
         .group("currency", (rows, currency) => ({
           currency,
           latest: rows.orderBy("updatedAt", "desc").nth(0).key("_id"),
+          oldest: rows.orderBy("updatedAt", "asc").nth(0).key("_id"),
         }))
         .run();
       assert.deepEqual(result, [
-        { currency: "EUR", latest: `large-${LARGE_ROWS - 1}` },
+        {
+          currency: "EUR",
+          latest: `large-${LARGE_ROWS - 1}`,
+          oldest: "large-0",
+        },
       ]);
     } finally {
       await schema.destroyInstance(LARGE).run();

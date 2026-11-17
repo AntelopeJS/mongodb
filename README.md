@@ -122,6 +122,8 @@ Schema initialization drops an index only in two cases. The index has the name t
 
 <!-- antelopejs-docs-compat:end -->
 
+The module needs MongoDB 6.0 or later for a `group` mapper field that orders or slices its rows: it runs them in a `$lookup` over `$documents`.
+
 `.nvmrc` sets the Node.js release for development. The `dependencies` of `package.json` set the range of the `mongodb` driver. `MONGODB_VERSION` in `src/test/antelope.test.ts` sets the MongoDB server release of the test replica set.
 
 ## Contributing
