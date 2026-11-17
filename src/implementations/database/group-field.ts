@@ -1,4 +1,4 @@
-import { MinKey, type Document } from "mongodb";
+import type { Document } from "mongodb";
 
 import { isDocument, Temporary } from "./utils";
 
@@ -14,7 +14,7 @@ export interface GroupFieldStages {
 
 /** A step that orders or slices the rows a field collected, applied to its array after the `$group`. */
 type ArrayStep =
-  | { kind: "sort"; sortBy: Document }
+  | { kind: "sort"; rank: string }
   | { kind: "skip"; count: unknown }
   | { kind: "limit"; count: unknown };
 
@@ -57,26 +57,10 @@ function Body(stage: Document, operator: string): Document {
   return isDocument(body) ? body : Refuse(`a ${operator} without a document`);
 }
 
-/**
- * The value `$sort` orders a row by: an array sorts by its least element in BSON order ascending and its
- * greatest descending, null elements included, and an empty array keys on `MinKey`, below null and a missing
- * key, in both directions.
- */
-function SortValue(path: string, descending: boolean): Document {
-  const ofArray = {
-    $cond: [
-      { $eq: [{ $size: path }, 0] },
-      { $literal: new MinKey() },
-      { $first: { $sortArray: { input: path, sortBy: descending ? -1 : 1 } } },
-    ],
-  };
-  return { $cond: [{ $isArray: path }, ofArray, path] };
-}
-
 function ApplyStep(step: ArrayStep, array: string): Document {
   switch (step.kind) {
     case "sort":
-      return { $sortArray: { input: array, sortBy: step.sortBy } };
+      return { $sortArray: { input: array, sortBy: { [step.rank]: 1 } } };
     case "skip":
       return { $slice: [array, step.count, { $max: [{ $size: array }, 1] }] };
     case "limit":
@@ -91,7 +75,7 @@ class GroupFieldSplit {
   private readonly fieldRef: string;
   private filtered = false;
   private sliced = false;
-  private readonly sortKeys: string[] = [];
+  private readonly ranks: string[] = [];
   private readonly steps: ArrayStep[] = [];
   private readonly beforeGroup: Document[] = [];
   private readonly afterGroup: Document[] = [];
@@ -170,25 +154,15 @@ class GroupFieldSplit {
   }
 
   private sort(order: Document) {
-    const sortKey = Temporary("groupsort");
-    const keys = Entries(order);
+    const rank = Temporary("grouprank");
     this.beforeGroup.push({
-      $addFields: {
-        [sortKey]: Object.fromEntries(
-          keys.map(([path, direction], i) => [
-            `k${i}`,
-            SortValue(`$${path}`, direction === -1),
-          ]),
-        ),
+      $setWindowFields: {
+        sortBy: order,
+        output: { [rank]: { $documentNumber: {} } },
       },
     });
-    this.sortKeys.push(sortKey);
-    this.steps.push({
-      kind: "sort",
-      sortBy: Object.fromEntries(
-        keys.map(([, direction], i) => [`${sortKey}.k${i}`, direction]),
-      ),
-    });
+    this.ranks.push(rank);
+    this.steps.push({ kind: "sort", rank });
   }
 
   private gateRowStage(stage: Document): Document {
@@ -224,11 +198,11 @@ class GroupFieldSplit {
     if (accumulators) {
       return { beforeGroup, accumulators, afterGroup };
     }
-    const sorted = this.sortKeys.length > 0;
+    const sorted = this.ranks.length > 0;
     const element = sorted
       ? {
           value: this.fieldRef,
-          ...Object.fromEntries(this.sortKeys.map((key) => [key, `$${key}`])),
+          ...Object.fromEntries(this.ranks.map((rank) => [rank, `$${rank}`])),
         }
       : this.fieldRef;
     const conditions: unknown[] = [];
@@ -239,7 +213,7 @@ class GroupFieldSplit {
       conditions.push({ $ne: [{ $type: this.fieldRef }, "missing"] });
     }
     const rewrites = this.steps.map((step) => ApplyStep(step, this.fieldRef));
-    if (this.sortKeys.length > 0) {
+    if (sorted) {
       rewrites.push({ $map: { input: this.fieldRef, in: "$$this.value" } });
     }
     if (singleElement) {
@@ -265,8 +239,9 @@ class GroupFieldSplit {
 /**
  * Splits the compiled pipeline of one mapper field around the `$group` the mapper's fields share, so
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
- * in a temporary flag that gates the field's later row stages and accumulators. An order or a slice
- * runs on the array of rows the field collects in its group. A filter or a reduction after a slice,
+ * in a temporary flag that gates the field's later row stages and accumulators. An order numbers
+ * every row in the order `$sort` gives it, with `$setWindowFields`, and sorts the array of rows the
+ * field collects in its group by that number; a slice runs on that array. A filter or a reduction after a slice,
  * anything but a row stage after a reduction, and a join or a union are refused.
  */
 export function SplitGroupField(
