@@ -60,14 +60,15 @@ function Body(stage: Document, operator: string): Document {
 /**
  * `value` cut down to what `$sort` reads on the path `fields` below it, so `$sort` on the copy ranks
  * as it ranks `value`: an array keeps every element, a document keeps only the next field of the
- * path, and any other value stays whole.
+ * path, and any other value stays whole. From a numeric field on, which `$sort` reads as an array
+ * index, the value stays whole.
  */
 function SortCopy(
   value: string | Document,
   fields: string[],
 ): string | Document {
   const [field, ...rest] = fields;
-  if (field === undefined) {
+  if (field === undefined || /^\d+$/.test(field)) {
     return value;
   }
   const narrow = (input: string): Document => ({
