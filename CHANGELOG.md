@@ -10,7 +10,7 @@
 - **Behavior change:** a nested `group` with a non-null key in a mapper field throws `Unsupported group mapper: a nested group with a non-null key`, where it threw `Nested sub-groups with non-null _id are not supported`.
 - **Requirement:** a `group` mapper field that orders or slices its rows after the group runs them in a `$lookup` over `$documents`, which needs MongoDB 6.0 or later.
 - A `group` mapper whose only field that answers rows has one `orderBy`, before any `slice` or `nth`, ranks the rows before the group again, as v1.8.9 did, so the group holds as many rows as in v1.8.9.
-- A `slice` or an `nth` in a `group` mapper reads its arguments as a top-level `slice` or `nth` does, as in v1.8.9: a count past 32 bits answers every row, and a negative index throws MongoDB's `invalid argument to $skip stage`.
+- A `slice` or an `nth` in a `group` mapper reads its arguments as a top-level `slice` or `nth` does, as in v1.8.9: a count past 32 bits answers every row, and a negative index throws MongoDB's `invalid argument to $skip stage`. A count computed per group, such as one read from the group key, still answers the rows it names.
 - An `orderBy` inside a `group` mapper still ranks the rows as a top-level `orderBy` and `find().sort()` do, arrays and dotted paths through arrays of subdocuments included ([#151](https://github.com/AntelopeJS/mongodb/pull/151), [#152](https://github.com/AntelopeJS/mongodb/pull/152), [#153](https://github.com/AntelopeJS/mongodb/pull/153)). These keep the v1.8.9 ranking under #150's per-field stages.
 
 ## v1.8.9

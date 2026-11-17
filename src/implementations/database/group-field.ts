@@ -25,7 +25,18 @@ export interface GroupMapperStages {
  */
 type ArrayStep =
   | { kind: "sort"; order: Document; at: number }
-  | { kind: "slice"; stage: Document };
+  | {
+      kind: "slice";
+      operator: "$skip" | "$limit";
+      stage: Document;
+      constant: boolean;
+    };
+
+/**
+ * One step on a field's array of rows after the `$group`: a `stage` that runs in a `$lookup` over
+ * `$documents` of the rows, or a `rewrite` expression of the array.
+ */
+type ArrayOperation = { stage: Document } | { rewrite: Document };
 
 const ROW_STAGES = new Set([
   "$addFields",
@@ -46,6 +57,10 @@ const STAGE_NAMES = new Map([
 ]);
 
 const VALUE = "v";
+
+function IsNumber<Value>(value: Value): value is Value & number {
+  return typeof value === "number";
+}
 
 function Describe(operator: string): string {
   return STAGE_NAMES.get(operator) ?? `the ${operator} stage`;
@@ -134,7 +149,7 @@ class GroupFieldSplit {
   }
 
   public add(stage: Document) {
-    const [operator] = Single(stage);
+    const [operator, value] = Single(stage);
     if (this.accumulators) {
       if (!ROW_STAGES.has(operator)) {
         Refuse(`${Describe(operator)} after a reduction`);
@@ -156,7 +171,12 @@ class GroupFieldSplit {
         return;
       case "$skip":
       case "$limit":
-        this.steps.push({ kind: "slice", stage });
+        this.steps.push({
+          kind: "slice",
+          operator: operator === "$skip" ? "$skip" : "$limit",
+          stage,
+          constant: IsNumber(value),
+        });
         this.sliced = true;
         return;
       default:
@@ -253,11 +273,11 @@ class GroupFieldSplit {
       return { beforeGroup, accumulators, afterGroup };
     }
     const element: Document = { [VALUE]: this.fieldRef };
-    const stages: Document[] = [];
+    const operations: ArrayOperation[] = [];
     const rows = [...beforeGroup];
     for (const [index, step] of this.steps.entries()) {
       if (step.kind === "slice") {
-        stages.push(step.stage);
+        operations.push(this.slice(step));
         continue;
       }
       const at = step.at + rows.length - beforeGroup.length;
@@ -268,7 +288,7 @@ class GroupFieldSplit {
       const copy = this.copyOrder(step.order, `s${index}`);
       rows.splice(at, 0, copy.capture);
       element[`s${index}`] = copy.value;
-      stages.push(copy.sort);
+      operations.push({ stage: copy.sort });
     }
     const copies = Object.keys(element).length > 1;
     const conditions: unknown[] = [];
@@ -280,8 +300,8 @@ class GroupFieldSplit {
     }
     const collected = copies ? element : this.fieldRef;
     const rewrites: Document[] = [];
-    if (stages.length > 0) {
-      rewrites.push(...this.arrayStages(stages, copies));
+    if (operations.length > 0) {
+      rewrites.push(...this.arrayStages(operations, copies));
     }
     if (this.singleElement) {
       rewrites.push({
@@ -339,30 +359,73 @@ class GroupFieldSplit {
   }
 
   /**
-   * Runs the field's orders and slices as the `$sort`, `$skip` and `$limit` stages they compiled to,
-   * in a `$lookup` over `$documents` of the field's rows, so they read their arguments as a top-level
-   * query does. A row without copies goes in as `{ v: row }`.
+   * A slice whose count is a number runs as the `$skip` or `$limit` stage it compiled to, so it
+   * reads the count as a top-level query does. A count computed per group, such as the group key,
+   * slices the array with `$slice`, since those stages take only a constant.
    */
-  private arrayStages(stages: Document[], copies: boolean): Document[] {
+  private slice(step: Extract<ArrayStep, { kind: "slice" }>): ArrayOperation {
+    const { operator, stage, constant } = step;
+    if (constant) {
+      return { stage };
+    }
+    const count: unknown = stage[operator];
     const array = this.fieldRef;
-    return [
-      {
-        $lookup: {
-          let: {
-            rows: copies
-              ? array
-              : { $map: { input: array, in: { [VALUE]: "$$this" } } },
+    return {
+      rewrite:
+        operator === "$skip"
+          ? { $slice: [array, count, { $max: [{ $size: array }, 1] }] }
+          : { $slice: [array, count] },
+    };
+  }
+
+  /**
+   * Runs the field's orders and slices on its array of rows, each row as `{ v: row }` unless it
+   * carries order copies. Consecutive stages share one `$lookup` over `$documents` of the rows.
+   */
+  private arrayStages(
+    operations: ArrayOperation[],
+    copies: boolean,
+  ): Document[] {
+    const array = this.fieldRef;
+    const result: Document[] = copies
+      ? []
+      : [
+          {
+            $addFields: {
+              [this.field]: {
+                $map: { input: array, in: { [VALUE]: "$$this" } },
+              },
+            },
           },
-          pipeline: [{ $documents: "$$rows" }, ...stages],
-          as: this.field,
-        },
+        ];
+    let stages: Document[] = [];
+    const flush = () => {
+      if (stages.length > 0) {
+        result.push({
+          $lookup: {
+            let: { rows: array },
+            pipeline: [{ $documents: "$$rows" }, ...stages],
+            as: this.field,
+          },
+        });
+        stages = [];
+      }
+    };
+    for (const operation of operations) {
+      if ("stage" in operation) {
+        stages.push(operation.stage);
+        continue;
+      }
+      flush();
+      result.push({ $addFields: { [this.field]: operation.rewrite } });
+    }
+    flush();
+    result.push({
+      $addFields: {
+        [this.field]: { $map: { input: array, in: `$$this.${VALUE}` } },
       },
-      {
-        $addFields: {
-          [this.field]: { $map: { input: array, in: `$$this.${VALUE}` } },
-        },
-      },
-    ];
+    });
+    return result;
   }
 }
 
