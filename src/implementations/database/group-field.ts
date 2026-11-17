@@ -58,19 +58,35 @@ function Body(stage: Document, operator: string): Document {
 }
 
 /**
- * A document that `$sort` on `path` ranks as it ranks the row: the row's top-level value, cut down
- * to the field at the second segment of `path` unless that value is an array, which `$sort` reads
- * element by element.
+ * `value` cut down to what `$sort` reads on the path `fields` below it, so `$sort` on the copy ranks
+ * as it ranks `value`: an array keeps every element, a document keeps only the next field of the
+ * path, and any other value stays whole.
  */
-function SortCopy(path: string): Document {
-  const [root, child] = path.split(".");
-  const value = `$${root}`;
-  if (child === undefined) {
-    return { [root]: value };
+function SortCopy(
+  value: string | Document,
+  fields: string[],
+): string | Document {
+  const [field, ...rest] = fields;
+  if (field === undefined) {
+    return value;
   }
+  const narrow = (input: string): Document => ({
+    $cond: [
+      { $eq: [{ $type: input }, "object"] },
+      { [field]: SortCopy({ $getField: { field, input } }, rest) },
+      input,
+    ],
+  });
   return {
-    [root]: {
-      $cond: [{ $isArray: value }, value, { [child]: `${value}.${child}` }],
+    $let: {
+      vars: { value },
+      in: {
+        $cond: [
+          { $isArray: "$$value" },
+          { $map: { input: "$$value", in: narrow("$$this") } },
+          narrow("$$value"),
+        ],
+      },
     },
   };
 }
@@ -78,25 +94,16 @@ function SortCopy(path: string): Document {
 function ApplyStep(step: ArrayStep, field: string): Document[] {
   const array = `$${field}`;
   switch (step.kind) {
-    case "sort": {
-      const group = Temporary("groupdoc");
+    case "sort":
       return [
-        { $unwind: { path: array, preserveNullAndEmptyArrays: true } },
-        { $sort: step.sortBy },
         {
-          $group: {
-            _id: "$_id",
-            [group]: { $first: "$$ROOT" },
-            [field]: { $push: array },
-          },
-        },
-        {
-          $replaceRoot: {
-            newRoot: { $mergeObjects: [`$${group}`, { [field]: array }] },
+          $lookup: {
+            let: { rows: array },
+            pipeline: [{ $documents: "$$rows" }, { $sort: step.sortBy }],
+            as: field,
           },
         },
       ];
-    }
     case "skip":
       return [
         {
@@ -203,7 +210,10 @@ class GroupFieldSplit {
     this.beforeGroup.push({
       $addFields: {
         [capture]: Object.fromEntries(
-          keys.map(([path], i) => [`k${i}`, SortCopy(path)]),
+          keys.map(([path], i) => [
+            `k${i}`,
+            SortCopy("$$ROOT", path.split(".")),
+          ]),
         ),
       },
     });
@@ -212,7 +222,7 @@ class GroupFieldSplit {
       kind: "sort",
       sortBy: Object.fromEntries(
         keys.map(([path, direction], i) => [
-          `${this.field}.${capture}.k${i}.${path}`,
+          `${capture}.k${i}.${path}`,
           direction,
         ]),
       ),
@@ -299,8 +309,8 @@ class GroupFieldSplit {
  * Splits the compiled pipeline of one mapper field around the `$group` the mapper's fields share, so
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
  * in a temporary flag that gates the field's later row stages and accumulators. An order copies the
- * values its keys read (`SortCopy`) into each row the field collects, and after the `$group` it unwinds
- * the field's rows, ranks them with `$sort` on those copies, and pushes them back in that order, so
+ * values its keys read (`SortCopy`) into each row the field collects, and after the `$group` it ranks
+ * the field's rows with `$sort` on those copies, in a `$lookup` over `$documents` of that array, so
  * the stream its sibling fields read keeps its order. A slice runs on the field's array of rows. A
  * filter or a reduction after a slice, anything but a row stage after a reduction, and a join or a
  * union are refused.
