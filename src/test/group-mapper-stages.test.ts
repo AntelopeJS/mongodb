@@ -137,6 +137,30 @@ function filterCases() {
     ]);
   });
 
+  it("a map to an object answers only that object, with or without a filter before it", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        all: rows.map((row) => ({ id: row.key("_id") })),
+        nonZero: rows
+          .filter((row) => row.key("total").ne(0))
+          .map((row) => ({ id: row.key("_id") })),
+      }))
+      .run();
+    const sorted = ByKey(result, "currency").map((group) => ({
+      ...group,
+      all: ByKey(group.all, "id"),
+    }));
+    assert.deepEqual(sorted, [
+      {
+        currency: "EUR",
+        all: [{ id: "eur-0-a" }, { id: "eur-0-b" }, { id: "eur-500" }],
+        nonZero: [{ id: "eur-500" }],
+      },
+      { currency: "USD", all: [{ id: "usd-0" }], nonZero: [] },
+    ]);
+  });
+
   it("chained filters without a reduction keep the rows both filters keep", async () => {
     const result = await Invoices(FIRST)
       .group("currency", (rows, currency) => ({

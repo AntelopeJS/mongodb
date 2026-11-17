@@ -139,10 +139,14 @@ export class AggregationPipeline extends PipelineCore {
     }
   }
 
+  /**
+   * Writes `val` as the row's value. A wrapped value is written through `$let`, so `$addFields`
+   * replaces it instead of merging an object literal into the value before it.
+   */
   private setRoot(val: DecodedOperand) {
     if (this.wrappedObject) {
       this.pipeline.push({
-        $addFields: { [this.wrappedObject]: val },
+        $addFields: { [this.wrappedObject]: { $let: { vars: {}, in: val } } },
       });
     } else {
       this.pipeline.push({
