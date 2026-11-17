@@ -14,8 +14,18 @@ interface Reading {
   k: number;
 }
 
-const schema = new Schema<{ readings: Reading }>(SCHEMA_ID, {
+interface Slot {
+  _id: string;
+  g: number;
+  k: number;
+}
+
+const schema = new Schema<{ readings: Reading; slots: Slot }>(SCHEMA_ID, {
   readings: {
+    fields: {},
+    indexes: { g: {}, k: {} },
+  },
+  slots: {
     fields: {},
     indexes: { g: {}, k: {} },
   },
@@ -51,6 +61,15 @@ describe("group mapper limits", function () {
         { _id: "a", g: "one", k: 3 },
         { _id: "b", g: "one", k: 1 },
         { _id: "c", g: "one", k: 2 },
+      ])
+      .run();
+    await schema
+      .instance(SMALL)
+      .table("slots")
+      .insert([
+        { _id: "a", g: 2, k: 3 },
+        { _id: "b", g: 2, k: 1 },
+        { _id: "c", g: 2, k: 2 },
       ])
       .run();
   });
@@ -92,6 +111,23 @@ describe("group mapper limits", function () {
       .run();
     assert.deepEqual(top, ["b", "c", "a"]);
     assert.deepEqual(result, [top]);
+  });
+
+  it("a slice and an nth whose arguments come from the group key answer the rows they name", async () => {
+    const slots = schema.instance(SMALL).table("slots");
+    const sliced = await slots
+      .group("g", (rows, g) =>
+        rows
+          .orderBy("k")
+          .slice(0, g)
+          .map((row) => row.key("_id")),
+      )
+      .run();
+    const picked = await slots
+      .group("g", (rows, g) => rows.orderBy("k").nth(g.sub(1)).key("_id"))
+      .run();
+    assert.deepEqual(sliced, [["b", "c"]]);
+    assert.deepEqual(picked, ["c"]);
   });
 
   it("nth of a negative index is refused, as a top-level nth refuses it", async () => {
