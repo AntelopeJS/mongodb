@@ -58,9 +58,9 @@ function Body(stage: Document, operator: string): Document {
 }
 
 /**
- * The value `$sort` orders a row by: an array sorts by its first element in BSON order, its least ascending
- * and its greatest descending, null elements included, and an empty array ranks before null and a missing
- * key in both directions.
+ * The value `$sort` orders a row by: an array sorts by its least element in BSON order ascending and its
+ * greatest descending, null elements included, and an empty array keys on `MinKey`, below null and a missing
+ * key, in both directions.
  */
 function SortValue(path: string, descending: boolean): Document {
   const ofArray = {
