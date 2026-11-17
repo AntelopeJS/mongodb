@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Upgrade notes
+
+- **Behavior change:** `match()` on a cell that holds no text answers `false` ([#149](https://github.com/AntelopeJS/mongodb/pull/149)). Before, a number, a boolean, an object, an array or a date in the matched column failed the whole query.
+- **Behavior change:** each field of a `group` mapper reads only its own rows of the group ([#150](https://github.com/AntelopeJS/mongodb/pull/150)). Before, a `filter`, a `slice` or an `nth` in one field also filtered its sibling fields and the group keys, an `orderBy` in one field reordered the rows of its siblings, and the query answered wrong without an error. A `count(field)` in a mapper field now keeps the group key and the sibling fields, which it dropped before. An `nth` in a mapper field, or a mapper that is an `nth`, now answers the row or null, where it answered a one-element array, so `rows.nth(0).key("_id")` answers `"d"` instead of `["d"]`. A `map` to an object after a `filter` in a mapper field now answers the mapped object only.
+- **Behavior change:** a `group` mapper field that cannot keep its stages to itself throws `Unsupported group mapper: <reason>` instead of answering wrong ([#150](https://github.com/AntelopeJS/mongodb/pull/150)). These shapes throw: a `filter` or a reduction after a `slice` or an `nth`; any stage but a row stage after a reduction, such as `distinct("f").count()` or `distinct("f").nth(0)`; and a `join`, `joinInner` or `union` in a mapper field. A join whose rows each had exactly one match answered right before and now throws.
+- **Behavior change:** a nested `group` with a non-null key in a mapper field throws `Unsupported group mapper: a nested group with a non-null key`, where it threw `Nested sub-groups with non-null _id are not supported`.
+- **Requirement:** a `group` mapper field that orders or slices its rows after the group runs them in a `$lookup` over `$documents`, which needs MongoDB 6.0 or later.
+- **Behavior change:** a `slice` or an `nth` in a `group` mapper field over several groups answers per group ([#154](https://github.com/AntelopeJS/mongodb/pull/154)). v1.8.9 answered across the whole table: a mapper `slice(1, 3)` gave `[[r2, r3], [r4]]`, where it now gives `[[r4], [r3, r1]]`.
+- A `group` mapper whose only field that answers rows has one `orderBy`, before any `slice` or `nth`, ranks the rows before the group again, as v1.8.9 did, so the group holds as many rows as in v1.8.9 ([#154](https://github.com/AntelopeJS/mongodb/pull/154)).
+- A `slice` or an `nth` in a `group` mapper reads its arguments as a top-level `slice` or `nth` does, as in v1.8.9: a count past 32 bits answers every row, and a negative index throws MongoDB's `invalid argument to $skip stage`. A count computed per group, such as one read from the group key, still answers the rows it names ([#154](https://github.com/AntelopeJS/mongodb/pull/154)).
+- An `orderBy` inside a `group` mapper still ranks the rows as a top-level `orderBy` and `find().sort()` do, arrays and dotted paths through arrays of subdocuments included ([#151](https://github.com/AntelopeJS/mongodb/pull/151), [#152](https://github.com/AntelopeJS/mongodb/pull/152), [#153](https://github.com/AntelopeJS/mongodb/pull/153)). These keep the v1.8.9 ranking under #150's per-field stages.
+
 ## v1.8.9
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.8...v1.8.9)

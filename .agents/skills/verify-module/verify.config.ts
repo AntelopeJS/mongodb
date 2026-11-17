@@ -3,6 +3,7 @@ import type { VerifyConfig } from "@antelopejs/tooling-configs/verify";
 import { catalogJourneys } from "./journeys-catalog.ts";
 import { expressionJourneys } from "./journeys-expressions.ts";
 import { externalJourneys } from "./journeys-external.ts";
+import { groupJourneys } from "./journeys-groups.ts";
 import { indexJourneys } from "./journeys-indexes.ts";
 import { moduleJourneys } from "./journeys-module.ts";
 import { queryJourneys } from "./journeys-queries.ts";
@@ -10,6 +11,7 @@ import { smokeJourneys } from "./journeys-smoke.ts";
 import { MONGO_IMAGE, MONGO_SERVICE, SERVICE, ownedConfig } from "./mongo.ts";
 
 const FORMAL_QUERY_INDEX_REBUILD = ".agents/skills/formal-query-index-rebuild";
+const FORMAL_GROUP_MAPPER = ".agents/skills/formal-group-mapper";
 
 const config: VerifyConfig = {
   doors: {
@@ -66,7 +68,7 @@ const config: VerifyConfig = {
     if (mongo === undefined) throw new Error(`no ${SERVICE} service in this run`);
     return ownedConfig(mongo);
   },
-  journeys: { ...smokeJourneys, ...moduleJourneys, ...queryJourneys, ...expressionJourneys, ...indexJourneys, ...externalJourneys, ...catalogJourneys },
+  journeys: { ...smokeJourneys, ...moduleJourneys, ...queryJourneys, ...expressionJourneys, ...groupJourneys, ...indexJourneys, ...externalJourneys, ...catalogJourneys },
   formal: [
     {
       name: "formal-query-index-rebuild",
@@ -79,6 +81,17 @@ const config: VerifyConfig = {
       ],
       files: [`${FORMAL_QUERY_INDEX_REBUILD}/**`],
       command: ["node", `${FORMAL_QUERY_INDEX_REBUILD}/check.mjs`, "--full"],
+      violation: /^(?:finding|BROKEN|HOLDS) +(\w+)/gm,
+    },
+    {
+      name: "formal-group-mapper",
+      covers: [
+        "src/implementations/database/group-field.ts",
+        "src/implementations/database/pipeline.ts",
+        "src/implementations/database/pipeline-core.ts",
+      ],
+      files: [`${FORMAL_GROUP_MAPPER}/**`],
+      command: ["node", `${FORMAL_GROUP_MAPPER}/check.mjs`, "--full"],
       violation: /^(?:finding|BROKEN|HOLDS) +(\w+)/gm,
     },
   ],

@@ -5,6 +5,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
 import { ArrayLookup } from "./array-lookup";
+import { type GroupMapperField, SplitGroupFields } from "./group-field";
 import {
   type DecodedOperand,
   type DecodingContext,
@@ -371,8 +372,7 @@ export class AggregationPipeline extends PipelineCore {
       _id: groupKey,
       [group]: { $first: `$${group}` },
     };
-    const beforeGroup: Document[] = [];
-    const afterGroup: Document[] = [];
+    const fields: GroupMapperField[] = [];
     const pipelineInserter = async (stages: QueryStage[]) => {
       const tmp = Temporary("groupstream");
       const subquery = await AggregationPipeline.decodeArgument(
@@ -384,27 +384,11 @@ export class AggregationPipeline extends PipelineCore {
           subquery.inCompoundObject = true;
         },
       );
-      let isBeforeGroup = true;
-      for (const stage of subquery.pipeline) {
-        if ("$group" in stage) {
-          if (stage.$group._id) {
-            throw new Error(
-              "Nested sub-groups with non-null _id are not supported",
-            );
-          } else {
-            delete stage.$group._id;
-            Object.assign(groupStage, stage.$group);
-            isBeforeGroup = false;
-          }
-        } else if (isBeforeGroup) {
-          beforeGroup.push(stage);
-        } else {
-          afterGroup.push(stage);
-        }
-      }
-      if (isBeforeGroup) {
-        groupStage[tmp] = { $push: `$${tmp}` };
-      }
+      fields.push({
+        field: tmp,
+        pipeline: subquery.pipeline,
+        singleElement: subquery.singleElement,
+      });
       setupStage[tmp] = root;
       return `$${tmp}`;
     };
@@ -412,7 +396,13 @@ export class AggregationPipeline extends PipelineCore {
       pipelineInserter,
       `$${group}`,
     ]);
-    this.pipeline.push(...beforeGroup, { $group: groupStage }, ...afterGroup);
+    const split = SplitGroupFields(fields);
+    Object.assign(groupStage, split.accumulators);
+    this.pipeline.push(
+      ...split.beforeGroup,
+      { $group: groupStage },
+      ...split.afterGroup,
+    );
     this.setRoot(result);
     return this;
   }

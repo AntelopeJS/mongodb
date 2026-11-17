@@ -28,6 +28,7 @@ jobs:
         node .agents/skills/formal-conflict-insert-race/check.mjs
         node .agents/skills/formal-cursor-close/check.mjs
         node .agents/skills/formal-add-sub-contract/check.mjs
+        node .agents/skills/formal-group-mapper/check.mjs
       test-job: true
   renovate-sync:
     if: >-
