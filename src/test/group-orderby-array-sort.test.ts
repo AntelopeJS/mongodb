@@ -46,6 +46,9 @@ const schema = new Schema<{ rows: Row }>(SCHEMA_ID, {
       "items.n": {},
       ns: { fields: ["items.n", "s"] },
       nr: { fields: ["items.n", "r"] },
+      "items.0": {},
+      i0s: { fields: ["items.0", "s"] },
+      i0r: { fields: ["items.0", "r"] },
     },
   },
 });
@@ -231,9 +234,9 @@ function Chunks(order: string[], classes: string[][]): string[][] {
   return chunks;
 }
 
-async function AnswersTopLevelOrder(drawn: Drawn[]) {
+async function AnswersTopLevelOrder(drawn: Drawn[], orders = ORDERS) {
   const run = await Store(drawn);
-  for (const order of ORDERS) {
+  for (const order of orders) {
     for (const direction of DIRECTIONS) {
       const [single, sequence, reverse, native, grouped] = await Promise.all([
         TopLevel(run, order.path, direction),
@@ -315,6 +318,20 @@ describe("group mapper orderBy on an array key", () => {
         `rows ${JSON.stringify(drawn)}`,
       );
     }
+  });
+
+  it("ranks a key through an array index, such as items.0, by that element as a top-level orderBy and find().sort() do", async () => {
+    await assert.doesNotReject(
+      AnswersTopLevelOrder(
+        [
+          { g: "a", items: [{ n: 3 }, { n: 0 }] },
+          { g: "a", items: [{ n: 2 }] },
+          { g: "a", items: [] },
+          { g: "a", items: [5, { n: 1 }] },
+        ],
+        [{ path: "items.0", sequence: "i0s", reverse: "i0r" }],
+      ),
+    );
   });
 
   it("collects only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
