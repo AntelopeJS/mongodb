@@ -334,7 +334,7 @@ describe("group mapper orderBy on an array key", () => {
     );
   });
 
-  it("orders by a compound index, such as ks, on its fields k then s as a top-level orderBy does", async () => {
+  it("orders by a compound index, such as ks, on its fields k then s as a top-level orderBy does, not on a field named ks", async () => {
     const run = await Store([
       { g: "a", k: 3 },
       { g: "a", k: 1 },
@@ -344,15 +344,26 @@ describe("group mapper orderBy on an array key", () => {
       { g: "b", k: -1 },
     ]);
     for (const direction of DIRECTIONS) {
-      const [topLevel, grouped] = await Promise.all([
+      const [topLevel, grouped, single] = await Promise.all([
         TopLevel(run, "ks", direction),
         Grouped(run, "ks", direction),
+        table()
+          .filter((row) => row.key("run").eq(run))
+          .group("g", (rows, g) => ({
+            g,
+            ids: rows.orderBy("ks", direction).map((row) => row.key("_id")),
+          }))
+          .run(),
       ]);
       for (const g of GROUPS) {
+        const context = `group ${g} ks ${direction}`;
+        const expected = topLevel.get(g);
+        assert.deepEqual(grouped.get(g)?.ids, expected, context);
+        assert.equal(grouped.get(g)?.first, expected?.[0], `${context} nth(0)`);
         assert.deepEqual(
-          grouped.get(g)?.ids,
-          topLevel.get(g),
-          `group ${g} ks ${direction}`,
+          single.find((group) => group.g === g)?.ids,
+          expected,
+          `${context} alone in its mapper`,
         );
       }
     }
