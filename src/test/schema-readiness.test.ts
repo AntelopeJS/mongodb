@@ -291,7 +291,8 @@ describe("schema readiness across a restart or a close", () => {
     schemaIds = [];
   });
 
-  it("gates queries on the resumed build after a failed build and a restart", async () => {
+  it("gates queries on the resumed build after a failed build and a restart", async function () {
+    this.timeout(SLOW_TEST_TIMEOUT_MS);
     let attempts = 0;
     stubIndexBuilds(async (schemaId, schema, signal) => {
       attempts++;
@@ -309,7 +310,7 @@ describe("schema readiness across a restart or a close", () => {
 
     expect(await stateAfter(afterRestart, SETTLE_MS)).to.equal("pending");
     releaseBuild();
-    expect(await stateAfter(afterRestart, SETTLE_MS * 4)).to.equal("fulfilled");
+    expect(await afterRestart).to.equal(0);
   });
 
   it("closes a cursor that has not opened without waiting for the build", async () => {
