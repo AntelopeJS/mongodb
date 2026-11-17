@@ -14,7 +14,7 @@ export interface GroupFieldStages {
 
 /** A step that orders or slices the rows a field collected, applied to its array after the `$group`. */
 type ArrayStep =
-  | { kind: "sort"; rank: string }
+  | { kind: "sort"; sortBy: Document }
   | { kind: "skip"; count: unknown }
   | { kind: "limit"; count: unknown };
 
@@ -57,14 +57,40 @@ function Body(stage: Document, operator: string): Document {
   return isDocument(body) ? body : Refuse(`a ${operator} without a document`);
 }
 
-function ApplyStep(step: ArrayStep, array: string): Document {
+function ApplyStep(step: ArrayStep, field: string): Document[] {
+  const array = `$${field}`;
   switch (step.kind) {
-    case "sort":
-      return { $sortArray: { input: array, sortBy: { [step.rank]: 1 } } };
+    case "sort": {
+      const group = Temporary("groupdoc");
+      return [
+        { $unwind: { path: array, preserveNullAndEmptyArrays: true } },
+        { $sort: step.sortBy },
+        {
+          $group: {
+            _id: "$_id",
+            [group]: { $first: "$$ROOT" },
+            [field]: { $push: array },
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: { $mergeObjects: [`$${group}`, { [field]: array }] },
+          },
+        },
+      ];
+    }
     case "skip":
-      return { $slice: [array, step.count, { $max: [{ $size: array }, 1] }] };
+      return [
+        {
+          $addFields: {
+            [field]: {
+              $slice: [array, step.count, { $max: [{ $size: array }, 1] }],
+            },
+          },
+        },
+      ];
     case "limit":
-      return { $slice: [array, step.count] };
+      return [{ $addFields: { [field]: { $slice: [array, step.count] } } }];
   }
 }
 
@@ -75,7 +101,7 @@ class GroupFieldSplit {
   private readonly fieldRef: string;
   private filtered = false;
   private sliced = false;
-  private readonly ranks: string[] = [];
+  private readonly captures: string[] = [];
   private readonly steps: ArrayStep[] = [];
   private readonly beforeGroup: Document[] = [];
   private readonly afterGroup: Document[] = [];
@@ -154,15 +180,28 @@ class GroupFieldSplit {
   }
 
   private sort(order: Document) {
-    const rank = Temporary("grouprank");
+    const capture = Temporary("groupsort");
+    const keys = Entries(order);
     this.beforeGroup.push({
-      $setWindowFields: {
-        sortBy: order,
-        output: { [rank]: { $documentNumber: {} } },
+      $addFields: {
+        [capture]: Object.fromEntries(
+          keys.map(([path]) => {
+            const root = path.split(".")[0];
+            return [root, `$${root}`];
+          }),
+        ),
       },
     });
-    this.ranks.push(rank);
-    this.steps.push({ kind: "sort", rank });
+    this.captures.push(capture);
+    this.steps.push({
+      kind: "sort",
+      sortBy: Object.fromEntries(
+        keys.map(([path, direction]) => [
+          `${this.field}.${capture}.${path}`,
+          direction,
+        ]),
+      ),
+    });
   }
 
   private gateRowStage(stage: Document): Document {
@@ -198,11 +237,13 @@ class GroupFieldSplit {
     if (accumulators) {
       return { beforeGroup, accumulators, afterGroup };
     }
-    const sorted = this.ranks.length > 0;
+    const sorted = this.captures.length > 0;
     const element = sorted
       ? {
           value: this.fieldRef,
-          ...Object.fromEntries(this.ranks.map((rank) => [rank, `$${rank}`])),
+          ...Object.fromEntries(
+            this.captures.map((capture) => [capture, `$${capture}`]),
+          ),
         }
       : this.fieldRef;
     const conditions: unknown[] = [];
@@ -212,7 +253,7 @@ class GroupFieldSplit {
     if (sorted) {
       conditions.push({ $ne: [{ $type: this.fieldRef }, "missing"] });
     }
-    const rewrites = this.steps.map((step) => ApplyStep(step, this.fieldRef));
+    const rewrites: Document[] = [];
     if (sorted) {
       rewrites.push({ $map: { input: this.fieldRef, in: "$$this.value" } });
     }
@@ -229,9 +270,12 @@ class GroupFieldSplit {
               : element,
         },
       },
-      afterGroup: rewrites.map((rewrite) => ({
-        $addFields: { [this.field]: rewrite },
-      })),
+      afterGroup: [
+        ...this.steps.flatMap((step) => ApplyStep(step, this.field)),
+        ...rewrites.map((rewrite) => ({
+          $addFields: { [this.field]: rewrite },
+        })),
+      ],
     };
   }
 }
@@ -239,10 +283,12 @@ class GroupFieldSplit {
 /**
  * Splits the compiled pipeline of one mapper field around the `$group` the mapper's fields share, so
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
- * in a temporary flag that gates the field's later row stages and accumulators. An order numbers
- * every row in the order `$sort` gives it, with `$setWindowFields`, and sorts the array of rows the
- * field collects in its group by that number; a slice runs on that array. A filter or a reduction
- * after a slice, anything but a row stage after a reduction, and a join or a union are refused.
+ * in a temporary flag that gates the field's later row stages and accumulators. An order copies the
+ * top-level fields its keys read into each row the field collects, and after the `$group` it unwinds
+ * the field's rows, ranks them with `$sort` on those copies, and pushes them back in that order, so
+ * the stream its sibling fields read keeps its order. A slice runs on the field's array of rows. A
+ * filter or a reduction after a slice, anything but a row stage after a reduction, and a join or a
+ * union are refused.
  */
 export function SplitGroupField(
   pipeline: Document[],
