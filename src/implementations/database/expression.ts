@@ -368,10 +368,11 @@ class Expression {
   stage_str_len = "$strLenCP";
   stage_str_match(regex: DecodedOperand) {
     return {
-      $regexMatch: {
-        input: this.value,
-        regex: regex,
-      },
+      $cond: [
+        { $eq: [{ $type: this.value }, "string"] },
+        { $regexMatch: { input: this.value, regex: regex } },
+        false,
+      ],
     };
   }
 
