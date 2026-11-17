@@ -366,12 +366,14 @@ class Expression {
   stage_str_upcase = "$toUpper";
   stage_str_downcase = "$toLower";
   stage_str_len = "$strLenCP";
+  @CondenseValue
   stage_str_match(regex: DecodedOperand) {
     return {
-      $regexMatch: {
-        input: this.value,
-        regex: regex,
-      },
+      $cond: [
+        { $eq: [{ $type: this.value }, "string"] },
+        { $regexMatch: { input: this.value, regex: regex } },
+        false,
+      ],
     };
   }
 
