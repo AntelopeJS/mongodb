@@ -86,6 +86,37 @@ describe("group mapper stages before a reduction", () => {
     ]);
   });
 
+  it("a map after a filter never runs on the rows the filter dropped", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        shares: rows
+          .filter((row) => row.key("total").ne(0))
+          .map((row) => row.key("updatedAt").div(row.key("total")))
+          .count(),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency"), [
+      { currency: "EUR", shares: 1 },
+      { currency: "USD", shares: 0 },
+    ]);
+  });
+
+  it("a filter after a slice is refused instead of answering for the wrong rows", async () => {
+    await assert.rejects(
+      Invoices(FIRST)
+        .group("currency", (rows) => ({
+          all: rows.count(),
+          firstNonZero: rows
+            .slice(0, 2)
+            .filter((row) => row.key("total").ne(0))
+            .count(),
+        }))
+        .run(),
+      { message: /Unsupported group mapper/ },
+    );
+  });
+
   it("an orderBy and nth of a mapper pick one row in every group", async () => {
     const result = await schema
       .instance(CROSS_INSTANCE)

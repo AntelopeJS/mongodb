@@ -5,6 +5,7 @@ import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
 import { ArrayLookup } from "./array-lookup";
+import { SplitGroupField } from "./group-field";
 import {
   type DecodedOperand,
   type DecodingContext,
@@ -384,27 +385,14 @@ export class AggregationPipeline extends PipelineCore {
           subquery.inCompoundObject = true;
         },
       );
-      let isBeforeGroup = true;
-      for (const stage of subquery.pipeline) {
-        if ("$group" in stage) {
-          if (stage.$group._id) {
-            throw new Error(
-              "Nested sub-groups with non-null _id are not supported",
-            );
-          } else {
-            delete stage.$group._id;
-            Object.assign(groupStage, stage.$group);
-            isBeforeGroup = false;
-          }
-        } else if (isBeforeGroup) {
-          beforeGroup.push(stage);
-        } else {
-          afterGroup.push(stage);
-        }
-      }
-      if (isBeforeGroup) {
-        groupStage[tmp] = { $push: `$${tmp}` };
-      }
+      const split = SplitGroupField(
+        subquery.pipeline,
+        tmp,
+        subquery.singleElement,
+      );
+      beforeGroup.push(...split.beforeGroup);
+      Object.assign(groupStage, split.accumulators);
+      afterGroup.push(...split.afterGroup);
       setupStage[tmp] = root;
       return `$${tmp}`;
     };
