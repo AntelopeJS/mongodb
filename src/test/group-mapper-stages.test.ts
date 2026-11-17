@@ -222,6 +222,24 @@ function orderCases() {
     ]);
   });
 
+  it("an orderBy of one field leaves the row order of its unordered sibling fields", async () => {
+    const result = await Invoices(FIRST)
+      .orderBy("updatedAt", "desc")
+      .group("currency", (rows, currency) => ({
+        currency,
+        byTags: rows.orderBy("tags", "asc").map((row) => row.key("_id")),
+        ids: rows.map((row) => row.key("_id")),
+        first: rows.nth(0).key("_id"),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency")[0], {
+      currency: "EUR",
+      byTags: ["eur-500", "eur-0-b", "eur-0-a"],
+      ids: ["eur-0-a", "eur-0-b", "eur-500"],
+      first: "eur-0-a",
+    });
+  });
+
   it("nth past the first row skips the rows before it", async () => {
     const result = await Invoices(FIRST)
       .group("currency", (rows, currency) => ({
