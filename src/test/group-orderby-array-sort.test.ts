@@ -12,13 +12,15 @@ const SEED = 1705;
 const DRAWN_CASES = 200;
 const MAX_ROWS = 8;
 const MAX_ARRAY = 3;
+const LARGE_ROWS = 110;
+const LARGE_PAD_BYTES = 1_000_000;
 
 type Group = (typeof GROUPS)[number];
 type Direction = (typeof DIRECTIONS)[number];
 type Scalar = number | string | boolean | Date | { x: number } | null;
 type Key = Scalar | Scalar[];
 type Leaf = Key | (Scalar | Scalar[])[];
-type Item = { n?: Leaf } | Scalar;
+type Item = { n?: Leaf; pad?: string } | Scalar;
 
 interface Drawn {
   g: Group;
@@ -313,5 +315,23 @@ describe("group mapper orderBy on an array key", () => {
         `rows ${JSON.stringify(drawn)}`,
       );
     }
+  });
+
+  it("collects only the dotted key's leaves, not the whole subdocuments, so a group past the 100 MB $push limit still answers", async () => {
+    const pad = "x".repeat(LARGE_PAD_BYTES);
+    const run = await Store(
+      Array.from({ length: LARGE_ROWS }, (_, n) => ({
+        g: "a",
+        items: [{ n, pad }],
+      })),
+    );
+    const groups = await table()
+      .filter((row) => row.key("run").eq(run))
+      .group("g", (rows, g) => ({
+        g,
+        last: rows.orderBy("items.n", "desc").nth(0).key("_id"),
+      }))
+      .run();
+    assert.deepEqual(groups, [{ g: "a", last: `${run}-${LARGE_ROWS - 1}` }]);
   });
 });
