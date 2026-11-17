@@ -26,6 +26,20 @@ const ROW_STAGES = new Set([
   "$lookup",
 ]);
 
+const STAGE_NAMES = new Map([
+  ["$group", "a reduction"],
+  ["$match", "a filter"],
+  ["$sort", "an orderBy"],
+  ["$skip", "a slice or nth"],
+  ["$limit", "a slice or nth"],
+  ["$unwind", "a join"],
+  ["$unionWith", "a union"],
+]);
+
+function Describe(operator: string): string {
+  return STAGE_NAMES.get(operator) ?? `the ${operator} stage`;
+}
+
 function Refuse(reason: string): never {
   throw new Error(`Unsupported group mapper: ${reason}`);
 }
@@ -41,6 +55,13 @@ function Single(document: Document): [string, unknown] {
 function Body(stage: Document, operator: string): Document {
   const body: unknown = stage[operator];
   return isDocument(body) ? body : Refuse(`a ${operator} without a document`);
+}
+
+/** The value `$sort` orders a row by: an array sorts by its least element ascending, its greatest descending. */
+function SortValue(path: string, descending: boolean): Document {
+  return {
+    $cond: [{ $isArray: path }, { [descending ? "$max" : "$min"]: path }, path],
+  };
 }
 
 function ApplyStep(step: ArrayStep, array: string): Document {
@@ -72,11 +93,14 @@ class GroupFieldSplit {
   }
 
   public add(stage: Document) {
+    const [operator, value] = Single(stage);
     if (this.accumulators) {
+      if (!ROW_STAGES.has(operator)) {
+        Refuse(`${Describe(operator)} after a reduction`);
+      }
       this.afterGroup.push(stage);
       return;
     }
-    const [operator, value] = Single(stage);
     switch (operator) {
       case "$group":
         return this.reduce(Body(stage, operator));
@@ -94,7 +118,7 @@ class GroupFieldSplit {
         return;
       default:
         if (!ROW_STAGES.has(operator)) {
-          Refuse(`${operator} before the reduction`);
+          Refuse(`${Describe(operator)} in a mapper field`);
         }
         this.beforeGroup.push(this.filtered ? this.gateRowStage(stage) : stage);
     }
@@ -142,7 +166,10 @@ class GroupFieldSplit {
     this.beforeGroup.push({
       $addFields: {
         [sortKey]: Object.fromEntries(
-          keys.map(([path], i) => [`k${i}`, `$${path}`]),
+          keys.map(([path, direction], i) => [
+            `k${i}`,
+            SortValue(`$${path}`, direction === -1),
+          ]),
         ),
       },
     });
@@ -188,13 +215,20 @@ class GroupFieldSplit {
     if (accumulators) {
       return { beforeGroup, accumulators, afterGroup };
     }
-    const element =
-      this.sortKeys.length > 0
-        ? {
-            value: this.fieldRef,
-            ...Object.fromEntries(this.sortKeys.map((key) => [key, `$${key}`])),
-          }
-        : this.fieldRef;
+    const sorted = this.sortKeys.length > 0;
+    const element = sorted
+      ? {
+          value: this.fieldRef,
+          ...Object.fromEntries(this.sortKeys.map((key) => [key, `$${key}`])),
+        }
+      : this.fieldRef;
+    const conditions: unknown[] = [];
+    if (this.filtered) {
+      conditions.push(this.keep);
+    }
+    if (sorted) {
+      conditions.push({ $ne: [{ $type: this.fieldRef }, "missing"] });
+    }
     const rewrites = this.steps.map((step) => ApplyStep(step, this.fieldRef));
     if (this.sortKeys.length > 0) {
       rewrites.push({ $map: { input: this.fieldRef, in: "$$this.value" } });
@@ -206,9 +240,10 @@ class GroupFieldSplit {
       beforeGroup,
       accumulators: {
         [this.field]: {
-          $push: this.filtered
-            ? { $cond: [this.keep, element, "$$REMOVE"] }
-            : element,
+          $push:
+            conditions.length > 0
+              ? { $cond: [{ $and: conditions }, element, "$$REMOVE"] }
+              : element,
         },
       },
       afterGroup: rewrites.map((rewrite) => ({
@@ -222,8 +257,8 @@ class GroupFieldSplit {
  * Splits the compiled pipeline of one mapper field around the `$group` the mapper's fields share, so
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
  * in a temporary flag that gates the field's later row stages and accumulators. An order or a slice
- * runs on the array of rows the field collects in its group. A filter or a reduction after a slice
- * is refused.
+ * runs on the array of rows the field collects in its group. A filter or a reduction after a slice,
+ * anything but a row stage after a reduction, and a join or a union are refused.
  */
 export function SplitGroupField(
   pipeline: Document[],

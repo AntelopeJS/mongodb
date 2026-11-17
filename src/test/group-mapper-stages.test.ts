@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { Stream } from "@antelopejs/interface-database";
 import { CROSS_INSTANCE, Schema } from "@antelopejs/interface-database/schema";
 
 const SCHEMA_ID = "group-mapper-stages";
@@ -10,12 +11,14 @@ interface Invoice {
   currency: string;
   total: number;
   updatedAt: number;
+  tags: number[];
+  note?: string;
 }
 
 const schema = new Schema<{ invoices: Invoice }>(SCHEMA_ID, {
   invoices: {
     fields: {},
-    indexes: { currency: {}, updatedAt: {} },
+    indexes: { currency: {}, updatedAt: {}, tags: {} },
   },
 });
 
@@ -33,16 +36,23 @@ describe("group mapper stages before a reduction", () => {
     await schema.createInstance(SECOND).run();
     await Invoices(FIRST)
       .insert([
-        { _id: "eur-500", currency: "EUR", total: 500, updatedAt: 1 },
-        { _id: "eur-0-a", currency: "EUR", total: 0, updatedAt: 3 },
-        { _id: "eur-0-b", currency: "EUR", total: 0, updatedAt: 2 },
-        { _id: "usd-0", currency: "USD", total: 0, updatedAt: 4 },
+        {
+          _id: "eur-500",
+          currency: "EUR",
+          total: 500,
+          updatedAt: 1,
+          tags: [1, 9],
+          note: "paid",
+        },
+        { _id: "eur-0-a", currency: "EUR", total: 0, updatedAt: 3, tags: [5] },
+        { _id: "eur-0-b", currency: "EUR", total: 0, updatedAt: 2, tags: [4] },
+        { _id: "usd-0", currency: "USD", total: 0, updatedAt: 4, tags: [0] },
       ])
       .run();
     await Invoices(SECOND)
       .insert([
-        { _id: "gbp-7", currency: "GBP", total: 7, updatedAt: 6 },
-        { _id: "gbp-9", currency: "GBP", total: 9, updatedAt: 5 },
+        { _id: "gbp-7", currency: "GBP", total: 7, updatedAt: 6, tags: [] },
+        { _id: "gbp-9", currency: "GBP", total: 9, updatedAt: 5, tags: [] },
       ])
       .run();
   });
@@ -54,6 +64,7 @@ describe("group mapper stages before a reduction", () => {
 
   filterCases();
   orderCases();
+  refusalCases();
 });
 
 function filterCases() {
@@ -121,20 +132,63 @@ function filterCases() {
     ]);
   });
 
-  it("a filter after a slice is refused instead of answering for the wrong rows", async () => {
-    await assert.rejects(
-      Invoices(FIRST)
-        .group("currency", (rows) => ({
-          all: rows.count(),
-          firstNonZero: rows
-            .slice(0, 2)
-            .filter((row) => row.key("total").ne(0))
-            .count(),
-        }))
-        .run(),
-      { message: /Unsupported group mapper/ },
-    );
+  it("chained filters without a reduction keep the rows both filters keep", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        kept: rows
+          .filter((row) => row.key("total").ne(0))
+          .filter((row) => row.key("updatedAt").lt(3))
+          .map((row) => row.key("_id")),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency"), [
+      { currency: "EUR", kept: ["eur-500"] },
+      { currency: "USD", kept: [] },
+    ]);
   });
+}
+
+function refusalCases() {
+  const refusals: [
+    string,
+    (rows: Stream<Invoice>) => ReturnType<Stream<Invoice>["count"]>,
+  ][] = [
+    [
+      "a filter after a slice",
+      (rows) =>
+        rows
+          .slice(0, 2)
+          .filter((row) => row.key("total").ne(0))
+          .count(),
+    ],
+    ["a reduction after a slice", (rows) => rows.slice(0, 2).count()],
+    ["a reduction after distinct", (rows) => rows.distinct("total").count()],
+    [
+      "a join",
+      (rows) =>
+        rows
+          .join(
+            Invoices(FIRST),
+            (left, right) => left.key("_id").eq(right.key("_id")),
+            (_left, right) => right,
+          )
+          .count(),
+    ],
+  ];
+  for (const [refused, field] of refusals) {
+    it(`${refused} in a mapper field is refused instead of answering for the wrong rows`, async () => {
+      await assert.rejects(
+        Invoices(FIRST)
+          .group("currency", (rows) => ({
+            all: rows.count(),
+            field: field(rows),
+          }))
+          .run(),
+        { message: /^Unsupported group mapper: / },
+      );
+    });
+  }
 }
 
 function orderCases() {
@@ -165,5 +219,50 @@ function orderCases() {
       { currency: "EUR", latest: "eur-0-a", oldestTwo: ["eur-500", "eur-0-b"] },
       { currency: "USD", latest: "usd-0", oldestTwo: ["usd-0"] },
     ]);
+  });
+
+  it("nth past the first row skips the rows before it", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        second: rows.orderBy("updatedAt", "desc").nth(1).key("_id"),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency"), [
+      { currency: "EUR", second: "eur-0-b" },
+      { currency: "USD", second: null },
+    ]);
+  });
+
+  it("an ordered map leaves out the rows whose mapped value is missing", async () => {
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        notes: rows.orderBy("updatedAt", "asc").map((row) => row.key("note")),
+      }))
+      .run();
+    assert.deepEqual(ByKey(result, "currency"), [
+      { currency: "EUR", notes: ["paid"] },
+      { currency: "USD", notes: [] },
+    ]);
+  });
+
+  it("an orderBy on an array field sorts as a top-level orderBy does", async () => {
+    const top = await Invoices(FIRST)
+      .filter((row) => row.key("currency").eq("EUR"))
+      .orderBy("tags", "desc")
+      .map((row) => row.key("_id"))
+      .run();
+    const result = await Invoices(FIRST)
+      .group("currency", (rows, currency) => ({
+        currency,
+        ids: rows.orderBy("tags", "desc").map((row) => row.key("_id")),
+      }))
+      .run();
+    assert.deepEqual(top, ["eur-500", "eur-0-a", "eur-0-b"]);
+    assert.deepEqual(ByKey(result, "currency")[0], {
+      currency: "EUR",
+      ids: top,
+    });
   });
 }
