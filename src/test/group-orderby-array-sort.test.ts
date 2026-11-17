@@ -190,6 +190,7 @@ async function Grouped(run: number, index: string, direction: Direction) {
     .group("g", (rows, g) => ({
       g,
       ids: rows.orderBy(index, direction).map((row) => row.key("_id")),
+      first: rows.orderBy(index, direction).nth(0).key("_id"),
     }))
     .run();
   return new Map(groups.map((group) => [group.g, group]));
@@ -262,6 +263,10 @@ async function AnswersTopLevelOrder(drawn: Drawn[]) {
           `${context} find().sort()`,
         );
         assert.deepEqual(Chunks(group.ids, classes), expected, context);
+        assert.ok(
+          expected[0].includes(group.first),
+          `${context} nth(0) is ${group.first}, not one of ${expected[0].join(", ")}`,
+        );
       }
     }
   }
