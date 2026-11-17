@@ -74,6 +74,7 @@ The check runs the translation on a real mongod, so the server answers are real;
 | Part of the check | Code |
 | --- | --- |
 | group | `stage_group` (implementations/database/pipeline.ts) and the `pipelineInserter` it passes to `DecodeFunction` |
+| fields around the group | `SplitGroupFields` (implementations/database/group-field.ts): a field's one order ranked before the `$group`, or copied and ranked after it, and its slices in a `$lookup` over `$documents` |
 | stages of a field | `stage_filter`, `stage_orderBy`, `stage_nth`, `stage_count`, `stage_sum`, `stage_avg`, `stage_min`, `stage_distinct` (implementations/database/pipeline-core.ts), `stage_map` (implementations/database/pipeline.ts) and their selection overrides (implementations/database/selection.ts) |
 | query | `RunQuery` (implementations/database/query.ts) over a real mongod |
 
