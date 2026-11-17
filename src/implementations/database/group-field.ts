@@ -57,6 +57,24 @@ function Body(stage: Document, operator: string): Document {
   return isDocument(body) ? body : Refuse(`a ${operator} without a document`);
 }
 
+/**
+ * A document that `$sort` on `path` ranks as it ranks the row: the row's top-level value, cut down
+ * to the field at the second segment of `path` unless that value is an array, which `$sort` reads
+ * element by element.
+ */
+function SortCopy(path: string): Document {
+  const [root, child] = path.split(".");
+  const value = `$${root}`;
+  if (child === undefined) {
+    return { [root]: value };
+  }
+  return {
+    [root]: {
+      $cond: [{ $isArray: value }, value, { [child]: `${value}.${child}` }],
+    },
+  };
+}
+
 function ApplyStep(step: ArrayStep, field: string): Document[] {
   const array = `$${field}`;
   switch (step.kind) {
@@ -185,10 +203,7 @@ class GroupFieldSplit {
     this.beforeGroup.push({
       $addFields: {
         [capture]: Object.fromEntries(
-          keys.map(([path]) => {
-            const root = path.split(".")[0];
-            return [root, `$${root}`];
-          }),
+          keys.map(([path], i) => [`k${i}`, SortCopy(path)]),
         ),
       },
     });
@@ -196,8 +211,8 @@ class GroupFieldSplit {
     this.steps.push({
       kind: "sort",
       sortBy: Object.fromEntries(
-        keys.map(([path, direction]) => [
-          `${this.field}.${capture}.${path}`,
+        keys.map(([path, direction], i) => [
+          `${this.field}.${capture}.k${i}.${path}`,
           direction,
         ]),
       ),
@@ -284,7 +299,7 @@ class GroupFieldSplit {
  * Splits the compiled pipeline of one mapper field around the `$group` the mapper's fields share, so
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
  * in a temporary flag that gates the field's later row stages and accumulators. An order copies the
- * top-level fields its keys read into each row the field collects, and after the `$group` it unwinds
+ * values its keys read (`SortCopy`) into each row the field collects, and after the `$group` it unwinds
  * the field's rows, ranks them with `$sort` on those copies, and pushes them back in that order, so
  * the stream its sibling fields read keeps its order. A slice runs on the field's array of rows. A
  * filter or a reduction after a slice, anything but a row stage after a reduction, and a join or a
