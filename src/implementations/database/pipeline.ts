@@ -7,6 +7,7 @@ import { GetIndex } from "./schema";
 import { ArrayLookup } from "./array-lookup";
 import { type GroupMapperField, SplitGroupFields } from "./group-field";
 import {
+  type ArgumentProvider,
   type DecodedOperand,
   type DecodingContext,
   DefaultConstant,
@@ -74,12 +75,12 @@ export class AggregationPipeline extends PipelineCore {
 
   public async addStages(stages: QueryStage[]) {
     const oldSubquery = this.context.subquery;
-    this.context.subquery = async (subQuery) => {
+    this.context.subquery = async (subQuery, scope) => {
       const tmp = Temporary("join");
       const tmpRoot = Temporary("parentRoot");
       const rightStream = await this.readTable(
         subQuery,
-        this.context.withRoot(`$$${tmpRoot}`),
+        scope.withRoot(`$$${tmpRoot}`),
       );
       assert(rightStream, "Subquery must read a table");
 
@@ -87,10 +88,10 @@ export class AggregationPipeline extends PipelineCore {
         (s) => s.stage === "get" || s.stage === "getAll",
       );
       const fkExpr = getStage?.args?.[0]
-        ? await DecodeValue(getStage.args[0], this.context)
+        ? await DecodeValue(getStage.args[0], scope)
         : null;
       const arraySource = isString(fkExpr)
-        ? this.context.mapVarSources.get(fkExpr)
+        ? scope.mapVarSources.get(fkExpr)
         : undefined;
 
       if (arraySource) {
@@ -373,12 +374,12 @@ export class AggregationPipeline extends PipelineCore {
       [group]: { $first: `$${group}` },
     };
     const fields: GroupMapperField[] = [];
-    const pipelineInserter = async (stages: QueryStage[]) => {
+    const pipelineInserter: ArgumentProvider = async (stages, scope) => {
       const tmp = Temporary("groupstream");
       const subquery = await AggregationPipeline.decodeArgument(
         stages,
         this.readTable,
-        this.context,
+        scope,
         (subquery) => {
           subquery.wrappedObject = tmp;
           subquery.inCompoundObject = true;

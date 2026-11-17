@@ -156,8 +156,10 @@ export type DecodedOperand =
   | Document
   | DecodedOperand[];
 
+/** Decodes a subquery read in `scope`, the context that holds the arguments bound where it is read. */
 export type ArgumentProvider = (
   subQuery: QueryStage[],
+  scope: DecodingContext,
 ) => Document | string | Promise<Document | string>;
 
 function isArgumentProvider(
@@ -176,16 +178,28 @@ export class DecodingContext {
    */
   public mapVarSources = new Map<string, DecodedOperand>();
 
+  /**
+   * A child scope that adds `bindings` to this context's args, for a function body. Two bodies
+   * of one function decoded side by side each read their own bindings, never the other's.
+   */
+  public bind(bindings: Record<number, ArgumentProvider | string>) {
+    const scope = new DecodingContext();
+    scope.args = { ...this.args, ...bindings };
+    scope.subquery = this.subquery;
+    scope.mapVarSources = this.mapVarSources;
+    return scope;
+  }
+
   public decodeSubquery(stages: QueryStage[]) {
     if (stages[0]?.stage === "arg") {
       const num = stages[0].args[0];
       const subquery = this.args[num];
       assert(subquery, "Unknown arg used");
       assert(!isString(subquery), "No query arg for query?");
-      return subquery(stages);
+      return subquery(stages, this);
     }
     if (this.subquery) {
-      return this.subquery(stages);
+      return this.subquery(stages, this);
     }
     throw new Error("Subquery with no handler?");
   }
@@ -223,7 +237,7 @@ export class DecodingContext {
     for (const [id, arg] of Object.entries(this.args)) {
       if (isArgumentProvider(arg)) {
         newContext.args[Number(id)] = async (subQuery: QueryStage[]) => {
-          const result = await arg(subQuery);
+          const result = await arg(subQuery, this);
           return remapValue(result);
         };
       } else {
