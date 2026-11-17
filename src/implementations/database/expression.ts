@@ -567,14 +567,12 @@ export async function DecodeFunction(
   args: (string | ArgumentProvider)[],
   decode: ValueDecoder = DecodeValue,
 ) {
-  const argNumbers = func.args[0];
-  for (let i = 0; i < argNumbers.length; ++i) {
-    assert(args[i], "Unexpected argument");
-    context.args[argNumbers[i]] = args[i];
-  }
-  const val = await decode(func.args[1], context);
-  for (let i = 0; i < argNumbers.length; ++i) {
-    delete context.args[argNumbers[i]];
-  }
-  return val;
+  const bindings = Object.fromEntries(
+    func.args[0].map((argNumber, i) => {
+      const arg = args[i];
+      assert(arg, "Unexpected argument");
+      return [argNumber, arg];
+    }),
+  );
+  return decode(func.args[1], context.bind(bindings));
 }
