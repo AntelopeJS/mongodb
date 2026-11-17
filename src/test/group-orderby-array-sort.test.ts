@@ -223,7 +223,7 @@ describe("group mapper orderBy on an array key", () => {
     await schema.destroyInstance(INSTANCE).run();
   });
 
-  it("ranks the rows of each group as a top-level orderBy does", async () => {
+  it("ranks an array key by its null element and an empty array as a top-level orderBy does, not by $min or $max", async () => {
     for (const drawn of [...FIXED_CASES, ...DrawCases()]) {
       await assert.doesNotReject(
         AnswersTopLevelOrder(drawn),
