@@ -241,8 +241,8 @@ class GroupFieldSplit {
  * the field's filters, orders and slices apply to that field only. A filter marks the rows it keeps
  * in a temporary flag that gates the field's later row stages and accumulators. An order numbers
  * every row in the order `$sort` gives it, with `$setWindowFields`, and sorts the array of rows the
- * field collects in its group by that number; a slice runs on that array. A filter or a reduction after a slice,
- * anything but a row stage after a reduction, and a join or a union are refused.
+ * field collects in its group by that number; a slice runs on that array. A filter or a reduction
+ * after a slice, anything but a row stage after a reduction, and a join or a union are refused.
  */
 export function SplitGroupField(
   pipeline: Document[],
