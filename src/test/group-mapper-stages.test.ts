@@ -5,13 +5,14 @@ import { CROSS_INSTANCE, Schema } from "@antelopejs/interface-database/schema";
 const SCHEMA_ID = "group-mapper-stages";
 const FIRST = "first-tenant";
 const SECOND = "second-tenant";
+const MIXED = "mixed-tenant";
 
 interface Invoice {
   _id: string;
   currency: string;
   total: number;
   updatedAt: number;
-  tags: number[];
+  tags?: number[] | number | null;
   note?: string;
 }
 
@@ -264,5 +265,32 @@ function orderCases() {
       currency: "EUR",
       ids: top,
     });
+
+    try {
+      await schema.createInstance(MIXED).run();
+      await Invoices(MIXED)
+        .insert([
+          { _id: "1", currency: "EUR", total: 0, updatedAt: 1, tags: null },
+          { _id: "2", currency: "EUR", total: 0, updatedAt: 2 },
+          { _id: "3", currency: "EUR", total: 0, updatedAt: 3, tags: [] },
+          { _id: "4", currency: "EUR", total: 0, updatedAt: 4, tags: [5, 1] },
+          { _id: "5", currency: "EUR", total: 0, updatedAt: 5, tags: 3 },
+        ])
+        .run();
+      const mixedTop = await Invoices(MIXED)
+        .orderBy("tags", "asc")
+        .map((row) => row.key("_id"))
+        .run();
+      const mixed = await Invoices(MIXED)
+        .group("currency", (rows, currency) => ({
+          currency,
+          ids: rows.orderBy("tags", "asc").map((row) => row.key("_id")),
+        }))
+        .run();
+      assert.deepEqual(mixedTop, ["3", "1", "2", "4", "5"]);
+      assert.deepEqual(mixed[0].ids, mixedTop);
+    } finally {
+      await schema.destroyInstance(MIXED).run();
+    }
   });
 }

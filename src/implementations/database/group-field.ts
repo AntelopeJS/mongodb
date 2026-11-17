@@ -1,4 +1,4 @@
-import type { Document } from "mongodb";
+import { MinKey, type Document } from "mongodb";
 
 import { isDocument, Temporary } from "./utils";
 
@@ -57,11 +57,22 @@ function Body(stage: Document, operator: string): Document {
   return isDocument(body) ? body : Refuse(`a ${operator} without a document`);
 }
 
-/** The value `$sort` orders a row by: an array sorts by its least element ascending, its greatest descending. */
+/**
+ * The value `$sort` orders a row by: an array sorts by its least element ascending, its greatest descending,
+ * and an empty array ascending ranks before null and a missing key.
+ */
 function SortValue(path: string, descending: boolean): Document {
-  return {
-    $cond: [{ $isArray: path }, { [descending ? "$max" : "$min"]: path }, path],
-  };
+  const extreme = { [descending ? "$max" : "$min"]: path };
+  const ofArray = descending
+    ? extreme
+    : {
+        $cond: [
+          { $eq: [{ $size: path }, 0] },
+          { $literal: new MinKey() },
+          extreme,
+        ],
+      };
+  return { $cond: [{ $isArray: path }, ofArray, path] };
 }
 
 function ApplyStep(step: ArrayStep, array: string): Document {
