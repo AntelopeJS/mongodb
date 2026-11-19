@@ -2,9 +2,10 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  merge_group:
   push:
-    branches: [next]
+    branches: [main]
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
@@ -30,10 +31,15 @@ jobs:
         node .agents/skills/formal-add-sub-contract/check.mjs
         node .agents/skills/formal-group-mapper/check.mjs
       test-job: true
+      single-job: false
+      affected-tests: true
+    secrets:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
   renovate-sync:
     if: >-
       github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
       actions: write
+      statuses: write
     uses: AntelopeJS/.github/.github/workflows/ci-renovate-sync.yml@v2
