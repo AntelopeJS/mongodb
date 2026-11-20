@@ -311,14 +311,14 @@ describe("group mapper orderBy on an array key", () => {
     await schema.destroyInstance(INSTANCE).run();
   });
 
-  it("ranks an array key, and a dotted key through an array of subdocuments, as a top-level orderBy and find().sort() do", async () => {
-    for (const drawn of [...FIXED_CASES, ...DrawCases()]) {
+  for (const [at, drawn] of [...FIXED_CASES, ...DrawCases()].entries()) {
+    it(`case ${at} ranks an array key, and a dotted key through an array of subdocuments, as a top-level orderBy and find().sort() do`, async () => {
       await assert.doesNotReject(
         AnswersTopLevelOrder(drawn),
         `rows ${JSON.stringify(drawn)}`,
       );
-    }
-  });
+    });
+  }
 
   it("ranks a key through an array index, such as items.0, by that element as a top-level orderBy and find().sort() do", async () => {
     await assert.doesNotReject(
