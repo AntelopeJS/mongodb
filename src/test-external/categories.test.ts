@@ -112,19 +112,47 @@ async function Received<T>(
   }
 }
 
+function IsResultValue(value: unknown): value is ResultValue {
+  if (
+    value === null ||
+    ["string", "number", "boolean"].includes(typeof value)
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.every(IsResultValue);
+  }
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every(IsResultValue)
+  );
+}
+
 function ParseReply(reply: string): ResultValue {
-  // SAFETY: a reply is the output of EJSON.stringify, which is JSON.
-  return JSON.parse(reply) as ResultValue;
+  const parsed: unknown = JSON.parse(reply);
+  if (!IsResultValue(parsed)) {
+    throw new Error("a reply is not JSON");
+  }
+  return parsed;
 }
 
 /** A profile that holds only the categories a category measure answered for `tallies.label`. */
 function LabelProfile(categories: Categories): RelationProfile {
-  // SAFETY: the shared check reads only each column's name, range and categories.
   return {
+    relation: `${CLIENT_DATABASE}.tallies`,
+    rows: { status: "error", code: "empty" },
+    sample: null,
     columns: [
-      { name: "label", categories: { status: "ok", value: categories } },
+      {
+        name: "label",
+        categories: { status: "ok", value: categories },
+        traits: [],
+      },
     ],
-  } as RelationProfile;
+    references: [],
+    inbound: [],
+  };
 }
 
 function ProfiledCategories(
