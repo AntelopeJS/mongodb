@@ -20,15 +20,15 @@ export async function construct(options?: Options) {
 
   ImplementInterface(
     await import("@antelopejs/interface-database/query"),
-    await import("./implementations/database/query"),
+    await import("./implementations/database/query.js"),
   );
   ImplementInterface(
     await import("@antelopejs/interface-database/schema"),
-    await import("./implementations/database/schema"),
+    await import("./implementations/database/schema.js"),
   );
   ImplementInterface(
     await import("@antelopejs/interface-database-catalog"),
-    await import("./implementations/catalog"),
+    await import("./implementations/catalog/index.js"),
   );
 }
 
