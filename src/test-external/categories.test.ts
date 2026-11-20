@@ -5,6 +5,10 @@ import {
   type RelationProfile,
 } from "@antelopejs/interface-database-catalog";
 import {
+  AssertNoRareValue,
+  type ResultValue,
+} from "@antelopejs/interface-database-catalog/testing";
+import {
   type CommandStartedEvent,
   type CommandSucceededEvent,
   type Document,
@@ -28,6 +32,9 @@ import {
 
 const CATEGORY_LIMIT = 25;
 const CATEGORY_MIN_ROWS = 5;
+const TALLY_COUNTS = {
+  label: Object.entries(TALLIES).map(([value, rows]) => ({ value, rows })),
+};
 const SAMPLE_SIZE = 50_000;
 const GROUP_STAGE = '"rows":{"$sum":1}';
 /** The keys of a reply that hold its documents, without the signed cluster time and its random hash. */
@@ -75,7 +82,7 @@ async function Reference(
 /** The cursor of every reply the module's client receives to a category measure while `work` runs, as EJSON. */
 async function Received<T>(
   work: () => Promise<T>,
-): Promise<{ answer: T; replies: string }> {
+): Promise<{ answer: T; replies: string[] }> {
   const client = (await GetDatabase()).client;
   const measures = new Set<number>();
   const replies: string[] = [];
@@ -98,11 +105,54 @@ async function Received<T>(
   try {
     const answer = await work();
     expect(replies, "category measures received").to.not.deep.equal([]);
-    return { answer, replies: replies.join("\n") };
+    return { answer, replies };
   } finally {
     client.off("commandStarted", started);
     client.off("commandSucceeded", succeeded);
   }
+}
+
+function IsResultValue(value: unknown): value is ResultValue {
+  if (
+    value === null ||
+    ["string", "number", "boolean"].includes(typeof value)
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.every(IsResultValue);
+  }
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every(IsResultValue)
+  );
+}
+
+function ParseReply(reply: string): ResultValue {
+  const parsed: unknown = JSON.parse(reply);
+  if (!IsResultValue(parsed)) {
+    throw new Error("a reply is not JSON");
+  }
+  return parsed;
+}
+
+/** A profile that holds only the categories a category measure answered for `tallies.label`. */
+function LabelProfile(categories: Categories): RelationProfile {
+  return {
+    relation: `${CLIENT_DATABASE}.tallies`,
+    rows: { status: "error", code: "empty" },
+    sample: null,
+    columns: [
+      {
+        name: "label",
+        categories: { status: "ok", value: categories },
+        traits: [],
+      },
+    ],
+    references: [],
+    inbound: [],
+  };
 }
 
 function ProfiledCategories(
@@ -162,9 +212,12 @@ describe("the categories of an external MongoDB column", () => {
       ],
       other: TALLIES.four + TALLIES.solo,
     });
-    expect(replies).to.include('"five"');
-    expect(replies).to.not.include("four");
-    expect(replies).to.not.include("solo");
+    expect(replies.join("\n")).to.include('"five"');
+    AssertNoRareValue({
+      profile: answer,
+      results: replies.map(ParseReply),
+      counts: TALLY_COUNTS,
+    });
   });
 
   it("folds the 26th most frequent value in the database, as it did in the driver", async () => {
@@ -176,9 +229,10 @@ describe("the categories of an external MongoDB column", () => {
       ),
     );
     expect(answer.other).to.equal(RankRows(CATEGORY_LIMIT + 1));
-    expect(replies).to.include(`"${RankLabel(CATEGORY_LIMIT)}"`);
-    expect(replies).to.not.include(RankLabel(CATEGORY_LIMIT + 1));
-    expect(replies).to.not.include(RankLabel(RANK_COUNT));
+    const received = replies.join("\n");
+    expect(received).to.include(`"${RankLabel(CATEGORY_LIMIT)}"`);
+    expect(received).to.not.include(RankLabel(CATEGORY_LIMIT + 1));
+    expect(received).to.not.include(RankLabel(RANK_COUNT));
   });
 
   it("folds a rare value of a sample in the database, as it did in the driver", async () => {
@@ -186,8 +240,11 @@ describe("the categories of an external MongoDB column", () => {
       Measure("tallies", [{ $sample: { size: SAMPLE_SIZE } }]),
     );
     expect(answer).to.deep.equal(await Reference("tallies", "label"));
-    expect(replies).to.include('"five"');
-    expect(replies).to.not.include("four");
-    expect(replies).to.not.include("solo");
+    expect(replies.join("\n")).to.include('"five"');
+    AssertNoRareValue({
+      profile: LabelProfile(answer),
+      results: replies.map(ParseReply),
+      counts: TALLY_COUNTS,
+    });
   });
 });
