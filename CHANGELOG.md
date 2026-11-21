@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.12
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.11...v1.8.12)
+
+### 🩹 Fixes
+
+- **deps:** Depend on the stable @antelopejs/interface-database-catalog
+
+### 📦 Build
+
+- **ci:** Roll out trunk CI with merge queue ([#162](https://github.com/AntelopeJS/mongodb/pull/162))
+
+### ✅ Tests
+
+- Run the shared fewer-than-5 profile check ([#163](https://github.com/AntelopeJS/mongodb/pull/163))
+- Give each orderBy array-key case its own timeout ([#164](https://github.com/AntelopeJS/mongodb/pull/164))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.11
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.10...v1.8.11)

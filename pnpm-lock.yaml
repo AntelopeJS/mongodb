@@ -15,8 +15,8 @@ importers:
         specifier: '>=0.4.1 <0.5.0'
         version: 0.4.1(@antelopejs/interface-core@0.5.1)
       '@antelopejs/interface-database-catalog':
-        specifier: 0.1.1-next.44.gee21aa3
-        version: 0.1.1-next.44.gee21aa3(@antelopejs/interface-core@0.5.1)
+        specifier: '>=0.1.1 <0.2.0'
+        version: 0.1.1(@antelopejs/interface-core@0.5.1)
       chai:
         specifier: ^4.5.0
         version: 4.5.0
@@ -114,8 +114,8 @@ packages:
   '@antelopejs/interface-core@0.5.1':
     resolution: {integrity: sha512-ON/7TYA1yyT8UznzKi6vnwyjRU3byNE0OcFXBmf8dE/dqp8hKjeWHVyA2EUPOngmEimCLw4idZqOS5DJqMJx3g==}
 
-  '@antelopejs/interface-database-catalog@0.1.1-next.44.gee21aa3':
-    resolution: {integrity: sha512-lzROCQM6E01kNvubEZqxzIVJ28avLZ/aLv1lY4qUIs5HLBi5GVrbQMrthKCCSu13Z14Ka709B2nwGNJjX2eRsg==}
+  '@antelopejs/interface-database-catalog@0.1.1':
+    resolution: {integrity: sha512-XLzAa26IP7sJKXkspOfMwytk1NcYdY1PEvL2ffvKwCkH+iYrdOr2CHQtuXnmemSzHihsJ3OSRxanIZYzvqQgew==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.5.0 <0.6.0'
 
@@ -2984,7 +2984,7 @@ snapshots:
     dependencies:
       reflect-metadata: 0.2.2
 
-  '@antelopejs/interface-database-catalog@0.1.1-next.44.gee21aa3(@antelopejs/interface-core@0.5.1)':
+  '@antelopejs/interface-database-catalog@0.1.1(@antelopejs/interface-core@0.5.1)':
     dependencies:
       '@antelopejs/interface-core': 0.5.1
 
