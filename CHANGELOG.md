@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.8.13
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.12...v1.8.13)
+
+### 🩹 Fixes
+
+- Load the database interfaces through require again ([#167](https://github.com/AntelopeJS/mongodb/pull/167))
+
+### 🤖 CI
+
+- Re-sync the AntelopeJS pack for the release app ([#166](https://github.com/AntelopeJS/mongodb/pull/166))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.12
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.11...v1.8.12)
