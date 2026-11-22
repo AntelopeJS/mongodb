@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "module": "node16",
+    "module": "commonjs",
+    "paths": {
+      "@antelopejs/interface-database-catalog/testing": [
+        "./node_modules/@antelopejs/interface-database-catalog/dist/testing"
+      ]
+    },
     "lib": ["ES2021"],
     "allowJs": true,
     "checkJs": false,
