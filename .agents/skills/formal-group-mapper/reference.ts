@@ -1,3 +1,4 @@
+
 /**
  * What `group(key, mapper)` answers by the interface-database contract,
  * computed in plain JavaScript: the mapper sees the stream of the rows in
@@ -7,7 +8,6 @@
  * fields filter out. A reduction of no rows answers 0 for `count` and
  * `sum`, null for `avg`, `min` and `max`, and an empty list for `distinct`.
  */
-
 export const COMPARISONS = ["gt", "lt", "eq", "ne"] as const;
 
 export type Comparison = (typeof COMPARISONS)[number];

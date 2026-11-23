@@ -1,8 +1,8 @@
-/** The values the check draws for each type, with a fixed seed. */
 import fc from "fast-check";
 
 import type { Type, Value } from "./reference";
 
+/** The values the check draws for each type, with a fixed seed. */
 const MAX_DATE_MILLISECONDS = 4_000_000_000_000;
 const MAX_NUMBER = 1_000_000;
 

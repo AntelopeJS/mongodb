@@ -1,8 +1,8 @@
-/** The tables and mappers the check draws, with a fixed seed. */
 import fc from "fast-check";
 
 import { COMPARISONS, type Field, type Filter, REDUCTIONS, type Row } from "./reference";
 
+/** The tables and mappers the check draws, with a fixed seed. */
 const BUCKETS = ["a", "b", "c"] as const;
 const MAX_ROWS = 8;
 const MAX_FIELDS = 4;

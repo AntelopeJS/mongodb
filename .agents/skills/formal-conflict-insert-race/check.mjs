@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-/**
- * Compiles this folder with the `src/` it imports into a scratch folder and
- * runs `check.ts` there, passing the arguments through. Exits as the check
- * does: 0 when every rule matches the record in SKILL.md, 1 when a rule
- * changed, 2 when the check could not run. SIGINT, SIGTERM and SIGHUP stop
- * the compile or the check and remove the scratch folder.
- */
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -32,6 +25,13 @@ function stopOn(/** @type {NodeJS.Signals} */ signal, /** @type {number} */ code
   });
 }
 
+/**
+ * Compiles this folder with the `src/` it imports into a scratch folder and
+ * runs `check.ts` there, passing the arguments through. Exits as the check
+ * does: 0 when every rule matches the record in SKILL.md, 1 when a rule
+ * changed, 2 when the check could not run. SIGINT, SIGTERM and SIGHUP stop
+ * the compile or the check and remove the scratch folder.
+ */
 function run(/** @type {string} */ command, /** @type {string[]} */ args) {
   return new Promise(/** @param {(code: number) => void} resolve */ (resolve) => {
     const child = spawn(command, args, { stdio: "inherit" });

@@ -1,3 +1,4 @@
+
 /**
  * What `add` and `sub` answer by the interface-database contract, computed
  * in plain JavaScript: `add` moves a date by seconds, adds two numbers and
@@ -5,7 +6,6 @@
  * is null; `sub` moves a date back by seconds, answers the seconds between
  * two dates and subtracts two numbers.
  */
-
 export const TYPES = ["date", "number", "string", "list", "null"] as const;
 
 export type Type = (typeof TYPES)[number];

@@ -1,13 +1,3 @@
-/**
- * Checks that `add` and `sub` answer what the interface-database contract
- * says over every receiver kind, receiver type and operand type, and never
- * fail the pipeline (see SKILL.md). Builds each query with the real
- * `ValueProxy` of interface-database, runs it through the real `RunQuery` of
- * `src/` against a mongod, and compares the answer with `reference.ts`.
- * fast-check draws the values with a fixed seed. Exits 0 when every rule
- * matches the record in SKILL.md, 1 when a rule changed, and 2 when the
- * check could not run.
- */
 import { parseArgs } from "node:util";
 import { MongoMemoryServer } from "mongodb-memory-server-core";
 import { ValueProxy } from "@antelopejs/interface-database";
@@ -203,6 +193,16 @@ function positiveInteger(flag: string, given: string | undefined, fallback: numb
   return value;
 }
 
+/**
+ * Checks that `add` and `sub` answer what the interface-database contract
+ * says over every receiver kind, receiver type and operand type, and never
+ * fail the pipeline (see SKILL.md). Builds each query with the real
+ * `ValueProxy` of interface-database, runs it through the real `RunQuery` of
+ * `src/` against a mongod, and compares the answer with `reference.ts`.
+ * fast-check draws the values with a fixed seed. Exits 0 when every rule
+ * matches the record in SKILL.md, 1 when a rule changed, and 2 when the
+ * check could not run.
+ */
 async function main(): Promise<number> {
   const { values } = parseArgs({
     options: {

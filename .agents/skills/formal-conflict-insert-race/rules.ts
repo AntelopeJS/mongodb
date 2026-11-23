@@ -1,14 +1,14 @@
+import fc from "fast-check";
+import { IsDuplicateKeyError } from "@antelopejs/interface-database";
+
+import { type Event, FOREIGN, OWN, type Store } from "./fake-collection";
+
 /**
  * The scenarios and the rules of the check (see SKILL.md). A scenario is the
  * work that races on one collection: writers that each run one conflict
  * insert of their ids, a deleter that removes rows of the writers' instance,
  * and another instance that inserts rows under the same `_id`s.
  */
-import fc from "fast-check";
-import { IsDuplicateKeyError } from "@antelopejs/interface-database";
-
-import { type Event, FOREIGN, OWN, type Store } from "./fake-collection";
-
 const IDS = ["a", "b", "c"] as const;
 const MAX_WRITER_OPERATIONS = 5;
 

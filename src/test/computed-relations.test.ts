@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import { expect } from "chai";
 import type { ValueProxy } from "@antelopejs/interface-database";
 import {
@@ -116,9 +117,9 @@ function joined(category: Category) {
 }
 
 function expectedRow(product: Product) {
-  const category = joined(
-    CATEGORY_ROWS.find((row) => row._id === product.category)!,
-  );
+  const categoryRow = CATEGORY_ROWS.find((row) => row._id === product.category);
+  assert(categoryRow, `no category row for ${product.category}`);
+  const category = joined(categoryRow);
   return {
     ...product,
     category,

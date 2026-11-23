@@ -260,11 +260,16 @@ async function dropStaleIndexes(
     await dropIndexIfPresent(collection, wanted.name);
   }
   const existingByFields = existing.byFields[fieldsKey(wanted.fields)];
-  if (existingByFields && existingByFields.name !== wanted.name) {
+  const staleName = existingByFields?.name;
+  if (
+    existingByFields &&
+    staleName !== undefined &&
+    staleName !== wanted.name
+  ) {
     if (servesWanted(existingByFields, wanted)) {
       return false;
     }
-    await dropIndexIfPresent(collection, existingByFields.name!);
+    await dropIndexIfPresent(collection, staleName);
   }
   return true;
 }

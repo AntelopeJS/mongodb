@@ -1,13 +1,3 @@
-/**
- * Checks that a query on a schema and the index builds of that schema's
- * registrations never race (see SKILL.md). Drives the real
- * `Schemas.register`, `RunQuery` and `InitializeSchema` of `src/`,
- * compiled with this folder by `check.mjs`, against the in-memory database
- * of `fake-mongo.ts`.
- * fast-check draws the scenarios and `explore.ts` runs each under every
- * order of its steps. Exits 0 when every rule matches the record in
- * SKILL.md, 1 when a rule changed, and 2 when the check could not run.
- */
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort } from "node:worker_threads";
@@ -341,6 +331,16 @@ function parseOptions(): Options {
   };
 }
 
+/**
+ * Checks that a query on a schema and the index builds of that schema's
+ * registrations never race (see SKILL.md). Drives the real
+ * `Schemas.register`, `RunQuery` and `InitializeSchema` of `src/`,
+ * compiled with this folder by `check.mjs`, against the in-memory database
+ * of `fake-mongo.ts`.
+ * fast-check draws the scenarios and `explore.ts` runs each under every
+ * order of its steps. Exits 0 when every rule matches the record in
+ * SKILL.md, 1 when a rule changed, and 2 when the check could not run.
+ */
 async function main(): Promise<number> {
   const options = parseOptions();
   if (options.shard !== undefined) {

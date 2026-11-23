@@ -1,12 +1,12 @@
+import { Worker } from "node:worker_threads";
+
+/** The shortest counterexample of one rule: the trace length and the printed run. */
 /**
  * Splits the drawn scenarios across worker threads and merges what they
  * report into what one thread running them in order would have found.
  * Scenario `i` belongs to shard `i % jobs`; a shard explores its scenarios
  * in increasing index order, so the first break it reports is its lowest.
  */
-import { Worker } from "node:worker_threads";
-
-/** The shortest counterexample of one rule: the trace length and the printed run. */
 export interface Counterexample {
   length: number;
   text: string;
