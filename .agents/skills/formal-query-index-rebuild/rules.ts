@@ -7,12 +7,6 @@ import type {
 import { keyOf, type Read, type Snapshot } from "./fake-mongo";
 
 /** The one table of every scenario. */
-/**
- * The scenarios the check draws and the rules it judges each run by. A
- * scenario is the indexes a former release left (`earlier`), a first
- * registration, then up to three later registrations of the same schema
- * and queries on it, in order.
- */
 export const TABLE = "users";
 const INSTANCE_FIELD = "_instance";
 const MAX_LATER_ACTIONS = 3;
@@ -23,7 +17,11 @@ export type QueryKind = "read" | "listInstances";
 /** A registration of the schema, or a query on it. */
 export type Action = { register: SchemaDefinition } | { query: QueryKind };
 
-/** What the explorer runs under every order. */
+/**
+ * What the explorer runs under every order: the indexes a former release
+ * left (`earlier`), a first registration, then up to three later
+ * registrations of the same schema and queries on it, in order.
+ */
 export interface Scenario {
   earlier: SchemaDefinition | undefined;
   first: SchemaDefinition;

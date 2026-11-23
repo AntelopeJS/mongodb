@@ -6,16 +6,6 @@ import {
   type WriteError,
 } from "mongodb";
 
-/**
- * An in-memory collection that answers the one driver call a conflict insert
- * makes, `bulkWrite` of ordered upserts, as mongod does when the filter is
- * `{ _id, _instance }`: the server never retries a duplicate key there, since
- * the filter does not cover the key of the unique `_id_` index that refused
- * it. An upsert is two steps: it looks for a row that matches, then writes.
- * The write of an upsert that found none inserts and meets E11000 when any
- * row holds the `_id` by then. Each step takes effect in one piece when the
- * explorer releases it.
- */
 const DUPLICATE_KEY_CODE = 11000;
 
 /** The instance the writers of a scenario insert into. */
@@ -191,7 +181,18 @@ function duplicateKeyError(index: number, id: string): MongoBulkWriteError {
   return error;
 }
 
-/** The collection a writer's `bulkWrite` reaches. */
+/**
+ * The collection a writer's `bulkWrite` reaches.
+ *
+ * An in-memory collection that answers the one driver call a conflict insert
+ * makes, `bulkWrite` of ordered upserts, as mongod does when the filter is
+ * `{ _id, _instance }`: the server never retries a duplicate key there, since
+ * the filter does not cover the key of the unique `_id_` index that refused
+ * it. An upsert is two steps: it looks for a row that matches, then writes.
+ * The write of an upsert that found none inserts and meets E11000 when any
+ * row holds the `_id` by then. Each step takes effect in one piece when the
+ * explorer releases it.
+ */
 export class FakeCollection {
   private readonly store: Store;
 
