@@ -13,15 +13,27 @@ const out = mkdtempSync(path.join(tmpdir(), "formal-cursor-close-"));
 /** @type {import("node:child_process").ChildProcess | undefined} */
 let running;
 
+/** Removes the scratch folder and exits with `code`. */
 function finish(/** @type {number} */ code) {
   rmSync(out, { recursive: true, force: true });
   process.exit(code);
 }
 
+/** On `signal`, kills the running child, removes the scratch folder and exits with `code`. */
 function stopOn(/** @type {NodeJS.Signals} */ signal, /** @type {number} */ code) {
   process.on(signal, () => {
     running?.kill(signal);
     finish(code);
+  });
+}
+
+/** Spawns `command` with `args` and resolves with its exit code, or `TOOL_ERROR` when it cannot start. */
+function run(/** @type {string} */ command, /** @type {string[]} */ args) {
+  return new Promise(/** @param {(code: number) => void} resolve */ (resolve) => {
+    const child = spawn(command, args, { stdio: "inherit" });
+    running = child;
+    child.on("error", () => resolve(TOOL_ERROR));
+    child.on("exit", (code) => resolve(code ?? TOOL_ERROR));
   });
 }
 
@@ -32,30 +44,25 @@ function stopOn(/** @type {NodeJS.Signals} */ signal, /** @type {number} */ code
  * changed, 2 when the check could not run. SIGINT, SIGTERM and SIGHUP stop
  * the compile or the check and remove the scratch folder.
  */
-function run(/** @type {string} */ command, /** @type {string[]} */ args) {
-  return new Promise(/** @param {(code: number) => void} resolve */ (resolve) => {
-    const child = spawn(command, args, { stdio: "inherit" });
-    running = child;
-    child.on("error", () => resolve(TOOL_ERROR));
-    child.on("exit", (code) => resolve(code ?? TOOL_ERROR));
-  });
+async function main() {
+  stopOn("SIGINT", 130);
+  stopOn("SIGTERM", 143);
+  stopOn("SIGHUP", 129);
+  symlinkSync(path.join(root, "node_modules"), path.join(out, "node_modules"), "dir");
+  const tsc = createRequire(path.join(root, "package.json")).resolve("typescript/bin/tsc");
+  const compiled = await run(process.execPath, [
+    tsc,
+    "-p",
+    path.join(skill, "tsconfig.json"),
+    "--outDir",
+    out,
+  ]);
+  if (compiled !== 0) {
+    console.error("tsc failed");
+    finish(TOOL_ERROR);
+  }
+  const entry = path.join(out, path.relative(root, skill), "check.js");
+  finish(await run(process.execPath, [entry, ...process.argv.slice(2)]));
 }
 
-stopOn("SIGINT", 130);
-stopOn("SIGTERM", 143);
-stopOn("SIGHUP", 129);
-symlinkSync(path.join(root, "node_modules"), path.join(out, "node_modules"), "dir");
-const tsc = createRequire(path.join(root, "package.json")).resolve("typescript/bin/tsc");
-const compiled = await run(process.execPath, [
-  tsc,
-  "-p",
-  path.join(skill, "tsconfig.json"),
-  "--outDir",
-  out,
-]);
-if (compiled !== 0) {
-  console.error("tsc failed");
-  finish(TOOL_ERROR);
-}
-const entry = path.join(out, path.relative(root, skill), "check.js");
-finish(await run(process.execPath, [entry, ...process.argv.slice(2)]));
+await main();

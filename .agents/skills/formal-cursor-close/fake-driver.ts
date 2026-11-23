@@ -38,13 +38,10 @@ interface Batch {
 /**
  * What the server holds and what the run asked of it.
  *
- * An in-memory MongoDB server and the driver cursor in front of it, as the
- * driver (6.21) and mongod 8.0.8 behave for the calls a query cursor makes
- * (see SKILL.md). Each request is two steps, which the explorer releases in
- * any order against the others: the server runs it, then its answer reaches
- * the client. A `close()` that lands between the two finds the cursor id
- * still unknown to the client, so it ends the session and kills nothing, and
- * the answer then names a live server cursor.
+ * An in-memory MongoDB server, as mongod 8.0.8 behaves for the calls a query
+ * cursor makes (see SKILL.md). Each request is two steps, which the explorer
+ * releases in any order against the others: the server runs it, then its
+ * answer reaches the client.
  */
 export class Server {
   readonly cursors = new Map<number, ServerCursor>();
@@ -130,7 +127,12 @@ export class Server {
   }
 }
 
-/** The driver cursor `collection.aggregate` returns. */
+/**
+ * The driver cursor `collection.aggregate` returns, as the driver (6.21)
+ * behaves in front of the server. A `close()` that lands between a request's
+ * two steps finds the cursor id still unknown to the client, so it ends the
+ * session and kills nothing, and the answer then names a live server cursor.
+ */
 export class FakeCursor {
   private readonly server: Server;
   private known: CursorId | undefined;
