@@ -102,9 +102,9 @@ function indexDocument(index: PhysicalIndex): IndexDocument {
  * `InitializeSchema` (src/connection.ts) makes, with the error codes mongod
  * 8.0.8 returns. Each call is one step: it takes effect in one piece when
  * `step` releases it, so the check can put the steps of concurrent builds
- * and queries in any order. It is one database of the fake server. `step` decides when a call takes
- * effect: at once while the starting state is built, and when the explorer
- * releases it while a scenario runs.
+ * and queries in any order. It is one database of the fake server. `step`
+ * decides when a call takes effect: at once while the starting state is
+ * built, and when the explorer releases it while a scenario runs.
  */
 export class FakeDatabase {
   readonly collections: Snapshot = new Map();

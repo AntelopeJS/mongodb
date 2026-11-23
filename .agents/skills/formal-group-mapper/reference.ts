@@ -100,6 +100,7 @@ export function groupRows(rows: Row[]): Map<string, Row[]> {
  * sibling field or the group key. A group appears once, whatever its
  * fields filter out. A reduction of no rows answers 0 for `count` and
  * `sum`, null for `avg`, `min` and `max`, and an empty list for `distinct`.
+ *
  * Answers the fields by group key, for the groups that have a row.
  */
 export function reference(rows: Row[], fields: Field[]): Map<string, Answer[]> {
