@@ -1,12 +1,12 @@
+import type { Server, Source } from "./fake-driver";
+
+/** One cursor's life: its source, the reads its consumer makes in a row, and the closes that race them. */
 /**
  * The scenarios and the rules of the check (see SKILL.md). A scenario is one
  * query cursor: what the server holds for it, how many times its consumer
  * reads it, and how many times the consumer closes it. The close lands at any
  * step of the cursor's life, which the explorer enumerates.
  */
-import type { Server, Source } from "./fake-driver";
-
-/** One cursor's life: its source, the reads its consumer makes in a row, and the closes that race them. */
 export interface Scenario extends Source {
   reads: number;
   closes: number;

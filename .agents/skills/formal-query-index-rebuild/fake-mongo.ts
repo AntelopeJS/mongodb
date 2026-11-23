@@ -1,3 +1,6 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { MongoServerError } from "mongodb";
+
 /**
  * An in-memory MongoDB database that answers the driver calls
  * `InitializeSchema` (src/connection.ts) makes, with the error codes mongod
@@ -5,9 +8,6 @@
  * `step` releases it, so the check can put the steps of concurrent builds
  * and queries in any order.
  */
-import { AsyncLocalStorage } from "node:async_hooks";
-import { MongoServerError } from "mongodb";
-
 const NAMESPACE_NOT_FOUND = 26;
 const INDEX_NOT_FOUND = 27;
 const INDEX_OPTIONS_CONFLICT = 85;

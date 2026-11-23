@@ -1,14 +1,14 @@
-/**
- * Points the driver at the fake server: `MongoClient.connect` answers a
- * client whose `db()` handle serves the collection of the run under way, so
- * `Connect` in src/connection.ts runs unchanged.
- */
 import { MongoClient } from "mongodb";
 
 import { SetOptions } from "../../../src/config";
 import { Connect } from "../../../src/connection";
 import { FakeCollection, Server } from "./fake-driver";
 
+/**
+ * Points the driver at the fake server: `MongoClient.connect` answers a
+ * client whose `db()` handle serves the collection of the run under way, so
+ * `Connect` in src/connection.ts runs unchanged.
+ */
 const URL = "mongodb://fake";
 const DATABASE = "formal";
 

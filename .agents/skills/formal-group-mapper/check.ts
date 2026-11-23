@@ -1,13 +1,3 @@
-/**
- * Checks that `group(key, mapper)` answers what the interface-database
- * contract says when a field of the mapper filters, orders or picks rows
- * before it reduces them, and never fails the pipeline (see SKILL.md).
- * Builds each query with the real `Stream` of interface-database, runs it
- * through the real `RunQuery` of `src/` against a mongod, and compares the
- * answer with `reference.ts`. fast-check draws the tables and the mappers
- * with a fixed seed. Exits 0 when every rule matches the record in SKILL.md,
- * 1 when a rule changed, and 2 when the check could not run.
- */
 import { parseArgs } from "node:util";
 import { MongoMemoryServer } from "mongodb-memory-server-core";
 import type { Datum, Stream, ValueProxy } from "@antelopejs/interface-database";
@@ -270,6 +260,16 @@ function positiveInteger(flag: string, given: string | undefined, fallback: numb
   return value;
 }
 
+/**
+ * Checks that `group(key, mapper)` answers what the interface-database
+ * contract says when a field of the mapper filters, orders or picks rows
+ * before it reduces them, and never fails the pipeline (see SKILL.md).
+ * Builds each query with the real `Stream` of interface-database, runs it
+ * through the real `RunQuery` of `src/` against a mongod, and compares the
+ * answer with `reference.ts`. fast-check draws the tables and the mappers
+ * with a fixed seed. Exits 0 when every rule matches the record in SKILL.md,
+ * 1 when a rule changed, and 2 when the check could not run.
+ */
 async function main(): Promise<number> {
   const { values } = parseArgs({
     options: {

@@ -1,9 +1,3 @@
-/**
- * The scenarios the check draws and the rules it judges each run by. A
- * scenario is the indexes a former release left (`earlier`), a first
- * registration, then up to three later registrations of the same schema
- * and queries on it, in order.
- */
 import fc from "fast-check";
 import type {
   IndexDefinition,
@@ -13,6 +7,12 @@ import type {
 import { keyOf, type Read, type Snapshot } from "./fake-mongo";
 
 /** The one table of every scenario. */
+/**
+ * The scenarios the check draws and the rules it judges each run by. A
+ * scenario is the indexes a former release left (`earlier`), a first
+ * registration, then up to three later registrations of the same schema
+ * and queries on it, in order.
+ */
 export const TABLE = "users";
 const INSTANCE_FIELD = "_instance";
 const MAX_LATER_ACTIONS = 3;

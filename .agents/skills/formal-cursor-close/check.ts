@@ -1,13 +1,3 @@
-/**
- * Checks that closing a query cursor at any step of its life leaves no
- * server cursor open and sends no read after the close (see SKILL.md).
- * Drives the real `ReadCursor` and `CloseCursor` of `src/`, compiled with
- * this folder by `check.mjs`, against the fake server and driver cursor of
- * `fake-driver.ts`. The explorer of `formal-query-index-rebuild` runs each
- * scenario under every order of its steps, up to a bound. Exits 0 when every
- * rule matches the record in SKILL.md, 1 when a rule changed, and 2 when the
- * check could not run.
- */
 import { parseArgs } from "node:util";
 
 import { Disconnect } from "../../../src/connection";
@@ -187,6 +177,16 @@ async function explore(options: Options): Promise<Exploration> {
   return { counterexamples, scenarios: all.length, orders, cut };
 }
 
+/**
+ * Checks that closing a query cursor at any step of its life leaves no
+ * server cursor open and sends no read after the close (see SKILL.md).
+ * Drives the real `ReadCursor` and `CloseCursor` of `src/`, compiled with
+ * this folder by `check.mjs`, against the fake server and driver cursor of
+ * `fake-driver.ts`. The explorer of `formal-query-index-rebuild` runs each
+ * scenario under every order of its steps, up to a bound. Exits 0 when every
+ * rule matches the record in SKILL.md, 1 when a rule changed, and 2 when the
+ * check could not run.
+ */
 async function main(): Promise<number> {
   const options = parseOptions();
   const { counterexamples, scenarios: total, orders, cut } = await explore(options);

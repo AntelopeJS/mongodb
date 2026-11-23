@@ -1,3 +1,6 @@
+import type { Document } from "mongodb";
+
+/** What a scenario draws: the cursor's kind and what the server holds for it. */
 /**
  * An in-memory MongoDB server and the driver cursor in front of it, as the
  * driver (6.21) and mongod 8.0.8 behave for the calls a query cursor makes
@@ -7,9 +10,6 @@
  * still unknown to the client, so it ends the session and kills nothing, and
  * the answer then names a live server cursor.
  */
-import type { Document } from "mongodb";
-
-/** What a scenario draws: the cursor's kind and what the server holds for it. */
 export interface Source {
   kind: "table" | "changes";
   /** Rows of the table, or change events that arrive during the run. */

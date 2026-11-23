@@ -92,10 +92,10 @@ export class AggregationPipeline extends PipelineCore {
         ? scope.mapVarSources.get(fkExpr)
         : undefined;
 
-      if (arraySource) {
+      if (arraySource && getStage) {
         const plan = ArrayLookup(
           rightStream,
-          getStage!,
+          getStage,
           fkExpr,
           arraySource,
           tmp,

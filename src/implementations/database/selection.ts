@@ -173,11 +173,12 @@ export class SelectionQuery extends AggregationPipeline {
     }
     const collection = await GetCollection(this.collection);
     const documents = this.prepareInsertDocuments();
-    if (!this._conflictMode) {
+    const conflictMode = this._conflictMode;
+    if (!conflictMode) {
       const res = await collection.insertMany(documents);
       return Object.values(res.insertedIds);
     }
-    return this.insertWithConflict(collection, documents);
+    return this.insertWithConflict(collection, documents, conflictMode);
   }
 
   private prepareInsertDocuments() {
@@ -195,6 +196,7 @@ export class SelectionQuery extends AggregationPipeline {
   private async insertWithConflict(
     collection: Collection,
     documents: Document[],
+    conflictMode: "update" | "replace",
   ) {
     const CONFLICT_OPERATIONS = {
       update: (doc: Document): AnyBulkWriteOperation => ({
@@ -218,7 +220,7 @@ export class SelectionQuery extends AggregationPipeline {
         },
       }),
     };
-    const operations = documents.map(CONFLICT_OPERATIONS[this._conflictMode!]);
+    const operations = documents.map(CONFLICT_OPERATIONS[conflictMode]);
     await UpsertAll(collection, operations);
     const ids: unknown[] = [];
     for (const doc of documents) {

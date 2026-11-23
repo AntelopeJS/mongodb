@@ -1,9 +1,3 @@
-/**
- * Points the driver at the fake database: `MongoClient.connect` answers a
- * client whose `db()` handle reads through to the database of the scenario
- * under way, so `Connect` in src/connection.ts runs unchanged and keeps that
- * one handle across scenarios.
- */
 import { MongoClient } from "mongodb";
 
 import { SetOptions } from "../../../src/config";
@@ -11,6 +5,12 @@ import { Connect } from "../../../src/connection";
 import { AllowSchemaInitializations } from "../../../src/schema-initialization";
 import { FakeDatabase } from "./fake-mongo";
 
+/**
+ * Points the driver at the fake database: `MongoClient.connect` answers a
+ * client whose `db()` handle reads through to the database of the scenario
+ * under way, so `Connect` in src/connection.ts runs unchanged and keeps that
+ * one handle across scenarios.
+ */
 const URL = "mongodb://fake";
 const DATABASE = "formal";
 

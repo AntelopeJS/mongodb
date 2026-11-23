@@ -1,12 +1,3 @@
-/**
- * Checks that conflict inserts racing on one `_id` all succeed and apply
- * (see SKILL.md). Drives the real `RunQuery` and `UpsertAll` of `src/`,
- * compiled with this folder by `check.mjs`, against the in-memory collection
- * of `fake-collection.ts`. fast-check draws the scenarios and the explorer of
- * `formal-query-index-rebuild` runs each under every order of its steps, up
- * to a bound. Exits 0 when every rule matches the record in SKILL.md, 1 when
- * a rule changed, and 2 when the check could not run.
- */
 import { parseArgs } from "node:util";
 import fc from "fast-check";
 
@@ -196,6 +187,15 @@ async function explore(options: Options): Promise<Exploration> {
   return { counterexamples, orders, cut };
 }
 
+/**
+ * Checks that conflict inserts racing on one `_id` all succeed and apply
+ * (see SKILL.md). Drives the real `RunQuery` and `UpsertAll` of `src/`,
+ * compiled with this folder by `check.mjs`, against the in-memory collection
+ * of `fake-collection.ts`. fast-check draws the scenarios and the explorer of
+ * `formal-query-index-rebuild` runs each under every order of its steps, up
+ * to a bound. Exits 0 when every rule matches the record in SKILL.md, 1 when
+ * a rule changed, and 2 when the check could not run.
+ */
 async function main(): Promise<number> {
   const options = parseOptions();
   const { counterexamples, orders, cut } = await explore(options);

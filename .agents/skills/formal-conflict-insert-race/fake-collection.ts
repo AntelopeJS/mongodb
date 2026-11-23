@@ -1,3 +1,11 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  type AnyBulkWriteOperation,
+  type Document,
+  MongoBulkWriteError,
+  type WriteError,
+} from "mongodb";
+
 /**
  * An in-memory collection that answers the one driver call a conflict insert
  * makes, `bulkWrite` of ordered upserts, as mongod does when the filter is
@@ -8,14 +16,6 @@
  * row holds the `_id` by then. Each step takes effect in one piece when the
  * explorer releases it.
  */
-import { AsyncLocalStorage } from "node:async_hooks";
-import {
-  type AnyBulkWriteOperation,
-  type Document,
-  MongoBulkWriteError,
-  type WriteError,
-} from "mongodb";
-
 const DUPLICATE_KEY_CODE = 11000;
 
 /** The instance the writers of a scenario insert into. */
