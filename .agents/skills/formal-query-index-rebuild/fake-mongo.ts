@@ -1,13 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { MongoServerError } from "mongodb";
 
-/**
- * An in-memory MongoDB database that answers the driver calls
- * `InitializeSchema` (src/connection.ts) makes, with the error codes mongod
- * 8.0.8 returns. Each call is one step: it takes effect in one piece when
- * `step` releases it, so the check can put the steps of concurrent builds
- * and queries in any order.
- */
 const NAMESPACE_NOT_FOUND = 26;
 const INDEX_NOT_FOUND = 27;
 const INDEX_OPTIONS_CONFLICT = 85;
@@ -105,7 +98,11 @@ function indexDocument(index: PhysicalIndex): IndexDocument {
 }
 
 /**
- * One database of the fake server. `step` decides when a call takes
+ * An in-memory MongoDB database that answers the driver calls
+ * `InitializeSchema` (src/connection.ts) makes, with the error codes mongod
+ * 8.0.8 returns. Each call is one step: it takes effect in one piece when
+ * `step` releases it, so the check can put the steps of concurrent builds
+ * and queries in any order. It is one database of the fake server. `step` decides when a call takes
  * effect: at once while the starting state is built, and when the explorer
  * releases it while a scenario runs.
  */

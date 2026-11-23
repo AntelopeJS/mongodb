@@ -1,10 +1,3 @@
-/**
- * Runs a scenario under every order of its steps, depth first. A step is a
- * driver call of `fake-mongo.ts` or the issue of a registration or a query.
- * Once Node has nothing else to run, the explorer releases one pending step,
- * and Node runs the code it unblocks up to that code's next step. An order
- * is the list of picks, so a failing order replays exactly.
- */
 interface Pending {
   resolve: () => void;
 }
@@ -63,7 +56,14 @@ function nextPrefix(choices: Choice[]): number[] | undefined {
   return undefined;
 }
 
-/** Calls `run` once per order of a scenario, up to `limit` orders. */
+/**
+ * Calls `run` once per order of a scenario, up to `limit` orders, depth
+ * first. A step is a driver call of `fake-mongo.ts` or the issue of a
+ * registration or a query. Once Node has nothing else to run, the explorer
+ * releases one pending step, and Node runs the code it unblocks up to that
+ * code's next step. An order is the list of picks, so a failing order
+ * replays exactly.
+ */
 export async function exploreOrders(
   run: (schedule: Schedule) => Promise<void>,
   limit: number,

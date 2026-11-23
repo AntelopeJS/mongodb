@@ -1,13 +1,3 @@
-
-/**
- * What `group(key, mapper)` answers by the interface-database contract,
- * computed in plain JavaScript: the mapper sees the stream of the rows in
- * one group, and every field of its result reads only the rows its own
- * `filter`, `orderBy` and `nth` leave. One field's stages never change a
- * sibling field or the group key. A group appears once, whatever its
- * fields filter out. A reduction of no rows answers 0 for `count` and
- * `sum`, null for `avg`, `min` and `max`, and an empty list for `distinct`.
- */
 export const COMPARISONS = ["gt", "lt", "eq", "ne"] as const;
 
 export type Comparison = (typeof COMPARISONS)[number];
@@ -102,7 +92,16 @@ export function groupRows(rows: Row[]): Map<string, Row[]> {
   return groups;
 }
 
-/** The answers of every field, by group key, for the groups that have a row. */
+/**
+ * What `group(key, mapper)` answers by the interface-database contract,
+ * computed in plain JavaScript: the mapper sees the stream of the rows in
+ * one group, and every field of its result reads only the rows its own
+ * `filter`, `orderBy` and `nth` leave. One field's stages never change a
+ * sibling field or the group key. A group appears once, whatever its
+ * fields filter out. A reduction of no rows answers 0 for `count` and
+ * `sum`, null for `avg`, `min` and `max`, and an empty list for `distinct`.
+ * Answers the fields by group key, for the groups that have a row.
+ */
 export function reference(rows: Row[], fields: Field[]): Map<string, Answer[]> {
   return new Map([...groupRows(rows)].map(([bucket, group]) => [bucket, fields.map((field) => answer(field, group))]));
 }

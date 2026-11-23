@@ -1,11 +1,4 @@
 
-/**
- * What `add` and `sub` answer by the interface-database contract, computed
- * in plain JavaScript: `add` moves a date by seconds, adds two numbers and
- * concatenates two strings or two lists, and answers null when its operand
- * is null; `sub` moves a date back by seconds, answers the seconds between
- * two dates and subtracts two numbers.
- */
 export const TYPES = ["date", "number", "string", "list", "null"] as const;
 
 export type Type = (typeof TYPES)[number];
@@ -26,6 +19,12 @@ function isString<Operand>(value: Operand): value is Operand & string {
 }
 
 /**
+ * What `add` and `sub` answer by the interface-database contract, computed
+ * in plain JavaScript: `add` moves a date by seconds, adds two numbers and
+ * concatenates two strings or two lists, and answers null when its operand
+ * is null; `sub` moves a date back by seconds, answers the seconds between
+ * two dates and subtracts two numbers.
+ *
  * The answer the contract gives, or `undefined` when the contract does not cover the combination:
  * a null receiver, a null operand of `sub`, and operands of another type than the receiver's.
  */
