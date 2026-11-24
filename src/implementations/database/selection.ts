@@ -40,7 +40,6 @@ import {
   type DecodedOperand,
   DecodingContext,
   INSTANCE_FIELD,
-  IsUpdateFunction,
   StageId,
 } from "./utils";
 
@@ -487,20 +486,19 @@ export class SelectionQuery extends AggregationPipeline {
   protected async stage_update(stage: QueryStage<"update">) {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "update";
-    const [document] = stage.args;
     if (this.external) {
-      this._newValue = this.external.updateValue(document);
+      this._newValue = this.external.updateValue(stage);
       return;
     }
-    if (IsUpdateFunction(document)) {
+    if (UpdatesByFunction(stage)) {
       this._updateValue = await DecodeFunction(
-        document,
+        stage.args[0],
         this.context,
         ["$$ROOT"],
         DecodeLiteralValue,
       );
     } else {
-      this._updateValue = { $literal: document };
+      this._updateValue = { $literal: stage.args[0] };
     }
   }
 
@@ -514,6 +512,13 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "delete";
   }
+}
+
+/** Tells whether an `update` stage recorded a function of the row, as its `options.by` says. */
+function UpdatesByFunction(
+  stage: QueryStage<"update">,
+): stage is QueryStage<"update"> & { args: [QueryStage<"func">] } {
+  return stage.options.by === "function";
 }
 
 /** Decodes a subquery, answering its pipeline only when it reads a table. */

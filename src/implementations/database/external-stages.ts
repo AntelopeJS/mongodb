@@ -6,7 +6,7 @@ import type {
   QueryStage,
 } from "@antelopejs/interface-database/common";
 
-import { type DecodingContext, IsUpdateFunction, Temporary } from "./utils";
+import { type DecodingContext, Temporary } from "./utils";
 import type { ExternalCollection } from "./external-descriptor";
 import { DecodeFunction, DecodeValue, IsConstantValue } from "./expression";
 import {
@@ -61,11 +61,11 @@ export class ExternalStages {
   }
 
   /** The values an update writes; an update computed from the row is refused. */
-  public updateValue(value: QueryStage<"update">["args"][0]): object {
-    if (IsUpdateFunction(value)) {
+  public updateValue(stage: QueryStage<"update">): object {
+    if (stage.options.by === "function") {
       throw ExternalMapperRefusal(this.collection);
     }
-    return value;
+    return stage.args[0];
   }
 
   /** Marks the rows as consumed by a reduction, after which nothing is normalized. */
