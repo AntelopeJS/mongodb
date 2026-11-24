@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   release:
-    uses: AntelopeJS/.github/.github/workflows/release-npm-public.yml@v2
+    uses: AntelopeJS/.github/.github/workflows/release-npm-public.yml@8c79f96b4f7f374ebb9346cfd0b8a182ee92fb9b # v2
     with:
       release-version: ${{ inputs.release-version }}
       release-commit: ${{ inputs.release-commit }}

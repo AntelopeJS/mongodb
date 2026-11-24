@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   ci:
-    uses: AntelopeJS/.github/.github/workflows/ci-node.yml@v2
+    uses: AntelopeJS/.github/.github/workflows/ci-node.yml@8c79f96b4f7f374ebb9346cfd0b8a182ee92fb9b # v2
     permissions:
       contents: read
     with:
@@ -40,4 +40,4 @@ jobs:
       contents: write
       actions: write
       statuses: write
-    uses: AntelopeJS/.github/.github/workflows/ci-renovate-sync.yml@v2
+    uses: AntelopeJS/.github/.github/workflows/ci-renovate-sync.yml@8c79f96b4f7f374ebb9346cfd0b8a182ee92fb9b # v2
