@@ -12,8 +12,8 @@ importers:
         specifier: '>=0.5.1 <0.6.0'
         version: 0.5.1
       '@antelopejs/interface-database':
-        specifier: '>=0.4.1 <0.5.0'
-        version: 0.4.1(@antelopejs/interface-core@0.5.1)
+        specifier: 0.4.4-next.124.gbc7f370
+        version: 0.4.4-next.124.gbc7f370(@antelopejs/interface-core@0.5.1)
       '@antelopejs/interface-database-catalog':
         specifier: '>=0.1.1 <0.2.0'
         version: 0.1.1(@antelopejs/interface-core@0.5.1)
@@ -119,8 +119,8 @@ packages:
     peerDependencies:
       '@antelopejs/interface-core': '>=0.5.0 <0.6.0'
 
-  '@antelopejs/interface-database@0.4.1':
-    resolution: {integrity: sha512-Ad+a93DNl9zbdsKHCSaHCtrTwLnZB7Fv7S3+LmnplStrPFVLHZFVW6hCr8bB7Cv8cqpS1MjJVqm07/E/l82QGg==}
+  '@antelopejs/interface-database@0.4.4-next.124.gbc7f370':
+    resolution: {integrity: sha512-/9S7kWmeNvXeE1LuI/TcZxggBKj/gqOHyMiq4eBbuGS7/oBphgUk2Cf5aMktR6duFUDtP60glXH2E2O+uPBwJg==}
     peerDependencies:
       '@antelopejs/interface-core': '>=0.5.1 <0.6.0'
 
@@ -2988,7 +2988,7 @@ snapshots:
     dependencies:
       '@antelopejs/interface-core': 0.5.1
 
-  '@antelopejs/interface-database@0.4.1(@antelopejs/interface-core@0.5.1)':
+  '@antelopejs/interface-database@0.4.4-next.124.gbc7f370(@antelopejs/interface-core@0.5.1)':
     dependencies:
       '@antelopejs/interface-core': 0.5.1
 
