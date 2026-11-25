@@ -63,7 +63,7 @@ export type ShardMessage = { started: number } | ScenarioResult;
  * Starts one worker per shard on `file`, which must explore its shard and
  * post `{ started }` before each scenario and its `ScenarioResult` after,
  * and tells every worker the lowest scenario that broke a rule so the
- * others stop early. `argv` is appended to each worker's arguments after
+ * others stop early. `argv` is passed to each worker, followed by
  * `--shard <n>`, 1-based. A worker that fails stops the others at the
  * scenario it was exploring; the run fails only when no lower scenario
  * broke a rule, since exploring in order would not have reached it

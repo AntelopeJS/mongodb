@@ -26,7 +26,7 @@ export interface Scenario {
 
 const idArb = fc.constantFrom(...IDS);
 
-/** The scenarios, drawn with a fixed seed: up to three writers, four operations in all. */
+/** The scenarios: up to three writers, `MAX_WRITER_OPERATIONS` operations in all. */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
     mode: fc.constantFrom<Scenario["mode"]>("update", "replace"),

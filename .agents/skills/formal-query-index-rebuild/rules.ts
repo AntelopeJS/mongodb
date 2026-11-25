@@ -111,7 +111,7 @@ function mismatches(indexes: Snapshot, declaration: SchemaDefinition, schemaId: 
   );
 }
 
-/** The declarations made between a query's issue and its read. */
+/** The declaration in force when a query was issued, then every one made up to its read. */
 function declarationsSeen(query: Query, run: Run, read: Read): SchemaDefinition[] {
   return run.declarations.slice(query.issuedAfter - 1, read.registrations);
 }
@@ -141,7 +141,7 @@ function unchangedProblems(query: Query, run: Run): string[] {
 
 /**
  * What is wrong with a query's read: the indexes it saw must be complete
- * for one declaration made between its issue and its read. A mix of two
+ * for one declaration: the one in force at its issue or one made up to its read. A mix of two
  * declarations, or one half built, matches none.
  */
 function readProblems(query: Query, run: Run): string[] {
