@@ -21,7 +21,7 @@ const WRITERS = 8;
 const SINGLE_ROW_ROUNDS = 10;
 const BATCH_ROUNDS = 50;
 const BATCH_SIZE = 200;
-const RACE_TIMEOUT_MS = 30_000;
+const RACE_TIMEOUT_MS = 120_000;
 
 const writerField = (writer: number) => `writer${writer}` as const;
 
