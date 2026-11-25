@@ -28,7 +28,7 @@ importers:
         version: 3.0.2
       randomstring:
         specifier: ^1.3.1
-        version: 1.3.1
+        version: 1.3.2
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -2526,8 +2526,8 @@ packages:
   randombytes@2.1.0:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
 
-  randomstring@1.3.1:
-    resolution: {integrity: sha512-lgXZa80MUkjWdE7g2+PZ1xDLzc7/RokXVEQOv5NN2UOTChW1I8A9gha5a9xYBOqgaSoI6uJikDmCU8PyRdArRQ==}
+  randomstring@1.3.2:
+    resolution: {integrity: sha512-NoZh0jF9y99dAkf33tT0oX43drX8KUYiZvD1ZdVavLkpOkBaMP0YiSADNr35e50bvaB1jGpgs/zGarLk2Wcj9w==}
     hasBin: true
 
   rc9@2.1.2:
@@ -5231,7 +5231,7 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  randomstring@1.3.1:
+  randomstring@1.3.2:
     dependencies:
       randombytes: 2.1.0
 
