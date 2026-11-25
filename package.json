@@ -1,6 +1,6 @@
 {
   "name": "@antelopejs/mongodb",
-  "version": "1.8.13",
+  "version": "1.8.14",
   "description": "MongoDB backend for AntelopeJS, implementing the Database and MongoDB interfaces with the official MongoDB driver",
   "keywords": [
     "antelopejs",
@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@antelopejs/interface-core": ">=0.5.1 <0.6.0",
-    "@antelopejs/interface-database": "0.4.4-next.128.g3e7dab7",
+    "@antelopejs/interface-database": ">=0.4.4 <0.5.0",
     "@antelopejs/interface-database-catalog": ">=0.1.1 <0.2.0",
     "chai": "^4.5.0",
     "mongodb": "^6.21.0",

@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.8.14
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.13...v1.8.14)
+
+### 🩹 Fixes
+
+- **deps:** Depend on the stable @antelopejs/interface-database
+
+### 💅 Refactors
+
+- Switch the update stage on options.by ([#172](https://github.com/AntelopeJS/mongodb/pull/172))
+- Use UpdatesByFunction from interface-database ([#175](https://github.com/AntelopeJS/mongodb/pull/175))
+
+### 📖 Documentation
+
+- Place the formal skill helper TSDoc on the declarations it documents ([#170](https://github.com/AntelopeJS/mongodb/pull/170))
+- Describe each check.mjs declaration and fix three merged TSDoc blocks ([#171](https://github.com/AntelopeJS/mongodb/pull/171))
+
+### 🏡 Chore
+
+- Adopt tooling-configs 0.10 and satisfy the comment rule ([#169](https://github.com/AntelopeJS/mongodb/pull/169))
+- **deps:** Update dependency oxlint-tsgolint to v7.0.2008 ([#174](https://github.com/AntelopeJS/mongodb/pull/174))
+- **deps:** Update dependency randomstring to v1.3.2 ([#176](https://github.com/AntelopeJS/mongodb/pull/176))
+- **deps:** Update dependency rimraf to v6.1.4 ([#177](https://github.com/AntelopeJS/mongodb/pull/177))
+
+### 🤖 CI
+
+- Stop forwarding the retired RELEASE_GITHUB_TOKEN ([#168](https://github.com/AntelopeJS/mongodb/pull/168))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.13
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.12...v1.8.13)
