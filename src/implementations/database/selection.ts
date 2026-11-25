@@ -2,9 +2,10 @@ import assert from "node:assert";
 import type { AnyBulkWriteOperation, Collection, Document } from "mongodb";
 import { v4 as uuidv4 } from "uuid";
 import { CROSS_INSTANCE } from "@antelopejs/interface-database/schema";
-import type {
-  IndexKeys,
-  QueryStage,
+import {
+  UpdatesByFunction,
+  type IndexKeys,
+  type QueryStage,
 } from "@antelopejs/interface-database/common";
 
 import { IsExternal } from "../../config";
@@ -512,13 +513,6 @@ export class SelectionQuery extends AggregationPipeline {
     assert(this.resultType === "table" || this.resultType === "selection");
     this.resultType = "delete";
   }
-}
-
-/** Tells whether an `update` stage recorded a function of the row, as its `options.by` says. */
-function UpdatesByFunction(
-  stage: QueryStage<"update">,
-): stage is QueryStage<"update"> & { args: [QueryStage<"func">] } {
-  return stage.options.by === "function";
 }
 
 /** Decodes a subquery, answering its pipeline only when it reads a table. */
