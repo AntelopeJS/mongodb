@@ -65,7 +65,7 @@ export function GetSchema(schemaId: string) {
 
 export function GetTable(schemaId: string, tableId: string) {
   const schema = GetSchema(schemaId);
-  assert(tableId in schema);
+  assert(Object.prototype.hasOwnProperty.call(schema, tableId));
   return schema[tableId];
 }
 
@@ -88,7 +88,7 @@ export function GetIndex(
   onlyIndex?: boolean,
 ) {
   const table = GetTable(schemaId, tableId);
-  if (indexId in table.indexes) {
+  if (Object.prototype.hasOwnProperty.call(table.indexes, indexId)) {
     return table.indexes[indexId];
   } else {
     assert(!onlyIndex);

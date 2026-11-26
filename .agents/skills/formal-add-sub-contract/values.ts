@@ -15,6 +15,14 @@ const ARBITRARIES: Record<Type, fc.Arbitrary<Value>> = {
 };
 
 /** `count` values of `type`, the same ones on every run of one seed. */
+const ARBITRARY_BY_TYPE = new Map(Object.entries(ARBITRARIES));
+
+function arbitraryOf(type: Type): fc.Arbitrary<Value> {
+  const arbitrary = ARBITRARY_BY_TYPE.get(type);
+  if (!arbitrary) throw new Error(`no arbitrary for ${type}`);
+  return arbitrary;
+}
+
 export function draw(type: Type, count: number, seed: number): Value[] {
-  return fc.sample(ARBITRARIES[type], { numRuns: count, seed });
+  return fc.sample(arbitraryOf(type), { numRuns: count, seed });
 }

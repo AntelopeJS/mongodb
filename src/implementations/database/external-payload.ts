@@ -79,17 +79,17 @@ const BSON_TYPE_NAMES: Record<WriteType, string> = {
 
 const WRITE_TYPE_NAMES = new Set<string>(Object.keys(BSON_TYPE_NAMES));
 
-const EXPECTED: Record<WriteType, string> = {
-  objectId: "expects an ObjectId: 24 hexadecimal characters",
-  uuid: "expects a UUID",
-  string: "expects a string",
-  int: "expects an integer between -2^31 and 2^31-1",
-  long: "expects an integer within the safe range, or its text",
-  double: "expects a finite number",
-  decimal: "expects a finite number, or its decimal text",
-  date: "expects a date",
-  bool: "expects a boolean",
-};
+const EXPECTED = new Map<WriteType, string>([
+  ["objectId", "expects an ObjectId: 24 hexadecimal characters"],
+  ["uuid", "expects a UUID"],
+  ["string", "expects a string"],
+  ["int", "expects an integer between -2^31 and 2^31-1"],
+  ["long", "expects an integer within the safe range, or its text"],
+  ["double", "expects a finite number"],
+  ["decimal", "expects a finite number, or its decimal text"],
+  ["date", "expects a date"],
+  ["bool", "expects a boolean"],
+]);
 
 function NumberOf(value: BsonValue): number | undefined {
   return ConstantKind(value) === "number" ? Number(value) : undefined;
@@ -156,6 +156,8 @@ const WRITERS: Record<WriteType, (value: BsonValue) => BsonValue | undefined> =
     bool: (value) => (ConstantKind(value) === "boolean" ? value : undefined),
   };
 
+const WRITER_BY_TYPE = new Map(Object.entries(WRITERS));
+
 const WIDENED = new Set<WriteType>(["int", "long"]);
 
 /** The value stored as the write type, or a number the integer types cannot hold as a double. */
@@ -163,7 +165,7 @@ function Written(
   writeType: WriteType,
   value: BsonValue,
 ): BsonValue | undefined {
-  const converted = WRITERS[writeType](value);
+  const converted = WRITER_BY_TYPE.get(writeType)?.(value);
   return converted === undefined && WIDENED.has(writeType)
     ? WRITERS.double(value)
     : converted;
@@ -194,7 +196,7 @@ function Converted(
   if (converted === undefined) {
     walk.failures.push({
       field: descriptor.field,
-      reason: EXPECTED[writeType],
+      reason: EXPECTED.get(writeType) ?? "",
     });
   }
   return converted ?? null;
@@ -216,7 +218,10 @@ function StoredTypeExpression(
   const converted = Written(writeType, value);
   if (converted === undefined) {
     walk.unconverted.push({
-      failure: { field: descriptor.field, reason: EXPECTED[writeType] },
+      failure: {
+        field: descriptor.field,
+        reason: EXPECTED.get(writeType) ?? "",
+      },
       differs: {
         $ne: [
           ReadExpression(descriptor),
@@ -232,7 +237,7 @@ function StoredTypeExpression(
       type !== writeType && WRITE_TYPE_NAMES.has(type),
   );
   return others.reduce<BsonValue>((otherwise, type) => {
-    const converted = WRITERS[type](value);
+    const converted = WRITER_BY_TYPE.get(type)?.(value);
     return converted === undefined
       ? otherwise
       : {
@@ -348,10 +353,11 @@ export function SplitPayload(
     }
   }
   if (mode === "replace") {
+    const documentFields = new Set(Object.keys(document));
     payload.removed = Object.values(collection.fields)
       .filter((descriptor) => SCALAR_KINDS.has(descriptor.kind))
       .map((descriptor) => descriptor.field)
-      .filter((field) => !(field in document));
+      .filter((field) => !documentFields.has(field));
   }
   if (walk.failures.length > 0) {
     throw InvalidValues(collection.collection, walk.failures);

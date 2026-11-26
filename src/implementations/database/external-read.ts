@@ -111,6 +111,8 @@ const KEY_PARSERS: Record<KeyClass, (text: string) => KeyValue | undefined> = {
   date: ParseDateKey,
 };
 
+const KEY_PARSER_BY_CLASS = new Map(Object.entries(KEY_PARSERS));
+
 /** Tells whether a key bound is a scalar, the only kind of value `KeyText` renders. */
 export function IsKeyScalar(
   value: unknown,
@@ -138,7 +140,7 @@ export function KeyValues(key: KeyClass, keys: BsonValue[]): KeyValue[] {
   return keys
     .map((value) => KeyText(value))
     .filter((text): text is string => text !== undefined)
-    .map((text) => KEY_PARSERS[key](text))
+    .map((text) => KEY_PARSER_BY_CLASS.get(key)?.(text))
     .filter((value): value is KeyValue => value !== undefined);
 }
 
@@ -150,16 +152,18 @@ export function KeyMatch(key: KeyClass, keys: BsonValue[]): Document {
     : { _id: { $in: values } };
 }
 
-const KEY_CONVERSIONS: Partial<Record<KeyClass, string>> = {
-  objectId: "objectId",
-  string: "string",
-  number: "decimal",
-  date: "date",
-};
+const KEY_CONVERSIONS = new Map(
+  Object.entries({
+    objectId: "objectId",
+    string: "string",
+    number: "decimal",
+    date: "date",
+  }),
+);
 
 /** An expression converting a runtime value, rendered or native, to the key type class. */
 export function KeyExpression(key: KeyClass, value: BsonValue): BsonValue {
-  const to = KEY_CONVERSIONS[key];
+  const to = KEY_CONVERSIONS.get(key);
   return to
     ? { $convert: { input: value, to, onError: null, onNull: null } }
     : value;

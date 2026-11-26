@@ -1,4 +1,7 @@
-import { DuplicateKeyError } from "@antelopejs/interface-database";
+import {
+  DuplicateKeyError,
+  IsDuplicateKeyError,
+} from "@antelopejs/interface-database";
 import { BSON, type Collection, type Document } from "mongodb";
 
 import { GetDatabase } from "../../connection";
@@ -37,13 +40,15 @@ const KEY_RENDERINGS: Record<KeyClass, (key: BsonValue) => string> = {
   date: (key) => (key instanceof Date ? key.toISOString() : ""),
 };
 
+const KEY_RENDERING_BY_CLASS = new Map(Object.entries(KEY_RENDERINGS));
+
 function KeyTextOf(key: BsonValue): string {
   return key instanceof BSON.Long ? key.toString() : (KeyText(key) ?? "");
 }
 
 /** A key as reads render it. */
 function RenderKey(key: KeyClass, value: BsonValue): string {
-  return KEY_RENDERINGS[key](value);
+  return KEY_RENDERING_BY_CLASS.get(key)?.(value) ?? "";
 }
 
 /** An `_id` an aggregation answered, rendered or native, as the native key. */
@@ -260,7 +265,7 @@ async function WithIndexFields(
   native: NativeCollection,
   error: Error,
 ): Promise<Error> {
-  if (!(error instanceof DuplicateKeyError) || error.fields.length > 0) {
+  if (!IsDuplicateKeyError(error) || error.fields.length > 0) {
     return error;
   }
   const indexes = await native.indexes().catch(() => []);

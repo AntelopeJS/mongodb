@@ -126,8 +126,8 @@ type ExistingIndex = Awaited<ReturnType<Collection["indexes"]>>[number];
 
 interface ExistingIndexes {
   all: ExistingIndex[];
-  byName: Record<string, ExistingIndex>;
-  byFields: Record<string, ExistingIndex>;
+  byName: Map<string, ExistingIndex>;
+  byFields: Map<string, ExistingIndex>;
 }
 
 function isServerError(err: unknown, code: number): err is MongoServerError {
@@ -193,14 +193,14 @@ async function listExistingIndexes(
   const existingIndexes = await collection.indexes();
   return {
     all: existingIndexes,
-    byName: Object.fromEntries(
+    byName: new Map(
       existingIndexes.map((index): [string, ExistingIndex] => [
         String(index.name),
         index,
       ]),
     ),
-    byFields: Object.fromEntries(
-      existingIndexes.map((index) => [
+    byFields: new Map(
+      existingIndexes.map((index): [string, ExistingIndex] => [
         fieldsKey(Object.keys(index.key)),
         index,
       ]),
@@ -252,14 +252,14 @@ async function dropStaleIndexes(
   wanted: PhysicalIndex,
   existing: ExistingIndexes,
 ): Promise<boolean> {
-  const existingByName = existing.byName[wanted.name];
+  const existingByName = existing.byName.get(wanted.name);
   if (existingByName) {
     if (servesWanted(existingByName, wanted)) {
       return false;
     }
     await dropIndexIfPresent(collection, wanted.name);
   }
-  const existingByFields = existing.byFields[fieldsKey(wanted.fields)];
+  const existingByFields = existing.byFields.get(fieldsKey(wanted.fields));
   const staleName = existingByFields?.name;
   if (
     existingByFields &&
