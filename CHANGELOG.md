@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.8.15
+
+[compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.14...v1.8.15)
+
+### 🩹 Fixes
+
+- Raise conflict-insert-race timeout and correct formal-skill TSDoc ([#178](https://github.com/AntelopeJS/mongodb/pull/178))
+
+### 🏡 Chore
+
+- **deps:** Update dependency @antelopejs/core to ~1.24.0 ([#180](https://github.com/AntelopeJS/mongodb/pull/180))
+
+### ❤️ Contributors
+
+- Antony Rizzitelli
+
 ## v1.8.14
 
 [compare changes](https://github.com/AntelopeJS/mongodb/compare/v1.8.13...v1.8.14)
