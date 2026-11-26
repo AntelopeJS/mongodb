@@ -1,7 +1,9 @@
 import assert from "node:assert";
 import {
-  Query,
-  ValueProxy,
+  IsQuery,
+  IsValueProxy,
+  type Query,
+  type ValueProxy,
   type ValueProxyOrValue,
 } from "@antelopejs/interface-database";
 import {
@@ -60,7 +62,7 @@ function isList(value: QueryValue): value is readonly QueryValue[] {
 function isExpressionMarker(
   value: QueryValue,
 ): value is ValueProxy<unknown> | Query<unknown> {
-  return value instanceof ValueProxy || value instanceof Query;
+  return IsValueProxy(value) || IsQuery(value);
 }
 
 /**
@@ -472,11 +474,11 @@ export async function DecodeValue(
   value: Value<unknown>,
   context: DecodingContext,
 ): Promise<DecodedOperand> {
-  if (value instanceof ValueProxy) {
+  if (IsValueProxy(value)) {
     return Expression.decode(value.build(), context);
   }
 
-  if (value instanceof Query) {
+  if (IsQuery(value)) {
     return context.decodeSubquery(value.build());
   }
 

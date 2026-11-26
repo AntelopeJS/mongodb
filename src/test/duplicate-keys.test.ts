@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   DuplicateKeyError,
@@ -92,8 +91,9 @@ function expectDuplicate(
   index: string,
   fields: string[],
 ): asserts error is DuplicateKeyError {
-  expect(IsDuplicateKeyError(error)).to.equal(true);
-  assert.ok(error instanceof DuplicateKeyError);
+  if (!IsDuplicateKeyError(error)) {
+    throw new Error("expected a DuplicateKeyError");
+  }
   expect(error).to.include({ index });
   expect(error.fields).to.deep.equal(fields);
 }

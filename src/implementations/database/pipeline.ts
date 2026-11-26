@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import type { Document } from "mongodb";
-import { ValueProxy } from "@antelopejs/interface-database";
+import { IsValueProxy } from "@antelopejs/interface-database";
 import type { QueryStage } from "@antelopejs/interface-database/common";
 
 import { GetIndex } from "./schema";
@@ -156,14 +156,13 @@ export class AggregationPipeline extends PipelineCore {
 
   protected async stage_key(stage: QueryStage<"key">) {
     const name: unknown = stage.args[0];
-    const field =
-      name instanceof ValueProxy
-        ? await DecodeValue(name, this.context)
-        : undefined;
+    const field = IsValueProxy(name)
+      ? await DecodeValue(name, this.context)
+      : undefined;
     const defaultValue = stage.args[1];
     const read = (root: string) =>
       DefaultConstant(
-        name instanceof ValueProxy
+        IsValueProxy(name)
           ? { $getField: { field, input: root } }
           : ReadField(root, String(name)),
         defaultValue,
