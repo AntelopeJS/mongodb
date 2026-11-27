@@ -65,7 +65,7 @@ importers:
         version: 5.11.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3)
       fast-check:
         specifier: ^4.10.2
-        version: 4.10.2
+        version: 4.11.0
       knip:
         specifier: ^6.34.0
         version: 6.34.0
@@ -1647,8 +1647,8 @@ packages:
   exsolve@1.0.8:
     resolution: {integrity: sha512-LmDxfWXwcTArk8fUEnOfSZpHOJ6zOMUJKOtFLFqJLoKJetuQG874Uc7/Kki7zFLzYybmZhp1M7+98pfMqeX8yA==}
 
-  fast-check@4.10.2:
-    resolution: {integrity: sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==}
+  fast-check@4.11.0:
+    resolution: {integrity: sha512-V4Uc238rhQOdQlc+Gz7JG6SGBtrWnWL8d/6RyiBeCMcNKMhF6DZ0KkAVHJSyNV5r4lA0PmIpZ6iRpTVoz4qjoA==}
     engines: {node: '>=12.17.0'}
 
   fast-content-type-parse@3.0.0:
@@ -4260,7 +4260,7 @@ snapshots:
 
   exsolve@1.0.8: {}
 
-  fast-check@4.10.2:
+  fast-check@4.11.0:
     dependencies:
       pure-rand: 8.4.2
 
