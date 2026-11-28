@@ -40,8 +40,8 @@ importers:
         specifier: ~1.24.0
         version: 1.24.9
       '@antelopejs/tooling-configs':
-        specifier: ^0.10.12
-        version: 0.10.12(eslint-plugin-perfectionist@5.14.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.80.0)(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))
+        specifier: ^0.10.14
+        version: 0.10.14(eslint-plugin-perfectionist@5.14.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.80.0)(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))
       '@types/chai':
         specifier: ^4.3.20
         version: 4.3.20
@@ -130,8 +130,8 @@ packages:
   '@antelopejs/interface-mongodb@0.0.7':
     resolution: {integrity: sha512-uWcKbrxKv6p6pWC8jwJALhI4q31hVAeyI4mKKKUsN2imgruwQay8+JZbl5ptlNfzJyH22QiQ0P9dcJfeThnKyg==}
 
-  '@antelopejs/tooling-configs@0.10.12':
-    resolution: {integrity: sha512-2Yjx8JxWr4Opz1hA8363Zctf4SUmtG3DFmm/UaPe1447fWzmTX8FgTDRg1qoEIQ94g/U6rte6lj9cIdNEE3Kmg==}
+  '@antelopejs/tooling-configs@0.10.14':
+    resolution: {integrity: sha512-jSEmmtT7P11Ur9uSJ9oVFTUYRgzgLVpwiOdjp1Xo49y3zwcbV1nu/TCnqRcdPOMeZbRlJtnW0B0iYEi7m0dqGw==}
     engines: {node: '>=22.18.0'}
     hasBin: true
     peerDependencies:
@@ -3021,7 +3021,7 @@ snapshots:
       - socks
     optional: true
 
-  '@antelopejs/tooling-configs@0.10.12(eslint-plugin-perfectionist@5.14.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.80.0)(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))':
+  '@antelopejs/tooling-configs@0.10.14(eslint-plugin-perfectionist@5.14.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(knip@6.34.0)(oxfmt@0.80.0)(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))':
     dependencies:
       '@oxlint/plugins': 1.95.0
       dts-bundle-generator: 9.5.1
