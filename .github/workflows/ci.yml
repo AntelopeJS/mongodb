@@ -55,7 +55,7 @@ jobs:
   verdict:
     needs: [ci, renovate-sync]
     if: ${{ !cancelled() }}
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_CI || (github.event.repository.visibility == 'public' && 'ubuntu-latest' || 'blacksmith-4vcpu-ubuntu-2404') }}
     timeout-minutes: 5
     permissions: {}
     steps:
