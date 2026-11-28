@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
+    inputs:
+      nightly:
+        description: Run the nightly tier, with the Windows jobs and Stress
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,15 +29,18 @@ jobs:
         docs
       docs-typescript-project: docs/tsconfig.json
       renovate-sync: false
-      extra-commands: |
-        node .agents/skills/formal-query-index-rebuild/check.mjs
-        node .agents/skills/formal-conflict-insert-race/check.mjs
-        node .agents/skills/formal-cursor-close/check.mjs
-        node .agents/skills/formal-add-sub-contract/check.mjs
-        node .agents/skills/formal-group-mapper/check.mjs
       test-job: true
       single-job: false
       affected-tests: true
+      nightly: ${{ inputs.nightly == true }}
+      formal-checks: |
+        [
+          {"skill": "formal-add-sub-contract", "paths": ["src/implementations/database/expression.ts", "src/implementations/database/query.ts"]},
+          {"skill": "formal-conflict-insert-race", "paths": ["src/connection.ts", "src/implementations/database/conflict-upsert.ts", "src/implementations/database/indexes.ts", "src/implementations/database/query.ts", "src/implementations/database/selection.ts"]},
+          {"skill": "formal-cursor-close", "paths": ["src/connection.ts", "src/implementations/database/instance-scope.ts", "src/implementations/database/pipeline-core.ts", "src/implementations/database/query.ts"]},
+          {"skill": "formal-group-mapper", "paths": ["src/implementations/database/group-field.ts", "src/implementations/database/pipeline-core.ts", "src/implementations/database/pipeline.ts", "src/implementations/database/query.ts", "src/implementations/database/selection.ts"]},
+          {"skill": "formal-query-index-rebuild", "paths": ["src/connection.ts", "src/implementations/database/query.ts", "src/implementations/database/schema.ts", "src/implementations/database/selection.ts", "src/schema-initialization.ts"]}
+        ]
   renovate-sync:
     if: >-
       github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/') && github.event.pull_request.head.repo.full_name == github.repository
@@ -41,3 +49,19 @@ jobs:
       actions: write
       statuses: write
     uses: AntelopeJS/.github/.github/workflows/ci-renovate-sync.yml@v2
+  verdict:
+    needs: [ci, renovate-sync]
+    if: ${{ !cancelled() }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail when a job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | "\(.key): \(.value.result)"' <<< "$NEEDS")
+          if [ -n "$failed" ]; then
+            echo "$failed"
+            exit 1
+          fi
